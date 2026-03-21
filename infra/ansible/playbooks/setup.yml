@@ -1,0 +1,9 @@
+---
+- name: Setup Home Page server
+  hosts: homepage
+  become: true
+
+  roles:
+    - docker
+    - firewalld
+    - sshd  # Run last — changes SSH port to 9922
