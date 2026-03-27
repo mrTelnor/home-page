@@ -15,9 +15,33 @@
   lineinfile:
     path: /etc/ssh/sshd_config
     regexp: "^#?PermitRootLogin "
-    line: "PermitRootLogin prohibit-password"
+    line: "PermitRootLogin no"
 
-- name: Restart sshd
+- name: Create ssh.socket override directory
+  file:
+    path: /etc/systemd/system/ssh.socket.d
+    state: directory
+    mode: "0755"
+
+- name: Override ssh.socket to listen on port 9922
+  copy:
+    dest: /etc/systemd/system/ssh.socket.d/override.conf
+    content: |
+      [Socket]
+      ListenStream=
+      ListenStream=0.0.0.0:9922
+      ListenStream=[::]:9922
+
+- name: Reload systemd daemon
   systemd:
-    name: sshd
+    daemon_reload: true
+
+- name: Restart ssh socket
+  systemd:
+    name: ssh.socket
+    state: restarted
+
+- name: Restart sshd service
+  systemd:
+    name: ssh
     state: restarted

@@ -37,3 +37,4 @@
     permanent: true
     immediate: true
     state: disabled
+  when: not (firewalld_keep_ssh_22 | default(false))

@@ -1,0 +1,18 @@
+---
+# First-time server setup. Run once on a fresh VM:
+#   ansible-playbook -i inventory/hosts.yml playbooks/initial-setup.yml -e ansible_port=22
+#
+# After this playbook completes, SSH will listen on port 9922
+# and password authentication will be disabled.
+# Port 22 remains open in firewall — close it by running setup.yml afterwards.
+
+- name: Initial setup — fresh VM
+  hosts: homepage
+  become: true
+
+  roles:
+    - docker
+    - role: firewalld
+      vars:
+        firewalld_keep_ssh_22: true
+    - sshd

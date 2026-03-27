@@ -45,3 +45,6 @@ alembic/versions/*.pyc
 
 # Logs
 *.log
+
+# Ansible
+**/ansible/.vault_pass
