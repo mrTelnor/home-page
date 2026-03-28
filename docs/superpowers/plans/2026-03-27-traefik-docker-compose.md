@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Развернуть базовую инфраструктуру Docker Compose с Traefik v3, PostgreSQL 16, pgAdmin и Portainer CE.
+**Goal:** Развернуть базовую инфраструктуру Docker Compose с Traefik v3, PostgreSQL 16 и Portainer CE.
 
-**Architecture:** Traefik v3 как reverse proxy с автоматическим SSL через Let's Encrypt. Статический конфиг в `traefik.yml`, роутинг сервисов через Docker labels. Две Docker-сети: `web` (публичная) и `internal` (БД). Ограничение доступа к админ-панелям по IP через Traefik middleware.
+**Architecture:** Traefik v3 как reverse proxy с автоматическим SSL через Let's Encrypt. Статический конфиг в `traefik.yml`, роутинг сервисов через Docker labels. Две Docker-сети: `web` (публичная) и `internal` (БД). Доступ к PostgreSQL — через десктопный клиент, порт 5432 ограничен firewalld по IP. Админ-панели (Traefik, Portainer) ограничены по IP через Traefik middleware.
 
-**Tech Stack:** Traefik v3.3, PostgreSQL 16, pgAdmin 4, Portainer CE, Docker Compose
+**Tech Stack:** Traefik v3.3, PostgreSQL 16, Portainer CE, Docker Compose
 
 ---
 
@@ -22,10 +22,6 @@
 POSTGRES_USER=homepage
 POSTGRES_PASSWORD=changeme
 POSTGRES_DB=homepage
-
-# pgAdmin
-PGADMIN_DEFAULT_EMAIL=admin@example.com
-PGADMIN_DEFAULT_PASSWORD=changeme
 
 # Domain
 DOMAIN=telnor.ru
@@ -110,7 +106,6 @@ volumes:
   letsencrypt:
   pg_data:
   portainer_data:
-  pgadmin_data:
 
 services:
   traefik:
@@ -165,6 +160,8 @@ git commit -m "feat(infra): add docker-compose with Traefik service"
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
@@ -185,54 +182,14 @@ git commit -m "feat(infra): add PostgreSQL 16 service"
 
 ---
 
-### Task 5: Добавить pgAdmin в docker-compose.yml
-
-**Files:**
-- Modify: `infra/docker/docker-compose.yml`
-
-- [ ] **Step 1: Добавить сервис pgAdmin**
-
-Добавить в секцию `services` после `postgres`:
-
-```yaml
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    networks:
-      - web
-      - internal
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.pgadmin.rule=Host(`pgadmin.${DOMAIN}`)
-      - traefik.http.routers.pgadmin.entrypoints=websecure
-      - traefik.http.routers.pgadmin.tls.certresolver=letsencrypt
-      - traefik.http.routers.pgadmin.middlewares=admin-ip@docker
-      - traefik.http.services.pgadmin.loadbalancer.server.port=80
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add infra/docker/docker-compose.yml
-git commit -m "feat(infra): add pgAdmin service"
-```
-
----
-
-### Task 6: Добавить Portainer CE в docker-compose.yml
+### Task 5: Добавить Portainer CE в docker-compose.yml
 
 **Files:**
 - Modify: `infra/docker/docker-compose.yml`
 
 - [ ] **Step 1: Добавить сервис Portainer**
 
-Добавить в секцию `services` после `pgadmin`:
+Добавить в секцию `services` после `postgres`:
 
 ```yaml
   portainer:
@@ -262,10 +219,59 @@ git commit -m "feat(infra): add Portainer CE service"
 
 ---
 
+### Task 6: Добавить правило firewalld для PostgreSQL
+
+**Files:**
+- Modify: `infra/ansible/roles/firewalld/tasks/main.yml`
+
+- [ ] **Step 1: Добавить rich rule для порта 5432**
+
+Добавить в конец файла `infra/ansible/roles/firewalld/tasks/main.yml` (перед таском удаления SSH 22):
+
+```yaml
+- name: Allow PostgreSQL only from home IP
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ home_ip }}" port port="5432" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+```
+
+- [ ] **Step 2: Добавить переменную home_ip в vault.yml**
+
+Добавить в `infra/ansible/inventory/group_vars/all/vault.yml`:
+
+```
+vault_home_ip: "93.100.230.103"
+```
+
+Зашифровать:
+
+```bash
+ansible-vault encrypt_string '93.100.230.103' --name 'vault_home_ip'
+```
+
+- [ ] **Step 3: Добавить маппинг переменной в hosts.yml**
+
+В `infra/ansible/inventory/group_vars/all/` создать `vars.yml`:
+
+```yaml
+home_ip: "{{ vault_home_ip }}"
+```
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add infra/ansible/roles/firewalld/tasks/main.yml infra/ansible/inventory/group_vars/all/vars.yml
+git commit -m "feat(infra): add firewalld rule for PostgreSQL access by home IP"
+```
+
+---
+
 ### Task 7: Деплой на ВМ и проверка
 
 **Files:**
-- Modify: `infra/ansible/playbooks/setup.yml` — добавить роль для копирования и запуска Docker Compose
+- Modify: `infra/ansible/playbooks/setup.yml` — добавить роль app
 - Create: `infra/ansible/roles/app/tasks/main.yml` — роль деплоя
 
 - [ ] **Step 1: Создать роль app для деплоя**
@@ -281,19 +287,30 @@ git commit -m "feat(infra): add Portainer CE service"
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
 
-- name: Copy docker-compose files
-  copy:
-    src: "{{ item.src }}"
-    dest: "/opt/home-page/{{ item.dest }}"
+- name: Create traefik config directory
+  file:
+    path: /opt/home-page/traefik
+    state: directory
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  loop:
-    - { src: "../../../docker/docker-compose.yml", dest: "docker-compose.yml" }
-    - { src: "../../../docker/traefik/traefik.yml", dest: "traefik/traefik.yml" }
+
+- name: Copy docker-compose.yml
+  copy:
+    src: ../../../docker/docker-compose.yml
+    dest: /opt/home-page/docker-compose.yml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Copy traefik.yml
+  copy:
+    src: ../../../docker/traefik/traefik.yml
+    dest: /opt/home-page/traefik/traefik.yml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
 
 - name: Copy .env file
   copy:
-    src: "../../../docker/.env"
+    src: ../../../docker/.env
     dest: /opt/home-page/.env
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
@@ -337,7 +354,6 @@ cp infra/docker/.env.example infra/docker/.env
 | Запись | Тип | Значение |
 |---|---|---|
 | `traefik.telnor.ru` | A | `147.45.183.98` |
-| `pgadmin.telnor.ru` | A | `147.45.183.98` |
 | `portainer.telnor.ru` | A | `147.45.183.98` |
 
 - [ ] **Step 5: Запустить деплой**
@@ -355,11 +371,16 @@ docker ps
 
 # С домашнего ПК
 curl -I https://traefik.telnor.ru
-curl -I https://pgadmin.telnor.ru
 curl -I https://portainer.telnor.ru
+
+# Проверка PostgreSQL (из десктопного pgAdmin)
+# Host: 147.45.183.98, Port: 5432, User/Password из .env
 ```
 
-Ожидаемый результат: все три URL отвечают 200/302 с валидным SSL-сертификатом.
+Ожидаемый результат:
+- `traefik.telnor.ru` и `portainer.telnor.ru` отвечают 200/302 с SSL
+- PostgreSQL доступен с домашнего IP на порту 5432
+- PostgreSQL НЕ доступен с других IP
 
 - [ ] **Step 7: Commit роли деплоя**
 

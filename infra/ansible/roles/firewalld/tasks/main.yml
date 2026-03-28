@@ -31,6 +31,21 @@
     immediate: true
     state: enabled
 
+- name: Allow Docker subnet in trusted zone
+  ansible.posix.firewalld:
+    zone: trusted
+    source: 172.16.0.0/12
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: Allow PostgreSQL only from home IP
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ vault_home_ip }}" port port="5432" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+
 - name: Remove default SSH service (port 22)
   ansible.posix.firewalld:
     service: ssh

@@ -1,0 +1,45 @@
+---
+- name: Create app directory
+  file:
+    path: /opt/home-page
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Create traefik config directory
+  file:
+    path: /opt/home-page/traefik
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
+- name: Copy docker-compose.yml
+  copy:
+    src: ../../../docker/docker-compose.yml
+    dest: /opt/home-page/docker-compose.yml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  notify: Recreate containers
+
+- name: Copy traefik.yml
+  copy:
+    src: ../../../docker/traefik/traefik.yml
+    dest: /opt/home-page/traefik/traefik.yml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  notify: Recreate containers
+
+- name: Generate .env from vault variables
+  template:
+    src: env.j2
+    dest: /opt/home-page/.env
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  notify: Recreate containers
+
+- name: Start services
+  community.docker.docker_compose_v2:
+    project_src: /opt/home-page
+    state: present
+  become_user: "{{ ansible_user }}"
