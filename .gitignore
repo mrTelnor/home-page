@@ -48,3 +48,6 @@ alembic/versions/*.pyc
 
 # Ansible
 **/ansible/.vault_pass
+
+# Superpowers (specs and plans)
+docs/superpowers/

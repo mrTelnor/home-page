@@ -29,6 +29,14 @@
     group: "{{ ansible_user }}"
   notify: Recreate containers
 
+- name: Copy backend source
+  copy:
+    src: ../../../../backend/
+    dest: /opt/home-page/backend/
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  notify: Recreate containers
+
 - name: Generate .env from vault variables
   template:
     src: env.j2

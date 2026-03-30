@@ -54,6 +54,35 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    networks:
+      - web
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      # API — public
+      - traefik.http.routers.backend.rule=Host(`api.${DOMAIN}`)
+      - traefik.http.routers.backend.entrypoints=websecure
+      - traefik.http.routers.backend.tls.certresolver=letsencrypt
+      # Swagger docs — restricted by IP
+      - traefik.http.routers.backend-docs.rule=Host(`api.${DOMAIN}`) && (PathPrefix(`/docs`) || PathPrefix(`/openapi.json`) || PathPrefix(`/redoc`))
+      - traefik.http.routers.backend-docs.entrypoints=websecure
+      - traefik.http.routers.backend-docs.tls.certresolver=letsencrypt
+      - traefik.http.routers.backend-docs.middlewares=admin-ip@docker
+      - traefik.http.routers.backend-docs.priority=30
+      # Service
+      - traefik.http.services.backend.loadbalancer.server.port=8000
+      - traefik.docker.network=web
+
   portainer:
     image: portainer/portainer-ce:2.40.0
     container_name: portainer
