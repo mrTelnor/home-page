@@ -49,5 +49,8 @@ alembic/versions/*.pyc
 # Ansible
 **/ansible/.vault_pass
 
+# Test artifacts
+cookies.txt
+
 # Superpowers (specs and plans)
 docs/superpowers/
