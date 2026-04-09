@@ -1,0 +1,8 @@
+# Создать меню на сегодня (10:00 GMT+3 = 07:00 UTC)
+0 7 * * * curl -s -X POST http://backend:8000/api/menus/create-daily -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' >> /var/log/cron.log 2>&1
+
+# Финализировать список (13:00 GMT+3 = 10:00 UTC)
+0 10 * * * curl -s -X POST http://backend:8000/api/menus/finalize -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' >> /var/log/cron.log 2>&1
+
+# Закрыть голосование (17:00 GMT+3 = 14:00 UTC)
+0 14 * * * curl -s -X POST http://backend:8000/api/menus/close-voting -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' >> /var/log/cron.log 2>&1

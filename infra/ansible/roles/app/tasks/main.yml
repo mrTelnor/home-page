@@ -37,6 +37,14 @@
     group: "{{ ansible_user }}"
   notify: Recreate containers
 
+- name: Copy cron config
+  copy:
+    src: ../../../docker/cron/
+    dest: /opt/home-page/cron/
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  notify: Recreate containers
+
 - name: Generate .env from vault variables
   template:
     src: env.j2

@@ -207,3 +207,160 @@ curl -X DELETE https://api.telnor.ru/api/recipes/a1b2c3d4-... -b cookies.txt
 - 403 — нет прав
 - 404 — рецепт не найден
 - 409 — рецепт используется в активном голосовании
+
+---
+
+## Menus
+
+Эндпоинты управления ежедневным меню и голосованием.
+
+Статусы меню: `collecting` → `voting` → `closed`
+
+Авторизация cron-запросов: заголовок `X-Cron-Secret`.
+
+### POST /api/menus/create-daily
+
+Создать меню на день. 3 случайных рецепта добавляются автоматически. Доступно admin или cron.
+
+```bash
+curl -X POST https://api.telnor.ru/api/menus/create-daily \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{}'
+```
+
+С указанием даты (admin):
+
+```bash
+curl -X POST https://api.telnor.ru/api/menus/create-daily \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"date": "2026-04-10"}'
+```
+
+Ответ (201): `MenuResponse` с 3 случайными рецептами, статус `collecting`.
+
+Ошибки:
+- 403 — нет прав (не admin и не cron)
+- 409 — меню на эту дату уже существует
+
+### POST /api/menus/{id}/suggest
+
+Предложить рецепт в меню. 1 предложение на пользователя, admin до 3. Только в статусе `collecting`.
+
+```bash
+curl -X POST https://api.telnor.ru/api/menus/{menu_id}/suggest \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"recipe_id": "92e6062a-..."}'
+```
+
+Ответ (200): обновлённый `MenuResponse`.
+
+Ошибки:
+- 400 — меню не принимает предложения (не `collecting`) или лимит предложений
+- 404 — меню или рецепт не найден
+- 409 — рецепт уже в меню
+
+### POST /api/menus/finalize
+
+Финализировать список, открыть голосование. Доступно admin или cron. Идемпотентно.
+
+```bash
+curl -X POST https://api.telnor.ru/api/menus/finalize \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{}'
+```
+
+Ответ (200): `MenuResponse` со статусом `voting`.
+
+Ошибки:
+- 403 — нет прав
+- 404 — меню не найдено
+
+### POST /api/menus/{id}/vote
+
+Проголосовать за рецепт. Один голос на пользователя на меню. Только в статусе `voting`.
+
+```bash
+curl -X POST https://api.telnor.ru/api/menus/{menu_id}/vote \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"recipe_id": "92e6062a-..."}'
+```
+
+Ответ (200): `MenuResponse` с обновлённым `votes_count`.
+
+Ошибки:
+- 400 — голосование не открыто или рецепт не в меню
+- 404 — меню не найдено
+- 409 — уже голосовал
+
+### POST /api/menus/close-voting
+
+Закрыть голосование, определить победителя. Доступно admin или cron. Идемпотентно.
+
+```bash
+curl -X POST https://api.telnor.ru/api/menus/close-voting \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{}'
+```
+
+Ответ (200): `MenuResponse` со статусом `closed` и `winner_recipe_id`.
+
+Ошибки:
+- 400 — меню не в статусе `voting`
+- 403 — нет прав
+- 404 — меню не найдено
+
+### GET /api/menus/today
+
+Меню на сегодня.
+
+```bash
+curl https://api.telnor.ru/api/menus/today -b cookies.txt
+```
+
+Ответ (200): `MenuResponse`.
+
+Ошибки:
+- 404 — меню на сегодня не создано
+
+### GET /api/menus
+
+История всех меню.
+
+```bash
+curl https://api.telnor.ru/api/menus -b cookies.txt
+```
+
+Ответ (200): массив `MenuResponse`.
+
+### GET /api/menus/{id}
+
+Конкретное меню с рецептами и голосами.
+
+```bash
+curl https://api.telnor.ru/api/menus/{menu_id} -b cookies.txt
+```
+
+Ответ (200): `MenuResponse`.
+
+Ошибки:
+- 404 — меню не найдено
+
+### DELETE /api/menus/{id}
+
+Удалить меню. Только admin. Для тестирования.
+
+```bash
+curl -X DELETE https://api.telnor.ru/api/menus/{menu_id} -b cookies.txt
+```
+
+Ответ: 204 No Content.
+
+Ошибки:
+- 403 — не admin
+- 404 — меню не найдено

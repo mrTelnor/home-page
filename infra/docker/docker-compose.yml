@@ -63,6 +63,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
       INVITE_CODE: ${INVITE_CODE}
+      CRON_SECRET: ${CRON_SECRET}
     networks:
       - web
       - internal
@@ -84,6 +85,18 @@ services:
       # Service
       - traefik.http.services.backend.loadbalancer.server.port=8000
       - traefik.docker.network=web
+
+  cron:
+    build:
+      context: ./cron
+    container_name: cron
+    restart: unless-stopped
+    environment:
+      CRON_SECRET: ${CRON_SECRET}
+    networks:
+      - web
+    depends_on:
+      - backend
 
   portainer:
     image: portainer/portainer-ce:2.40.0

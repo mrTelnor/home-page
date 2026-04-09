@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     jwt_secret: str
     jwt_expire_hours: int = 168
     invite_code: str
+    cron_secret: str
 
     model_config = {"env_file": ".env"}
 

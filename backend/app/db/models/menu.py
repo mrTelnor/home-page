@@ -12,7 +12,7 @@ class DailyMenu(Base, UUIDMixin, TimestampMixin):
     __table_args__ = {"schema": "dinner"}
 
     date: Mapped[date] = mapped_column(Date, unique=True)
-    status: Mapped[str] = mapped_column(String(20), default="voting")
+    status: Mapped[str] = mapped_column(String(20), default="collecting")
     winner_recipe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("dinner.recipes.id"))
 
     menu_recipes: Mapped[list["DailyMenuRecipe"]] = relationship(back_populates="menu", cascade="all, delete-orphan")

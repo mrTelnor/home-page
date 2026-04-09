@@ -3,5 +3,6 @@
   community.docker.docker_compose_v2:
     project_src: /opt/home-page
     state: present
+    build: always
     recreate: always
   become_user: "{{ ansible_user }}"
