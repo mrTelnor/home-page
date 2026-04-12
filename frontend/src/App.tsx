@@ -5,6 +5,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { HomePage } from "@/pages/HomePage";
+import { VotePage } from "@/pages/VotePage";
+import { VoteHistoryPage } from "@/pages/VoteHistoryPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 const queryClient = new QueryClient({
@@ -23,6 +25,8 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/vote" element={<VotePage />} />
+              <Route path="/vote/history" element={<VoteHistoryPage />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFoundPage />} />

@@ -29,20 +29,24 @@
     group: "{{ ansible_user }}"
   notify: Recreate containers
 
-- name: Copy backend source
-  copy:
-    src: ../../../../backend/
+- name: Sync backend source
+  ansible.posix.synchronize:
+    src: "{{ inventory_dir }}/../../../backend/"
     dest: /opt/home-page/backend/
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    dest_port: "{{ ansible_port | int }}"
+    delete: true
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--exclude=.pytest_cache"
+      - "--exclude=*.egg-info"
   notify: Recreate containers
 
-- name: Copy cron config
-  copy:
-    src: ../../../docker/cron/
+- name: Sync cron config
+  ansible.posix.synchronize:
+    src: "{{ inventory_dir }}/../../docker/cron/"
     dest: /opt/home-page/cron/
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    dest_port: "{{ ansible_port | int }}"
+    delete: true
   notify: Recreate containers
 
 - name: Sync frontend source
