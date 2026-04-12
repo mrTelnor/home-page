@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     jwt_expire_hours: int = 168
     invite_code: str
     cron_secret: str
+    domain: str = "telnor.ru"
 
     model_config = {"env_file": ".env"}
 

@@ -52,5 +52,6 @@ alembic/versions/*.pyc
 # Test artifacts
 cookies.txt
 
-# Superpowers (specs and plans)
+# Superpowers (specs, plans, brainstorm)
 docs/superpowers/
+.superpowers/

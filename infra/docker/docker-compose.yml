@@ -98,6 +98,23 @@ services:
     depends_on:
       - backend
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://api.${DOMAIN}
+    container_name: frontend
+    restart: unless-stopped
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.tls.certresolver=letsencrypt
+      - traefik.http.services.frontend.loadbalancer.server.port=80
+      - traefik.docker.network=web
+
   portainer:
     image: portainer/portainer-ce:2.40.0
     container_name: portainer

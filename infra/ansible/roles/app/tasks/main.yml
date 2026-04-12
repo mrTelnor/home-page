@@ -45,6 +45,17 @@
     group: "{{ ansible_user }}"
   notify: Recreate containers
 
+- name: Sync frontend source
+  ansible.posix.synchronize:
+    src: "{{ inventory_dir }}/../../../frontend/"
+    dest: /opt/home-page/frontend/
+    dest_port: "{{ ansible_port | int }}"
+    delete: true
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=dist"
+  notify: Recreate containers
+
 - name: Generate .env from vault variables
   template:
     src: env.j2

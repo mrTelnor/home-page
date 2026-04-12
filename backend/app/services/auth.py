@@ -10,7 +10,7 @@ from app.db.models.user import User
 async def create_user(session: AsyncSession, username: str, password: str) -> User:
     user = User(
         id=uuid.uuid4(),
-        username=username,
+        username=username.lower(),
         password_hash=hash_password(password),
     )
     session.add(user)
@@ -20,7 +20,7 @@ async def create_user(session: AsyncSession, username: str, password: str) -> Us
 
 
 async def authenticate_user(session: AsyncSession, username: str, password: str) -> User | None:
-    result = await session.execute(select(User).where(User.username == username))
+    result = await session.execute(select(User).where(User.username == username.lower()))
     user = result.scalar_one_or_none()
     if user is None or user.password_hash is None:
         return None
