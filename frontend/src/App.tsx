@@ -7,6 +7,10 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { HomePage } from "@/pages/HomePage";
 import { VotePage } from "@/pages/VotePage";
 import { VoteHistoryPage } from "@/pages/VoteHistoryPage";
+import { RecipesPage } from "@/pages/RecipesPage";
+import { RecipeNewPage } from "@/pages/RecipeNewPage";
+import { RecipeDetailPage } from "@/pages/RecipeDetailPage";
+import { RecipeEditPage } from "@/pages/RecipeEditPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 const queryClient = new QueryClient({
@@ -27,6 +31,10 @@ export default function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/vote" element={<VotePage />} />
               <Route path="/vote/history" element={<VoteHistoryPage />} />
+              <Route path="/recipes" element={<RecipesPage />} />
+              <Route path="/recipes/new" element={<RecipeNewPage />} />
+              <Route path="/recipes/:id" element={<RecipeDetailPage />} />
+              <Route path="/recipes/:id/edit" element={<RecipeEditPage />} />
             </Route>
           </Route>
           <Route path="*" element={<NotFoundPage />} />
