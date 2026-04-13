@@ -15,6 +15,7 @@ os.environ.setdefault("CRON_SECRET", "test-cron-secret")
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-bot-token")
 os.environ.setdefault("TELEGRAM_BOT_USERNAME", "test_bot")
 os.environ.setdefault("BOT_SECRET", "test-bot-secret")
+os.environ.setdefault("COOKIE_SECURE", "false")
 
 from collections.abc import AsyncGenerator
 from uuid import uuid4

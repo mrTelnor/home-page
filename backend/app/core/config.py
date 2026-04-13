@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str
     telegram_bot_username: str
     bot_secret: str
+    cookie_secure: bool = True
 
     model_config = {"env_file": ".env"}
 

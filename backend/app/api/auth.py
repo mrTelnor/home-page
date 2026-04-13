@@ -55,7 +55,7 @@ async def login(data: LoginRequest, response: Response, session: AsyncSession = 
         value=token,
         max_age=COOKIE_MAX_AGE,
         httponly=True,
-        secure=True,
+        secure=settings.cookie_secure,
         samesite="lax",
     )
     return {"message": "ok"}
