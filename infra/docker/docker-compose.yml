@@ -64,6 +64,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       INVITE_CODE: ${INVITE_CODE}
       CRON_SECRET: ${CRON_SECRET}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      BOT_SECRET: ${BOT_SECRET}
     networks:
       - web
       - internal
@@ -103,6 +106,7 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: https://api.${DOMAIN}
+        VITE_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
     container_name: frontend
     restart: unless-stopped
     networks:

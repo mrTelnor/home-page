@@ -7,7 +7,9 @@ RUN npm ci
 
 COPY . .
 ARG VITE_API_URL=https://api.telnor.ru
+ARG VITE_TELEGRAM_BOT_USERNAME=dinnervote_bot
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_TELEGRAM_BOT_USERNAME=$VITE_TELEGRAM_BOT_USERNAME
 RUN npm run build
 
 FROM nginx:alpine

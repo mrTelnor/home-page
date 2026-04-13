@@ -33,7 +33,9 @@ export function Layout() {
           </div>
           {user && (
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground hidden sm:inline">{user.username}</span>
+              <Link to="/profile" className="text-sm text-muted-foreground hover:text-foreground hidden sm:inline">
+                {user.username}
+              </Link>
               <Button variant="outline" size="sm" onClick={() => logout.mutate()}>
                 Выйти
               </Button>

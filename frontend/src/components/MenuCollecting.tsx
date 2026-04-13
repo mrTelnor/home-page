@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { type Menu } from "@/hooks/useMenu";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,16 +26,18 @@ export function MenuCollecting({ menu, onSuggest, canSuggest }: Props) {
       <Separator />
       <div className="grid gap-3">
         {menu.recipes.map((r) => (
-          <Card key={r.id}>
-            <CardHeader className="py-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{r.title}</CardTitle>
-                <Badge variant={r.source === "random" ? "secondary" : "default"}>
-                  {r.source === "random" ? "Случайный" : "Предложен"}
-                </Badge>
-              </div>
-            </CardHeader>
-          </Card>
+          <Link key={r.id} to={`/recipes/${r.recipe_id}`}>
+            <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="py-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{r.title}</CardTitle>
+                  <Badge variant={r.source === "random" ? "secondary" : "default"}>
+                    {r.source === "random" ? "Случайный" : "Предложен"}
+                  </Badge>
+                </div>
+              </CardHeader>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

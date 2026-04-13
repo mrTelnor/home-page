@@ -83,9 +83,11 @@
 - **JWT токены** с HS256 (python-jose), срок 7 дней
 - **httpOnly cookie** для веба — cookie отправляется автоматически
 - **Регистрация по инвайт-коду** (в Ansible Vault)
-- **Пароль** — bcrypt (passlib + bcrypt 4.0 pinned)
+- **Пароль** — bcrypt (passlib + bcrypt 4.0 pinned), смена через `/profile`
 - **Роли:** `user` (по умолчанию), `admin`
-- Cron использует отдельный `X-Cron-Secret` заголовок вместо JWT
+- **Привязка Telegram** через Login Widget на странице `/profile` (HMAC-проверка через `TELEGRAM_BOT_TOKEN`)
+- Cron использует `X-Cron-Secret` вместо JWT
+- Бот использует `X-Bot-Secret` для получения JWT по `tg_id` (`POST /api/auth/telegram-login`)
 
 ### Фронтенд
 - **React 18** + **Vite** + **TypeScript**
@@ -118,9 +120,9 @@ home-page/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/              # fetch-клиент
-│   │   ├── components/       # Layout, ProtectedRoute, VoteWidget, MenuCollecting/Voting/Results, RecipeForm, SuggestRecipeDialog, ui/ (shadcn)
-│   │   ├── hooks/            # useAuth, useMenu, useRecipes, usePageTitle
-│   │   ├── pages/            # Login, Register, Home, Vote, VoteHistory, Recipes, RecipeNew/Detail/Edit, NotFound
+│   │   ├── components/       # Layout, ProtectedRoute, VoteWidget, MenuCollecting/Voting/Results, RecipeForm, SuggestRecipeDialog, TelegramLoginButton, ChangePasswordDialog, ui/ (shadcn)
+│   │   ├── hooks/            # useAuth, useMenu, useRecipes, useProfile, usePageTitle
+│   │   ├── pages/            # Login, Register, Home, Vote, VoteHistory, Recipes, RecipeNew/Detail/Edit, Profile, NotFound
 │   │   └── store/            # auth (Zustand)
 │   ├── nginx.conf
 │   ├── Dockerfile

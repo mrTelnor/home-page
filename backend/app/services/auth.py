@@ -32,3 +32,22 @@ async def authenticate_user(session: AsyncSession, username: str, password: str)
 async def get_user_by_id(session: AsyncSession, user_id: uuid.UUID) -> User | None:
     result = await session.execute(select(User).where(User.id == user_id))
     return result.scalar_one_or_none()
+
+
+async def set_telegram_id(session: AsyncSession, user: User, tg_id: int | None) -> User:
+    user.tg_id = tg_id
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+async def update_password(session: AsyncSession, user: User, new_password: str) -> User:
+    user.password_hash = hash_password(new_password)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+async def get_user_by_tg_id(session: AsyncSession, tg_id: int) -> User | None:
+    result = await session.execute(select(User).where(User.tg_id == tg_id))
+    return result.scalar_one_or_none()

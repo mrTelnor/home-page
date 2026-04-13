@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { type Menu } from "@/hooks/useMenu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,13 @@ export function MenuVoting({ menu, onVote, votedRecipeId, isPending }: Props) {
             <Card key={r.id} className={isVoted ? "border-primary border-2" : ""}>
               <CardHeader className="py-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <Link
+                    to={`/recipes/${r.recipe_id}`}
+                    className="flex items-center gap-3 hover:underline"
+                  >
                     <CardTitle className="text-lg">{r.title}</CardTitle>
                     <Badge variant="outline">{r.votes_count} гол.</Badge>
-                  </div>
+                  </Link>
                   {votedRecipeId ? (
                     isVoted && <Badge>Ваш голос</Badge>
                   ) : (

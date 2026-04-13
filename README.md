@@ -10,6 +10,7 @@
 - 🗳️ **Голосование за ужин** — ежедневно по расписанию (8:00 GMT+3) создаётся меню из 3 случайных рецептов, члены семьи могут предлагать свои варианты и голосовать. В 17:00 определяется победитель
 - 📜 **История голосований** — прошлые меню с результатами
 - 🔐 **Авторизация** — регистрация по инвайт-коду, JWT в httpOnly cookie
+- 👤 **Личный кабинет** — смена пароля, привязка Telegram через Login Widget
 - 🌐 **Веб-интерфейс** — адаптивный UI с тёмной темой
 
 ## Стек технологий
@@ -142,6 +143,9 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml
 | `vault_jwt_secret` | Секрет для подписи JWT | да |
 | `vault_invite_code` | Код для регистрации | да |
 | `vault_cron_secret` | Секрет для cron-запросов | да |
+| `vault_telegram_bot_token` | Токен Telegram-бота от BotFather | да |
+| `vault_telegram_bot_username` | Username Telegram-бота (без `@`) | нет |
+| `vault_bot_secret` | Секрет для авторизации бота перед backend | да |
 
 Пароль vault хранится в `infra/ansible/.vault_pass` (не попадает в git).
 

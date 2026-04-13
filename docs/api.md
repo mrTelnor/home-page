@@ -102,6 +102,66 @@ curl https://api.telnor.ru/api/auth/me -b cookies.txt
 Ошибки:
 - 401 — не авторизован или токен истёк
 
+### POST /api/auth/telegram-verify
+
+Привязать Telegram к текущему пользователю через данные от Login Widget.
+
+```bash
+curl -X POST https://api.telnor.ru/api/auth/telegram-verify \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"id": 123456, "first_name": "Иван", "auth_date": 1700000000, "hash": "..."}'
+```
+
+Ответ (200): обновлённый `UserResponse` с `tg_id`.
+
+Ошибки:
+- 401 — неверная подпись или протухшая
+- 409 — Telegram уже привязан к другому пользователю
+
+### POST /api/auth/telegram-unlink
+
+Отвязать Telegram от текущего пользователя.
+
+```bash
+curl -X POST https://api.telnor.ru/api/auth/telegram-unlink -b cookies.txt
+```
+
+Ответ (200): `UserResponse` с `tg_id: null`.
+
+### POST /api/auth/change-password
+
+Сменить пароль.
+
+```bash
+curl -X POST https://api.telnor.ru/api/auth/change-password \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"old_password": "old", "new_password": "newpassword"}'
+```
+
+Ответ (200): `{"message": "ok"}`.
+
+Ошибки:
+- 401 — неверный текущий пароль
+
+### POST /api/auth/telegram-login
+
+Выдать JWT боту для пользователя по `tg_id`. Требует заголовок `X-Bot-Secret`.
+
+```bash
+curl -X POST https://api.telnor.ru/api/auth/telegram-login \
+  -H "Content-Type: application/json" \
+  -H "X-Bot-Secret: $BOT_SECRET" \
+  -d '{"tg_id": 123456}'
+```
+
+Ответ (200): `{"access_token": "..."}`.
+
+Ошибки:
+- 403 — неверный секрет
+- 404 — пользователь не найден
+
 ---
 
 ## Recipes

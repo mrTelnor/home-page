@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     invite_code: str
     cron_secret: str
     domain: str = "telnor.ru"
+    telegram_bot_token: str
+    telegram_bot_username: str
+    bot_secret: str
 
     model_config = {"env_file": ".env"}
 

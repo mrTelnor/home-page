@@ -95,12 +95,7 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Pr
       <Separator />
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Label>Ингредиенты</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addIngredient}>
-            + Добавить
-          </Button>
-        </div>
+        <Label>Ингредиенты</Label>
         {ingredients.map((ing, index) => (
           <Card key={index}>
             <CardContent className="pt-4">
@@ -110,7 +105,6 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Pr
                   <Input
                     value={ing.name}
                     onChange={(e) => updateIngredient(index, "name", e.target.value)}
-                    placeholder="Картофель"
                     required
                   />
                 </div>
@@ -119,7 +113,6 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Pr
                   <Input
                     value={ing.amount}
                     onChange={(e) => updateIngredient(index, "amount", e.target.value)}
-                    placeholder="3"
                     required
                   />
                 </div>
@@ -128,7 +121,6 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Pr
                   <Input
                     value={ing.unit}
                     onChange={(e) => updateIngredient(index, "unit", e.target.value)}
-                    placeholder="шт"
                   />
                 </div>
                 <Button
@@ -145,6 +137,19 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Pr
             </CardContent>
           </Card>
         ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addIngredient}
+          className="w-full"
+        >
+          + Добавить ингредиент
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Для ингредиентов без точной меры впишите "по вкусу" в поле «Кол-во»,
+          поле «Ед.» оставьте пустым.
+        </p>
       </div>
 
       <Separator />

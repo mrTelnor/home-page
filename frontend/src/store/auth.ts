@@ -5,6 +5,7 @@ export interface User {
   username: string;
   role: string;
   created_at: string;
+  tg_id: number | null;
 }
 
 interface AuthState {
