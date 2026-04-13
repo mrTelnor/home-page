@@ -41,3 +41,22 @@ export function useChangePassword() {
       api.post("/api/auth/change-password", data),
   });
 }
+
+export interface UpdateProfileData {
+  first_name?: string | null;
+  birthday?: string | null;
+  is_volkov?: boolean;
+  gender?: "male" | "female" | null;
+}
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: UpdateProfileData) =>
+      api.patch<User>("/api/auth/me", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}

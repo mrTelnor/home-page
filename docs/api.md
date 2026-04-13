@@ -95,12 +95,36 @@ curl https://api.telnor.ru/api/auth/me -b cookies.txt
   "id": "4fe43be5-3b64-4660-9f16-b2e62dd7440d",
   "username": "ivan",
   "role": "user",
-  "created_at": "2026-04-05T22:05:51.384599Z"
+  "created_at": "2026-04-05T22:05:51.384599Z",
+  "tg_id": null,
+  "first_name": "Иван",
+  "birthday": "1990-05-15",
+  "is_volkov": true,
+  "gender": "male"
 }
 ```
 
 Ошибки:
 - 401 — не авторизован или токен истёк
+
+### PATCH /api/auth/me
+
+Обновить личные данные текущего пользователя. Все поля опциональные — обновляются только переданные.
+
+```bash
+curl -X PATCH https://api.telnor.ru/api/auth/me \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"first_name": "Никита", "birthday": "1990-05-15", "is_volkov": true, "gender": "male"}'
+```
+
+Поля:
+- `first_name`: string | null (max 50)
+- `birthday`: string (ISO date `YYYY-MM-DD`) | null
+- `is_volkov`: boolean
+- `gender`: `"male"` | `"female"` | null
+
+Ответ (200): обновлённый `UserResponse`.
 
 ### POST /api/auth/telegram-verify
 
@@ -278,6 +302,10 @@ curl -X DELETE https://api.telnor.ru/api/recipes/a1b2c3d4-... -b cookies.txt
 
 Авторизация cron-запросов: заголовок `X-Cron-Secret`.
 
+`MenuResponse` содержит:
+- `user_voted_recipe_id` — ID рецепта, за который проголосовал текущий пользователь (null если не голосовал)
+- `total_votes` — общее количество голосов в меню
+
 ### POST /api/menus/create-daily
 
 Создать меню на день. 3 случайных рецепта добавляются автоматически. Доступно admin или cron.
@@ -356,6 +384,20 @@ curl -X POST https://api.telnor.ru/api/menus/{menu_id}/vote \
 - 400 — голосование не открыто или рецепт не в меню
 - 404 — меню не найдено
 - 409 — уже голосовал
+
+### DELETE /api/menus/{id}/vote
+
+Отменить голос текущего пользователя. Только в статусе `voting`. Идемпотентно.
+
+```bash
+curl -X DELETE https://api.telnor.ru/api/menus/{menu_id}/vote -b cookies.txt
+```
+
+Ответ (200): `MenuResponse` с обновлёнными голосами.
+
+Ошибки:
+- 400 — голосование не открыто
+- 404 — меню не найдено
 
 ### POST /api/menus/close-voting
 

@@ -32,10 +32,13 @@ export function Layout() {
             </Link>
           </div>
           {user && (
-            <div className="flex items-center gap-4">
-              <Link to="/profile" className="text-sm text-muted-foreground hover:text-foreground hidden sm:inline">
-                {user.username}
-              </Link>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
+                <Link to="/profile">{user.username}</Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/profile">Профиль</Link>
+              </Button>
               <Button variant="outline" size="sm" onClick={() => logout.mutate()}>
                 Выйти
               </Button>

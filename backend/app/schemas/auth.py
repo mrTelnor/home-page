@@ -1,5 +1,6 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -21,8 +22,19 @@ class UserResponse(BaseModel):
     role: str
     created_at: datetime
     tg_id: int | None = None
+    first_name: str | None = None
+    birthday: date | None = None
+    is_volkov: bool = False
+    gender: Literal["male", "female"] | None = None
 
     model_config = {"from_attributes": True}
+
+
+class UpdateProfileRequest(BaseModel):
+    first_name: str | None = Field(default=None, max_length=50)
+    birthday: date | None = None
+    is_volkov: bool | None = None
+    gender: Literal["male", "female"] | None = None
 
 
 class ChangePasswordRequest(BaseModel):

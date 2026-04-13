@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useTodayMenu, useVote } from "@/hooks/useMenu";
+import { useTodayMenu, useVote, useCancelVote } from "@/hooks/useMenu";
 import { useAuthStore } from "@/store/auth";
 import { MenuCollecting } from "@/components/MenuCollecting";
 import { MenuVoting } from "@/components/MenuVoting";
@@ -14,6 +14,7 @@ export function VotePage() {
   const { data: menu, isLoading } = useTodayMenu();
   const user = useAuthStore((s) => s.user);
   const vote = useVote();
+  const cancelVote = useCancelVote();
   const [suggestOpen, setSuggestOpen] = useState(false);
 
   if (isLoading) {
@@ -55,8 +56,8 @@ export function VotePage() {
         <MenuVoting
           menu={menu}
           onVote={(recipeId) => vote.mutate({ menuId: menu.id, recipeId })}
-          votedRecipeId={null}
-          isPending={vote.isPending}
+          onCancelVote={() => cancelVote.mutate({ menuId: menu.id })}
+          isPending={vote.isPending || cancelVote.isPending}
         />
       )}
 

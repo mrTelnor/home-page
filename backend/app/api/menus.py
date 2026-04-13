@@ -15,6 +15,7 @@ from app.schemas.menu import (
     VoteRequest,
 )
 from app.services.menu import (
+    cancel_vote,
     cast_vote,
     close_voting,
     count_user_suggestions,
@@ -24,6 +25,7 @@ from app.services.menu import (
     get_all_menus,
     get_menu_by_date,
     get_menu_by_id,
+    get_user_vote,
     get_votes_for_menu,
     is_recipe_in_menu,
     recipe_exists,
@@ -33,7 +35,9 @@ from app.services.menu import (
 router = APIRouter(prefix="/menus", tags=["menus"])
 
 
-async def _build_menu_response(session: AsyncSession, menu) -> MenuResponse:
+async def _build_menu_response(
+    session: AsyncSession, menu, user_id: uuid.UUID | None = None
+) -> MenuResponse:
     vote_counts = await get_votes_for_menu(session, menu.id) if menu.status != "collecting" else {}
     recipes = []
     for mr in menu.menu_recipes:
@@ -50,6 +54,15 @@ async def _build_menu_response(session: AsyncSession, menu) -> MenuResponse:
                 votes_count=vote_counts.get(mr.recipe_id, 0),
             )
         )
+
+    user_voted_recipe_id = None
+    if user_id is not None and menu.status != "collecting":
+        user_vote = await get_user_vote(session, menu.id, user_id)
+        if user_vote:
+            user_voted_recipe_id = user_vote.recipe_id
+
+    total_votes = sum(vote_counts.values())
+
     return MenuResponse(
         id=menu.id,
         date=menu.date,
@@ -57,6 +70,8 @@ async def _build_menu_response(session: AsyncSession, menu) -> MenuResponse:
         winner_recipe_id=menu.winner_recipe_id,
         recipes=recipes,
         created_at=menu.created_at,
+        user_voted_recipe_id=user_voted_recipe_id,
+        total_votes=total_votes,
     )
 
 
@@ -101,7 +116,7 @@ async def suggest(
 
     await suggest_recipe(session, menu, data.recipe_id, user.id)
     menu = await get_menu_by_id(session, menu.id)
-    return await _build_menu_response(session, menu)
+    return await _build_menu_response(session, menu, user.id)
 
 
 @router.post("/finalize", response_model=MenuResponse)
@@ -162,7 +177,24 @@ async def vote(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already voted for this menu")
 
     menu = await get_menu_by_id(session, menu.id)
-    return await _build_menu_response(session, menu)
+    return await _build_menu_response(session, menu, user.id)
+
+
+@router.delete("/{menu_id}/vote", response_model=MenuResponse)
+async def cancel_user_vote(
+    menu_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    menu = await get_menu_by_id(session, menu_id)
+    if menu is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+    if menu.status != "voting":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Voting is not open")
+
+    await cancel_vote(session, menu.id, user.id)
+    menu = await get_menu_by_id(session, menu.id)
+    return await _build_menu_response(session, menu, user.id)
 
 
 @router.get("/today", response_model=MenuResponse)
@@ -173,7 +205,7 @@ async def today(
     menu = await get_menu_by_date(session, date.today())
     if menu is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No menu for today")
-    return await _build_menu_response(session, menu)
+    return await _build_menu_response(session, menu, user.id)
 
 
 @router.get("", response_model=list[MenuResponse])
@@ -182,7 +214,7 @@ async def list_all(
     user: User = Depends(get_current_user),
 ):
     menus = await get_all_menus(session)
-    return [await _build_menu_response(session, m) for m in menus]
+    return [await _build_menu_response(session, m, user.id) for m in menus]
 
 
 @router.get("/{menu_id}", response_model=MenuResponse)
@@ -194,7 +226,7 @@ async def get_one(
     menu = await get_menu_by_id(session, menu_id)
     if menu is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
-    return await _build_menu_response(session, menu)
+    return await _build_menu_response(session, menu, user.id)
 
 
 @router.delete("/{menu_id}", status_code=status.HTTP_204_NO_CONTENT)

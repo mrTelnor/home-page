@@ -12,6 +12,7 @@ from app.schemas.auth import (
     TelegramAuthData,
     TelegramLoginRequest,
     TokenResponse,
+    UpdateProfileRequest,
     UserResponse,
 )
 from app.services.auth import (
@@ -20,6 +21,7 @@ from app.services.auth import (
     get_user_by_tg_id,
     set_telegram_id,
     update_password,
+    update_profile,
 )
 from app.services.telegram import verify_telegram_auth
 
@@ -67,6 +69,17 @@ async def logout(response: Response, user: User = Depends(get_current_user)):
 
 @router.get("/me", response_model=UserResponse)
 async def me(user: User = Depends(get_current_user)):
+    return user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_me(
+    data: UpdateProfileRequest,
+    session: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    fields = data.model_dump(exclude_unset=True)
+    user = await update_profile(session, user, fields)
     return user
 
 

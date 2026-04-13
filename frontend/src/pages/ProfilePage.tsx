@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TelegramLoginButton } from "@/components/TelegramLoginButton";
 import { ChangePasswordDialog } from "@/components/ChangePasswordDialog";
+import { ProfileForm } from "@/components/ProfileForm";
 
 export function ProfilePage() {
   usePageTitle("Личный кабинет");
@@ -42,6 +43,15 @@ export function ProfilePage() {
             <span className="text-muted-foreground">Зарегистрирован</span>
             <span>{new Date(user.created_at).toLocaleDateString("ru-RU")}</span>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Личные данные</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProfileForm user={user} />
         </CardContent>
       </Card>
 

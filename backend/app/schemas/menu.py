@@ -40,5 +40,7 @@ class MenuResponse(BaseModel):
     winner_recipe_id: Optional[uuid.UUID] = None
     recipes: list[MenuRecipeResponse]
     created_at: datetime
+    user_voted_recipe_id: Optional[uuid.UUID] = None
+    total_votes: int = 0
 
     model_config = {"from_attributes": True}

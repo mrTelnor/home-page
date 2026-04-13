@@ -17,6 +17,8 @@ export interface Menu {
   winner_recipe_id: string | null;
   recipes: MenuRecipe[];
   created_at: string;
+  user_voted_recipe_id: string | null;
+  total_votes: number;
 }
 
 export interface Recipe {
@@ -74,6 +76,18 @@ export function useVote() {
   return useMutation({
     mutationFn: ({ menuId, recipeId }: { menuId: string; recipeId: string }) =>
       api.post(`/api/menus/${menuId}/vote`, { recipe_id: recipeId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["menu", "today"] });
+    },
+  });
+}
+
+export function useCancelVote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ menuId }: { menuId: string }) =>
+      api.del(`/api/menus/${menuId}/vote`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["menu", "today"] });
     },

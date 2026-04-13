@@ -104,6 +104,26 @@ async def cast_vote(
     return vote
 
 
+async def get_user_vote(
+    session: AsyncSession, menu_id: uuid.UUID, user_id: uuid.UUID
+) -> Vote | None:
+    result = await session.execute(
+        select(Vote).where(Vote.menu_id == menu_id, Vote.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def cancel_vote(
+    session: AsyncSession, menu_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    vote = await get_user_vote(session, menu_id, user_id)
+    if vote is None:
+        return False
+    await session.delete(vote)
+    await session.commit()
+    return True
+
+
 async def close_voting(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
     result = await session.execute(
         select(Vote.recipe_id, func.count().label("cnt"))

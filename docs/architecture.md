@@ -63,7 +63,8 @@
 
 ```
 Схема: auth
-├── users          (id, tg_id, username, email, password_hash, role, created_at)
+├── users          (id, tg_id, username, email, password_hash, role,
+│                   first_name, birthday, is_volkov, gender, created_at)
 └── sessions       (id, user_id, token, expires_at)
 
 Схема: dinner
@@ -77,6 +78,8 @@
 - `daily_menus.status`: `collecting` → `voting` → `closed`
 - `daily_menu_recipes.source`: `random` | `user`
 - `votes` — unique constraint (user_id, menu_id): один голос на меню
+- `users.gender`: `male` | `female` (для будущих оповещений и склонений)
+- `users.is_volkov`: фамилия Волков/Волкова
 - Username нормализуется в lowercase (регистронезависимость)
 
 ### Авторизация
@@ -120,7 +123,7 @@ home-page/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/              # fetch-клиент
-│   │   ├── components/       # Layout, ProtectedRoute, VoteWidget, MenuCollecting/Voting/Results, RecipeForm, SuggestRecipeDialog, TelegramLoginButton, ChangePasswordDialog, ui/ (shadcn)
+│   │   ├── components/       # Layout, ProtectedRoute, VoteWidget, MenuCollecting/Voting/Results, RecipeForm, SuggestRecipeDialog, TelegramLoginButton, ChangePasswordDialog, ProfileForm, ui/ (shadcn)
 │   │   ├── hooks/            # useAuth, useMenu, useRecipes, useProfile, usePageTitle
 │   │   ├── pages/            # Login, Register, Home, Vote, VoteHistory, Recipes, RecipeNew/Detail/Edit, Profile, NotFound
 │   │   └── store/            # auth (Zustand)

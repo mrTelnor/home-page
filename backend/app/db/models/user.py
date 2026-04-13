@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
@@ -16,6 +16,10 @@ class User(Base, UUIDMixin, TimestampMixin):
     email: Mapped[str | None] = mapped_column(String(255), unique=True)
     password_hash: Mapped[str | None] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="user")
+    first_name: Mapped[str | None] = mapped_column(String(50))
+    birthday: Mapped[date | None] = mapped_column(Date)
+    is_volkov: Mapped[bool] = mapped_column(Boolean, default=False)
+    gender: Mapped[str | None] = mapped_column(String(10))
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
