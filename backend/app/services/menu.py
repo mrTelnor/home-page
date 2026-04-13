@@ -63,6 +63,8 @@ async def suggest_recipe(
     session.add(menu_recipe)
     await session.commit()
     await session.refresh(menu_recipe)
+    # Инвалидируем кэш menu, чтобы последующий get_menu_by_id вернул актуальную коллекцию
+    await session.refresh(menu, ["menu_recipes"])
     return menu_recipe
 
 

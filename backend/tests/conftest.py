@@ -34,11 +34,11 @@ from app.db.models import *  # noqa: F401, F403 — register models
 from app.db.models.user import User
 from app.main import app
 
-# Engine для setup/teardown (NullPool — каждое соединение свежее, не делится с приложением)
+# Engine для setup/teardown
 admin_engine = create_async_engine(settings.database_url, poolclass=NullPool)
 
-# Engine для приложения в тестах (через dependency override)
-test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+# Engine для приложения в тестах — обычный пул, чтобы избежать проблем с asyncpg NullPool
+test_engine = create_async_engine(settings.database_url)
 TestSessionMaker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
