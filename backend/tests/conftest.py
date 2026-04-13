@@ -17,12 +17,13 @@ os.environ.setdefault("TELEGRAM_BOT_USERNAME", "test_bot")
 os.environ.setdefault("BOT_SECRET", "test-bot-secret")
 
 from collections.abc import AsyncGenerator
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.core.dependencies import get_db
@@ -32,43 +33,55 @@ from app.db.models import *  # noqa: F401, F403 — register models
 from app.db.models.user import User
 from app.main import app
 
-test_engine = create_async_engine(settings.database_url, echo=False)
-test_session_maker = async_sessionmaker(test_engine, expire_on_commit=False)
+# Engine для setup/teardown (NullPool — каждое соединение свежее, не делится с приложением)
+admin_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+
+# Engine для приложения в тестах (через dependency override)
+test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
+TestSessionMaker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
 @pytest.fixture(scope="session", autouse=True)
 async def setup_database():
     """Создать схемы и таблицы один раз за сессию."""
-    async with test_engine.begin() as conn:
+    async with admin_engine.begin() as conn:
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS dinner"))
         await conn.run_sync(Base.metadata.create_all)
     yield
-    async with test_engine.begin() as conn:
+    async with admin_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+        await conn.execute(text("DROP SCHEMA IF EXISTS dinner CASCADE"))
+        await conn.execute(text("DROP SCHEMA IF EXISTS auth CASCADE"))
+    await admin_engine.dispose()
     await test_engine.dispose()
 
 
-@pytest.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Async session для теста. После теста очищает все таблицы."""
-    async with test_session_maker() as session:
-        yield session
-
-    async with test_engine.begin() as conn:
-        # Порядок важен: сначала зависимые, потом родители
+@pytest.fixture(autouse=True)
+async def clean_tables():
+    """Очистить таблицы перед каждым тестом (используем перед, чтобы избежать гонок после)."""
+    async with admin_engine.begin() as conn:
         await conn.execute(text(
             "TRUNCATE TABLE dinner.votes, dinner.daily_menu_recipes, dinner.daily_menus, "
             "dinner.ingredients, dinner.recipes, auth.sessions, auth.users "
             "RESTART IDENTITY CASCADE"
         ))
+    yield
 
 
 @pytest.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """HTTP client с переопределённым get_db, использующим тестовую сессию."""
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Async session для тестов, которым нужен прямой доступ к БД (фикстуры юзеров)."""
+    async with TestSessionMaker() as session:
+        yield session
+
+
+@pytest.fixture
+async def client() -> AsyncGenerator[AsyncClient, None]:
+    """HTTP client с переопределённым get_db — каждый запрос получает новую сессию."""
     async def override_get_db():
-        yield db_session
+        async with TestSessionMaker() as session:
+            yield session
 
     app.dependency_overrides[get_db] = override_get_db
 
@@ -129,7 +142,3 @@ async def admin_client(client: AsyncClient, admin_user: User) -> AsyncClient:
     """Клиент с cookie залогиненного admin."""
     await _login(client, "admin")
     return client
-
-
-def user_id_of(user: User) -> UUID:
-    return user.id
