@@ -68,7 +68,7 @@ async def update_recipe(
                 Ingredient(id=uuid.uuid4(), name=ing["name"], amount=ing["amount"], unit=ing.get("unit"))
             )
     await session.commit()
-    await session.refresh(recipe, ["ingredients"])
+    await session.refresh(recipe, ["ingredients", "updated_at"])
     return recipe
 
 

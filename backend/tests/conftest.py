@@ -77,19 +77,23 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+async def _override_get_db():
+    async with TestSessionMaker() as session:
+        yield session
+
+
+def _new_client() -> AsyncClient:
+    """Создать новый независимый httpx клиент, привязанный к приложению."""
+    transport = ASGITransport(app=app)
+    return AsyncClient(transport=transport, base_url="http://test")
+
+
 @pytest.fixture
 async def client() -> AsyncGenerator[AsyncClient, None]:
     """HTTP client с переопределённым get_db — каждый запрос получает новую сессию."""
-    async def override_get_db():
-        async with TestSessionMaker() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    app.dependency_overrides[get_db] = _override_get_db
+    async with _new_client() as c:
         yield c
-
     app.dependency_overrides.clear()
 
 
@@ -132,14 +136,20 @@ async def _login(client: AsyncClient, username: str, password: str = "test12345"
 
 
 @pytest.fixture
-async def authed_client(client: AsyncClient, test_user: User) -> AsyncClient:
-    """Клиент с cookie залогиненного обычного пользователя."""
-    await _login(client, "testuser")
-    return client
+async def authed_client(test_user: User) -> AsyncGenerator[AsyncClient, None]:
+    """Независимый клиент с cookie залогиненного обычного пользователя."""
+    app.dependency_overrides[get_db] = _override_get_db
+    async with _new_client() as c:
+        await _login(c, "testuser")
+        yield c
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture
-async def admin_client(client: AsyncClient, admin_user: User) -> AsyncClient:
-    """Клиент с cookie залогиненного admin."""
-    await _login(client, "admin")
-    return client
+async def admin_client(admin_user: User) -> AsyncGenerator[AsyncClient, None]:
+    """Независимый клиент с cookie залогиненного admin."""
+    app.dependency_overrides[get_db] = _override_get_db
+    async with _new_client() as c:
+        await _login(c, "admin")
+        yield c
+    app.dependency_overrides.clear()
