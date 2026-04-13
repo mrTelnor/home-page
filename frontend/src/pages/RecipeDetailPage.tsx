@@ -22,8 +22,8 @@ function scaleAmount(amount: string, factor: number): string {
 }
 
 export function RecipeDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const { data: recipe, isLoading } = useRecipe(id!);
+  const { id = "" } = useParams<{ id: string }>();
+  const { data: recipe, isLoading } = useRecipe(id);
   const deleteRecipe = useDeleteRecipe();
   const user = useAuthStore((s) => s.user);
   const [servings, setServings] = useState<number | null>(null);

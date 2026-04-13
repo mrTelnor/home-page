@@ -43,14 +43,14 @@ export function ChangePasswordDialog({ open, onOpenChange }: Readonly<Props>) {
     );
   };
 
-  const apiError =
-    changePassword.error instanceof ApiError
-      ? changePassword.error.status === 401
-        ? "Неверный текущий пароль"
-        : changePassword.error.message
-      : null;
+  let apiError: string | null = null;
+  if (changePassword.error instanceof ApiError) {
+    apiError = changePassword.error.status === 401
+      ? "Неверный текущий пароль"
+      : changePassword.error.message;
+  }
 
-  const error = localError || apiError;
+  const error = localError ?? apiError;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

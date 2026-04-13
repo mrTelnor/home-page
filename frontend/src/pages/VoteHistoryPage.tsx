@@ -32,13 +32,20 @@ export function VoteHistoryPage() {
         </Button>
       </div>
 
-      {!menus?.length ? (
-        <p className="text-muted-foreground text-center py-8">История пуста</p>
-      ) : (
+      {menus?.length ? (
         <div className="grid gap-3">
           {menus.map((menu) => {
             const winner = menu.recipes.find((r) => r.recipe_id === menu.winner_recipe_id);
             const isExpanded = expandedId === menu.id;
+
+            let badgeText: string;
+            if (menu.status === "closed") {
+              badgeText = winner?.title ?? "Нет победителя";
+            } else if (menu.status === "voting") {
+              badgeText = "Голосование";
+            } else {
+              badgeText = "Сбор";
+            }
 
             return (
               <Card
@@ -51,11 +58,7 @@ export function VoteHistoryPage() {
                     <CardTitle className="text-base">{formatDate(menu.date)}</CardTitle>
                     <div className="flex items-center gap-2">
                       <Badge variant={menu.status === "closed" ? "default" : "secondary"}>
-                        {menu.status === "closed"
-                          ? winner?.title ?? "Нет победителя"
-                          : menu.status === "voting"
-                            ? "Голосование"
-                            : "Сбор"}
+                        {badgeText}
                       </Badge>
                     </div>
                   </div>
@@ -80,6 +83,8 @@ export function VoteHistoryPage() {
             );
           })}
         </div>
+      ) : (
+        <p className="text-muted-foreground text-center py-8">История пуста</p>
       )}
     </div>
   );

@@ -5,9 +5,9 @@ import { RecipeForm } from "@/components/RecipeForm";
 
 export function RecipeEditPage() {
   usePageTitle("Редактирование рецепта");
-  const { id } = useParams<{ id: string }>();
-  const { data: recipe, isLoading } = useRecipe(id!);
-  const update = useUpdateRecipe(id!);
+  const { id = "" } = useParams<{ id: string }>();
+  const { data: recipe, isLoading } = useRecipe(id);
+  const update = useUpdateRecipe(id);
 
   if (isLoading) {
     return <p className="text-muted-foreground text-center py-8">Загрузка...</p>;

@@ -20,14 +20,14 @@ export function RegisterPage() {
     register.mutate({ username, password, invite_code: inviteCode });
   };
 
-  const error =
-    register.error instanceof ApiError
-      ? register.error.status === 403
-        ? "Неверный инвайт-код"
-        : register.error.status === 409
-          ? "Имя пользователя занято"
-          : register.error.message
-      : null;
+  const errorMessageByStatus: Record<number, string> = {
+    403: "Неверный инвайт-код",
+    409: "Имя пользователя занято",
+  };
+  let error: string | null = null;
+  if (register.error instanceof ApiError) {
+    error = errorMessageByStatus[register.error.status] ?? register.error.message;
+  }
 
   return (
     <div className="flex items-center justify-center min-h-[80vh]">

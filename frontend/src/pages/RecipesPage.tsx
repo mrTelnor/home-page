@@ -76,10 +76,9 @@ export function RecipesPage() {
         </Button>
       </div>
 
-      {!recipes?.length ? (
-        <p className="text-muted-foreground text-center py-8">Рецептов пока нет</p>
-      ) : (
+      {recipes?.length ? (
         <>
+
           <div className="flex flex-wrap items-center gap-3">
             <Label htmlFor="sort-field" className="text-sm">Сортировка:</Label>
             <select
@@ -129,6 +128,8 @@ export function RecipesPage() {
             ))}
           </div>
         </>
+      ) : (
+        <p className="text-muted-foreground text-center py-8">Рецептов пока нет</p>
       )}
     </div>
   );

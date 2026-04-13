@@ -7,10 +7,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 interface IngredientRow {
+  id: string;
   name: string;
   amount: string;
   unit: string;
 }
+
+let nextRowId = 0;
+const newRowId = () => `row-${++nextRowId}`;
 
 interface IngredientErrors {
   name?: boolean;
@@ -49,20 +53,21 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
   const [servings, setServings] = useState<string>(
-    initialData?.servings != null ? String(initialData.servings) : ""
+    initialData?.servings == null ? "" : String(initialData.servings)
   );
   const [ingredients, setIngredients] = useState<IngredientRow[]>(
     initialData?.ingredients.map((i) => ({
+      id: newRowId(),
       name: i.name,
       amount: i.amount,
       unit: i.unit ?? "",
-    })) ?? [{ name: "", amount: "", unit: "" }]
+    })) ?? [{ id: newRowId(), name: "", amount: "", unit: "" }]
   );
   const [errors, setErrors] = useState<FormErrors>({});
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
   const addIngredient = () => {
-    setIngredients([...ingredients, { name: "", amount: "", unit: "" }]);
+    setIngredients([...ingredients, { id: newRowId(), name: "", amount: "", unit: "" }]);
   };
 
   const removeIngredient = (index: number) => {
@@ -126,8 +131,8 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
         rowErr.amountNotNumeric = true;
       }
 
-      if (Object.keys(rowErr).length > 0) {
-        newErrors.rows![i] = rowErr;
+      if (Object.keys(rowErr).length > 0 && newErrors.rows) {
+        newErrors.rows[i] = rowErr;
       }
     });
 
@@ -199,7 +204,7 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
         {ingredients.map((ing, index) => {
           const rowErr = errors.rows?.[index] ?? {};
           return (
-            <Card key={index}>
+            <Card key={ing.id}>
               <CardContent className="pt-4">
                 <div className="flex gap-2 items-end">
                   <div className="flex-1 space-y-1">
@@ -284,8 +289,8 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
         </Button>
         {errorMessages.length > 0 && (
           <ul className="text-sm text-destructive space-y-1">
-            {errorMessages.map((msg, i) => (
-              <li key={i}>• {msg}</li>
+            {errorMessages.map((msg) => (
+              <li key={msg}>• {msg}</li>
             ))}
           </ul>
         )}

@@ -29,6 +29,29 @@ export function MenuVoting({ menu, onVote, onCancelVote, isPending }: Readonly<P
       <div className="grid gap-3">
         {menu.recipes.map((r) => {
           const isUserVote = menu.user_voted_recipe_id === r.recipe_id;
+          let actionButton = null;
+          if (isUserVote) {
+            actionButton = (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onCancelVote}
+                disabled={isPending}
+              >
+                Отменить голос
+              </Button>
+            );
+          } else if (userVoted === false) {
+            actionButton = (
+              <Button
+                size="sm"
+                onClick={() => onVote(r.recipe_id)}
+                disabled={isPending}
+              >
+                Голосовать
+              </Button>
+            );
+          }
           return (
             <Card key={r.id} className={isUserVote ? "border-primary border-2" : ""}>
               <CardHeader className="py-3">
@@ -40,24 +63,7 @@ export function MenuVoting({ menu, onVote, onCancelVote, isPending }: Readonly<P
                     <CardTitle className="text-lg">{r.title}</CardTitle>
                     <Badge variant="outline">{r.votes_count} гол.</Badge>
                   </Link>
-                  {isUserVote ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={onCancelVote}
-                      disabled={isPending}
-                    >
-                      Отменить голос
-                    </Button>
-                  ) : !userVoted ? (
-                    <Button
-                      size="sm"
-                      onClick={() => onVote(r.recipe_id)}
-                      disabled={isPending}
-                    >
-                      Голосовать
-                    </Button>
-                  ) : null}
+                  {actionButton}
                 </div>
               </CardHeader>
             </Card>

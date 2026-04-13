@@ -19,12 +19,12 @@ export function LoginPage() {
     login.mutate({ username, password });
   };
 
-  const error =
-    login.error instanceof ApiError
-      ? login.error.status === 401
-        ? "Неверный логин или пароль"
-        : login.error.message
-      : null;
+  let error: string | null = null;
+  if (login.error instanceof ApiError) {
+    error = login.error.status === 401
+      ? "Неверный логин или пароль"
+      : login.error.message;
+  }
 
   return (
     <div className="flex items-center justify-center min-h-[80vh]">
