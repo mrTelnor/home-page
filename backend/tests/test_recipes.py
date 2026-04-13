@@ -34,8 +34,10 @@ async def test_create_recipe_requires_auth(client: AsyncClient):
 # ---------- LIST ----------
 
 async def test_list_recipes(authed_client: AsyncClient):
-    await authed_client.post("/api/recipes", json=_sample_recipe_payload("A"))
-    await authed_client.post("/api/recipes", json=_sample_recipe_payload("B"))
+    r1 = await authed_client.post("/api/recipes", json=_sample_recipe_payload("A"))
+    assert r1.status_code == 201, r1.text
+    r2 = await authed_client.post("/api/recipes", json=_sample_recipe_payload("B"))
+    assert r2.status_code == 201, r2.text
 
     response = await authed_client.get("/api/recipes")
     assert response.status_code == 200
