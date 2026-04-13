@@ -1,11 +1,10 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_user, get_db, verify_cron_or_admin
-from app.db.models.user import User
+from app.core.dependencies import NOT_ALLOWED, CronOrAdmin, CurrentUser, DbSession
 from app.schemas.menu import (
     CreateDailyRequest,
     FinalizeDateRequest,
@@ -33,6 +32,9 @@ from app.services.menu import (
 )
 
 router = APIRouter(prefix="/menus", tags=["menus"])
+
+MENU_NOT_FOUND = "Menu not found"
+VOTING_NOT_OPEN = "Voting is not open"
 
 
 async def _build_menu_response(
@@ -76,11 +78,7 @@ async def _build_menu_response(
 
 
 @router.post("/create-daily", response_model=MenuResponse, status_code=status.HTTP_201_CREATED)
-async def create_daily(
-    data: CreateDailyRequest,
-    session: AsyncSession = Depends(get_db),
-    _=Depends(verify_cron_or_admin),
-):
+async def create_daily(data: CreateDailyRequest, session: DbSession, _: CronOrAdmin):
     menu_date = data.date or date.today()
     existing = await get_menu_by_date(session, menu_date)
     if existing:
@@ -94,12 +92,12 @@ async def create_daily(
 async def suggest(
     menu_id: uuid.UUID,
     data: SuggestRecipeRequest,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    session: DbSession,
+    user: CurrentUser,
 ):
     menu = await get_menu_by_id(session, menu_id)
     if menu is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)
     if menu.status != "collecting":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Menu is not accepting suggestions")
 
@@ -120,15 +118,11 @@ async def suggest(
 
 
 @router.post("/finalize", response_model=MenuResponse)
-async def finalize(
-    data: FinalizeDateRequest,
-    session: AsyncSession = Depends(get_db),
-    _=Depends(verify_cron_or_admin),
-):
+async def finalize(data: FinalizeDateRequest, session: DbSession, _: CronOrAdmin):
     menu_date = data.date or date.today()
     menu = await get_menu_by_date(session, menu_date)
     if menu is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)
     if menu.status in ("voting", "closed"):
         return await _build_menu_response(session, menu)
 
@@ -137,15 +131,11 @@ async def finalize(
 
 
 @router.post("/close-voting", response_model=MenuResponse)
-async def close(
-    data: FinalizeDateRequest,
-    session: AsyncSession = Depends(get_db),
-    _=Depends(verify_cron_or_admin),
-):
+async def close(data: FinalizeDateRequest, session: DbSession, _: CronOrAdmin):
     menu_date = data.date or date.today()
     menu = await get_menu_by_date(session, menu_date)
     if menu is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)
     if menu.status == "closed":
         return await _build_menu_response(session, menu)
     if menu.status != "voting":
@@ -159,38 +149,36 @@ async def close(
 async def vote(
     menu_id: uuid.UUID,
     data: VoteRequest,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    session: DbSession,
+    user: CurrentUser,
 ):
     menu = await get_menu_by_id(session, menu_id)
     if menu is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)
     if menu.status != "voting":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Voting is not open")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=VOTING_NOT_OPEN)
 
     if not await is_recipe_in_menu(session, menu.id, data.recipe_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Recipe is not in this menu")
 
     try:
         await cast_vote(session, menu.id, data.recipe_id, user.id)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already voted for this menu")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Already voted for this menu"
+        ) from exc
 
     menu = await get_menu_by_id(session, menu.id)
     return await _build_menu_response(session, menu, user.id)
 
 
 @router.delete("/{menu_id}/vote", response_model=MenuResponse)
-async def cancel_user_vote(
-    menu_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def cancel_user_vote(menu_id: uuid.UUID, session: DbSession, user: CurrentUser):
     menu = await get_menu_by_id(session, menu_id)
     if menu is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)
     if menu.status != "voting":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Voting is not open")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=VOTING_NOT_OPEN)
 
     await cancel_vote(session, menu.id, user.id)
     menu = await get_menu_by_id(session, menu.id)
@@ -198,10 +186,7 @@ async def cancel_user_vote(
 
 
 @router.get("/today", response_model=MenuResponse)
-async def today(
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def today(session: DbSession, user: CurrentUser):
     menu = await get_menu_by_date(session, date.today())
     if menu is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No menu for today")
@@ -209,35 +194,24 @@ async def today(
 
 
 @router.get("", response_model=list[MenuResponse])
-async def list_all(
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def list_all(session: DbSession, user: CurrentUser):
     menus = await get_all_menus(session)
     return [await _build_menu_response(session, m, user.id) for m in menus]
 
 
 @router.get("/{menu_id}", response_model=MenuResponse)
-async def get_one(
-    menu_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def get_one(menu_id: uuid.UUID, session: DbSession, user: CurrentUser):
     menu = await get_menu_by_id(session, menu_id)
     if menu is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)
     return await _build_menu_response(session, menu, user.id)
 
 
 @router.delete("/{menu_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete(
-    menu_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def delete(menu_id: uuid.UUID, session: DbSession, user: CurrentUser):
     if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
     menu = await get_menu_by_id(session, menu_id)
     if menu is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Menu not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)
     await delete_menu(session, menu)

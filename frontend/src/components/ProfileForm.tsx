@@ -9,7 +9,7 @@ interface Props {
   user: User;
 }
 
-export function ProfileForm({ user }: Props) {
+export function ProfileForm({ user }: Readonly<Props>) {
   const [firstName, setFirstName] = useState(user.first_name ?? "");
   const [birthday, setBirthday] = useState(user.birthday ?? "");
   const [isVolkov, setIsVolkov] = useState(user.is_volkov);

@@ -12,8 +12,8 @@ import { Separator } from "@/components/ui/separator";
 
 function scaleAmount(amount: string, factor: number): string {
   const normalized = amount.replace(",", ".").trim();
-  const num = parseFloat(normalized);
-  if (isNaN(num) || !/^-?\d*\.?\d+$/.test(normalized)) {
+  const num = Number.parseFloat(normalized);
+  if (Number.isNaN(num) || !/^-?\d*\.?\d+$/.test(normalized)) {
     return amount;
   }
   const scaled = num * factor;

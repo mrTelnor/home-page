@@ -45,7 +45,7 @@ interface Props {
 
 const NUMERIC_RE = /^-?\d+([.,]\d+)?$/;
 
-export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Props) {
+export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Readonly<Props>) {
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
   const [servings, setServings] = useState<string>(
@@ -105,8 +105,8 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Pr
       messages.push("Заполните описание рецепта");
     }
 
-    const servingsNum = parseInt(servings, 10);
-    if (!servings.trim() || isNaN(servingsNum) || servingsNum < 1 || servingsNum > 50) {
+    const servingsNum = Number.parseInt(servings, 10);
+    if (!servings.trim() || Number.isNaN(servingsNum) || servingsNum < 1 || servingsNum > 50) {
       newErrors.servings = true;
       messages.push("Укажите количество порций");
     }

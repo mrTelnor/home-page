@@ -16,7 +16,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-export function ChangePasswordDialog({ open, onOpenChange }: Props) {
+export function ChangePasswordDialog({ open, onOpenChange }: Readonly<Props>) {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirm, setConfirm] = useState("");

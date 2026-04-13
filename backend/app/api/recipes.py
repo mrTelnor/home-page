@@ -1,10 +1,8 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, status
 
-from app.core.dependencies import get_current_user, get_db
-from app.db.models.user import User
+from app.core.dependencies import NOT_ALLOWED, CurrentUser, DbSession
 from app.schemas.recipe import RecipeCreateRequest, RecipeResponse, RecipeUpdateRequest
 from app.services.recipe import (
     create_recipe,
@@ -17,13 +15,11 @@ from app.services.recipe import (
 
 router = APIRouter(prefix="/recipes", tags=["recipes"])
 
+RECIPE_NOT_FOUND = "Recipe not found"
+
 
 @router.post("", response_model=RecipeResponse, status_code=status.HTTP_201_CREATED)
-async def create(
-    data: RecipeCreateRequest,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def create(data: RecipeCreateRequest, session: DbSession, user: CurrentUser):
     recipe = await create_recipe(
         session,
         title=data.title,
@@ -36,22 +32,17 @@ async def create(
 
 
 @router.get("", response_model=list[RecipeResponse])
-async def list_all(
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def list_all(session: DbSession, user: CurrentUser):
+    _ = user
     return await get_all_recipes(session)
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)
-async def get_one(
-    recipe_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def get_one(recipe_id: uuid.UUID, session: DbSession, user: CurrentUser):
+    _ = user
     recipe = await get_recipe_by_id(session, recipe_id)
     if recipe is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECIPE_NOT_FOUND)
     return recipe
 
 
@@ -59,14 +50,14 @@ async def get_one(
 async def update(
     recipe_id: uuid.UUID,
     data: RecipeUpdateRequest,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    session: DbSession,
+    user: CurrentUser,
 ):
     recipe = await get_recipe_by_id(session, recipe_id)
     if recipe is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECIPE_NOT_FOUND)
     if recipe.author_id != user.id and user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
 
     recipe = await update_recipe(
         session,
@@ -80,16 +71,12 @@ async def update(
 
 
 @router.delete("/{recipe_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete(
-    recipe_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
+async def delete(recipe_id: uuid.UUID, session: DbSession, user: CurrentUser):
     recipe = await get_recipe_by_id(session, recipe_id)
     if recipe is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipe not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECIPE_NOT_FOUND)
     if recipe.author_id != user.id and user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
     if await is_recipe_in_active_voting(session, recipe_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recipe is in active voting")
 

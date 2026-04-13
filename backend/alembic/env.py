@@ -11,7 +11,15 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.config import settings
 from app.db.base import Base
-from app.db.models import *  # noqa: F401, F403 — register all models
+from app.db.models import (  # noqa: F401 — imports trigger model registration
+    DailyMenu,
+    DailyMenuRecipe,
+    Ingredient,
+    Recipe,
+    Session,
+    User,
+    Vote,
+)
 
 config = context.config
 if config.config_file_name is not None:

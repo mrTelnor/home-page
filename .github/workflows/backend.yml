@@ -11,6 +11,10 @@ on:
       - "backend/**"
       - ".github/workflows/backend.yml"
 
+env:
+  # Тестовый PostgreSQL поднимается только для CI, пароль используется одноразово
+  TEST_DB_PASSWORD: ${{ github.run_id }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,7 +24,7 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: homepage
-          POSTGRES_PASSWORD: homepage
+          POSTGRES_PASSWORD: ${{ github.run_id }}
           POSTGRES_DB: homepage_test
         ports:
           - 5432:5432
@@ -54,7 +58,7 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: postgresql+asyncpg://homepage:homepage@localhost:5432/homepage_test
+          DATABASE_URL: postgresql+asyncpg://homepage:${{ github.run_id }}@localhost:5432/homepage_test
           JWT_SECRET: test-jwt-secret
           INVITE_CODE: test-invite
           CRON_SECRET: test-cron-secret

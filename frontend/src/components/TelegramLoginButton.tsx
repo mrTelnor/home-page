@@ -4,9 +4,8 @@ import { useTelegramVerify, type TelegramAuthData } from "@/hooks/useProfile";
 const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || "dinnervote_bot";
 
 declare global {
-  interface Window {
-    onTelegramAuth?: (user: TelegramAuthData) => void;
-  }
+  // eslint-disable-next-line no-var
+  var onTelegramAuth: ((user: TelegramAuthData) => void) | undefined;
 }
 
 export function TelegramLoginButton() {
@@ -14,22 +13,22 @@ export function TelegramLoginButton() {
   const verify = useTelegramVerify();
 
   useEffect(() => {
-    window.onTelegramAuth = (user) => {
+    globalThis.onTelegramAuth = (user) => {
       verify.mutate(user);
     };
 
     const script = document.createElement("script");
     script.src = "https://telegram.org/js/telegram-widget.js?22";
     script.async = true;
-    script.setAttribute("data-telegram-login", BOT_USERNAME);
-    script.setAttribute("data-size", "medium");
-    script.setAttribute("data-onauth", "onTelegramAuth(user)");
-    script.setAttribute("data-request-access", "write");
+    script.dataset.telegramLogin = BOT_USERNAME;
+    script.dataset.size = "medium";
+    script.dataset.onauth = "onTelegramAuth(user)";
+    script.dataset.requestAccess = "write";
 
     containerRef.current?.appendChild(script);
 
     return () => {
-      delete window.onTelegramAuth;
+      globalThis.onTelegramAuth = undefined;
     };
   }, [verify]);
 

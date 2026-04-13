@@ -8,7 +8,7 @@ interface Props {
   menu: Menu;
 }
 
-export function MenuResults({ menu }: Props) {
+export function MenuResults({ menu }: Readonly<Props>) {
   const sorted = [...menu.recipes].sort((a, b) => b.votes_count - a.votes_count);
 
   return (

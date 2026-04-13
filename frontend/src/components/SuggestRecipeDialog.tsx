@@ -13,7 +13,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-export function SuggestRecipeDialog({ menu, open, onOpenChange }: Props) {
+export function SuggestRecipeDialog({ menu, open, onOpenChange }: Readonly<Props>) {
   const { data: recipes } = useAllRecipes();
   const suggest = useSuggestRecipe();
 

@@ -14,6 +14,10 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+USERS_FK = USERS_FK
+RECIPES_FK = RECIPES_FK
+MENUS_FK = MENUS_FK
+
 
 def upgrade() -> None:
     op.execute("CREATE SCHEMA IF NOT EXISTS auth")
@@ -34,7 +38,7 @@ def upgrade() -> None:
     op.create_table(
         "sessions",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("auth.users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey(USERS_FK, ondelete="CASCADE"), nullable=False),
         sa.Column("token", sa.String(255), unique=True, nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         schema="auth",
@@ -46,7 +50,7 @@ def upgrade() -> None:
         sa.Column("title", sa.String(200), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("servings", sa.Integer(), nullable=False, server_default="4"),
-        sa.Column("author_id", sa.Uuid(), sa.ForeignKey("auth.users.id"), nullable=False),
+        sa.Column("author_id", sa.Uuid(), sa.ForeignKey(USERS_FK), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         schema="dinner",
@@ -55,7 +59,7 @@ def upgrade() -> None:
     op.create_table(
         "ingredients",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("recipe_id", sa.Uuid(), sa.ForeignKey("dinner.recipes.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("recipe_id", sa.Uuid(), sa.ForeignKey(RECIPES_FK, ondelete="CASCADE"), nullable=False),
         sa.Column("name", sa.String(100), nullable=False),
         sa.Column("amount", sa.String(50), nullable=False),
         sa.Column("unit", sa.String(30), nullable=True),
@@ -67,7 +71,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("date", sa.Date(), unique=True, nullable=False),
         sa.Column("status", sa.String(20), nullable=False, server_default="voting"),
-        sa.Column("winner_recipe_id", sa.Uuid(), sa.ForeignKey("dinner.recipes.id"), nullable=True),
+        sa.Column("winner_recipe_id", sa.Uuid(), sa.ForeignKey(RECIPES_FK), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         schema="dinner",
     )
@@ -75,19 +79,19 @@ def upgrade() -> None:
     op.create_table(
         "daily_menu_recipes",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("menu_id", sa.Uuid(), sa.ForeignKey("dinner.daily_menus.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("recipe_id", sa.Uuid(), sa.ForeignKey("dinner.recipes.id"), nullable=False),
+        sa.Column("menu_id", sa.Uuid(), sa.ForeignKey(MENUS_FK, ondelete="CASCADE"), nullable=False),
+        sa.Column("recipe_id", sa.Uuid(), sa.ForeignKey(RECIPES_FK), nullable=False),
         sa.Column("source", sa.String(10), nullable=False),
-        sa.Column("added_by", sa.Uuid(), sa.ForeignKey("auth.users.id"), nullable=True),
+        sa.Column("added_by", sa.Uuid(), sa.ForeignKey(USERS_FK), nullable=True),
         schema="dinner",
     )
 
     op.create_table(
         "votes",
         sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("auth.users.id"), nullable=False),
-        sa.Column("menu_id", sa.Uuid(), sa.ForeignKey("dinner.daily_menus.id"), nullable=False),
-        sa.Column("recipe_id", sa.Uuid(), sa.ForeignKey("dinner.recipes.id"), nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey(USERS_FK), nullable=False),
+        sa.Column("menu_id", sa.Uuid(), sa.ForeignKey(MENUS_FK), nullable=False),
+        sa.Column("recipe_id", sa.Uuid(), sa.ForeignKey(RECIPES_FK), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("user_id", "menu_id", name="uq_vote_user_menu"),
         schema="dinner",

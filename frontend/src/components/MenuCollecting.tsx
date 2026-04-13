@@ -10,7 +10,7 @@ interface Props {
   canSuggest: boolean;
 }
 
-export function MenuCollecting({ menu, onSuggest, canSuggest }: Props) {
+export function MenuCollecting({ menu, onSuggest, canSuggest }: Readonly<Props>) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

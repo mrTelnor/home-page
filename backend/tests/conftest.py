@@ -30,7 +30,14 @@ from app.core.config import settings
 from app.core.dependencies import get_db
 from app.core.security import hash_password
 from app.db.base import Base
-from app.db.models import *  # noqa: F401, F403 — register models
+from app.db.models import (  # noqa: F401 — imports trigger model registration
+    DailyMenu,
+    DailyMenuRecipe,
+    Ingredient,
+    Recipe,
+    Session,
+    Vote,
+)
 from app.db.models.user import User
 from app.main import app
 

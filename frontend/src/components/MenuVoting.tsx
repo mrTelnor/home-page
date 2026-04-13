@@ -12,7 +12,7 @@ interface Props {
   isPending: boolean;
 }
 
-export function MenuVoting({ menu, onVote, onCancelVote, isPending }: Props) {
+export function MenuVoting({ menu, onVote, onCancelVote, isPending }: Readonly<Props>) {
   const userVoted = menu.user_voted_recipe_id !== null;
 
   return (
