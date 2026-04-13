@@ -23,7 +23,7 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
@@ -34,11 +34,9 @@ from app.db.models import *  # noqa: F401, F403 — register models
 from app.db.models.user import User
 from app.main import app
 
-# Engine для setup/teardown
+# Оба engine с NullPool — каждая сессия получает свежее соединение
 admin_engine = create_async_engine(settings.database_url, poolclass=NullPool)
-
-# Engine для приложения в тестах — обычный пул, чтобы избежать проблем с asyncpg NullPool
-test_engine = create_async_engine(settings.database_url)
+test_engine = create_async_engine(settings.database_url, poolclass=NullPool)
 TestSessionMaker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
@@ -70,16 +68,32 @@ async def clean_tables():
     yield
 
 
-@pytest.fixture
-async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Async session для тестов, которым нужен прямой доступ к БД (фикстуры юзеров)."""
-    async with TestSessionMaker() as session:
-        yield session
-
-
 async def _override_get_db():
     async with TestSessionMaker() as session:
         yield session
+
+
+async def _create_user_standalone(
+    username: str,
+    password: str = "test12345",
+    role: str = "user",
+    tg_id: int | None = None,
+) -> User:
+    """Создать пользователя в отдельной сессии и закрыть её сразу."""
+    async with TestSessionMaker() as session:
+        user = User(
+            id=uuid4(),
+            username=username,
+            password_hash=hash_password(password),
+            role=role,
+            tg_id=tg_id,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        # Отсоединить от сессии — будем использовать только как DTO
+        session.expunge(user)
+        return user
 
 
 def _new_client() -> AsyncClient:
@@ -97,36 +111,16 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
-async def _create_user(
-    session: AsyncSession,
-    username: str,
-    password: str = "test12345",
-    role: str = "user",
-    tg_id: int | None = None,
-) -> User:
-    user = User(
-        id=uuid4(),
-        username=username,
-        password_hash=hash_password(password),
-        role=role,
-        tg_id=tg_id,
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user
-
-
 @pytest.fixture
-async def test_user(db_session: AsyncSession) -> User:
+async def test_user() -> User:
     """Обычный пользователь."""
-    return await _create_user(db_session, "testuser")
+    return await _create_user_standalone("testuser")
 
 
 @pytest.fixture
-async def admin_user(db_session: AsyncSession) -> User:
+async def admin_user() -> User:
     """Пользователь с ролью admin."""
-    return await _create_user(db_session, "admin", role="admin")
+    return await _create_user_standalone("admin", role="admin")
 
 
 async def _login(client: AsyncClient, username: str, password: str = "test12345") -> None:
