@@ -16,7 +16,7 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-bot-token")
 os.environ.setdefault("TELEGRAM_BOT_USERNAME", "test_bot")
 os.environ.setdefault("BOT_SECRET", "test-bot-secret")
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 from uuid import UUID, uuid4
 
 import pytest
