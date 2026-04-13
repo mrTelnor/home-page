@@ -1,0 +1,67 @@
+name: Sonar Analysis
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  sonar:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: homepage
+          POSTGRES_PASSWORD: ${{ github.run_id }}
+          POSTGRES_DB: homepage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U homepage"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Для Sonar нужна полная история
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install coverage
+
+      - name: Run backend tests with coverage
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://homepage:${{ github.run_id }}@localhost:5432/homepage_test
+          JWT_SECRET: test-jwt-secret
+          INVITE_CODE: test-invite
+          CRON_SECRET: test-cron-secret
+          TELEGRAM_BOT_TOKEN: test-bot-token
+          TELEGRAM_BOT_USERNAME: test_bot
+          BOT_SECRET: test-bot-secret
+        run: |
+          coverage run --source=app -m pytest
+          coverage xml -o coverage.xml
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
