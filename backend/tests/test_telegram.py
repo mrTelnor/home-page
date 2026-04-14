@@ -130,3 +130,23 @@ async def test_telegram_login_unknown_tg_id(client: AsyncClient):
         json={"tg_id": 12345678},
     )
     assert response.status_code == 404
+
+
+async def test_telegram_login_no_header(client: AsyncClient):
+    response = await client.post(
+        "/api/auth/telegram-login",
+        json={"tg_id": 999},
+    )
+    assert response.status_code == 403
+
+
+async def test_telegram_verify_relink_same_user(authed_client: AsyncClient):
+    """Повторная привязка того же tg_id тем же пользователем — успех."""
+    payload = _make_telegram_payload(4444)
+    r1 = await authed_client.post("/api/auth/telegram-verify", json=payload)
+    assert r1.status_code == 200
+
+    payload2 = _make_telegram_payload(4444)
+    r2 = await authed_client.post("/api/auth/telegram-verify", json=payload2)
+    assert r2.status_code == 200
+    assert r2.json()["tg_id"] == 4444

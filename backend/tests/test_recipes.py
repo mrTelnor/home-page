@@ -120,3 +120,46 @@ async def test_delete_foreign_recipe_forbidden(
 
     response = await authed_client.delete(f"/api/recipes/{recipe_id}")
     assert response.status_code == 403
+
+
+async def test_update_recipe_not_found(authed_client: AsyncClient):
+    response = await authed_client.put(
+        "/api/recipes/00000000-0000-0000-0000-000000000000",
+        json={"title": "Нет такого"},
+    )
+    assert response.status_code == 404
+
+
+async def test_delete_recipe_not_found(authed_client: AsyncClient):
+    response = await authed_client.delete(
+        "/api/recipes/00000000-0000-0000-0000-000000000000"
+    )
+    assert response.status_code == 404
+
+
+async def test_delete_recipe_in_active_voting(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    created = await admin_client.post("/api/recipes", json=_sample_recipe_payload())
+    recipe_id = created.json()["id"]
+
+    # Создать ещё рецептов чтобы было минимум 3
+    await admin_client.post("/api/recipes", json=_sample_recipe_payload("Суп"))
+    await admin_client.post("/api/recipes", json=_sample_recipe_payload("Каша"))
+
+    # Создать меню и финализировать — рецепт попадёт в активное голосование
+    await admin_client.post("/api/menus/create-daily", json={})
+    await admin_client.post("/api/menus/finalize", json={})
+
+    response = await admin_client.delete(f"/api/recipes/{recipe_id}")
+    assert response.status_code == 409
+
+
+async def test_admin_can_delete_any_recipe(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    created = await authed_client.post("/api/recipes", json=_sample_recipe_payload())
+    recipe_id = created.json()["id"]
+
+    response = await admin_client.delete(f"/api/recipes/{recipe_id}")
+    assert response.status_code == 204

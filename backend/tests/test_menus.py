@@ -1,6 +1,7 @@
 from httpx import AsyncClient
 
 CRON_SECRET = "test-cron-secret"
+FAKE_UUID = "00000000-0000-0000-0000-000000000000"
 
 
 def _sample_recipe(title: str) -> dict:
@@ -198,3 +199,131 @@ async def test_delete_menu_user_forbidden(
 
     r = await authed_client.delete(f"/api/menus/{menu['id']}")
     assert r.status_code == 403
+
+
+async def test_delete_menu_not_found(admin_client: AsyncClient):
+    r = await admin_client.delete(f"/api/menus/{FAKE_UUID}")
+    assert r.status_code == 404
+
+
+# ---------- SUGGEST ERRORS ----------
+
+async def test_suggest_menu_not_found(authed_client: AsyncClient):
+    r = await authed_client.post(
+        f"/api/menus/{FAKE_UUID}/suggest",
+        json={"recipe_id": FAKE_UUID},
+    )
+    assert r.status_code == 404
+
+
+async def test_suggest_recipe_not_found(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    await _create_recipes(admin_client, 3)
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
+
+    r = await authed_client.post(
+        f"/api/menus/{menu['id']}/suggest",
+        json={"recipe_id": FAKE_UUID},
+    )
+    assert r.status_code == 404
+
+
+async def test_suggest_recipe_already_in_menu(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    await _create_recipes(admin_client, 3)
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
+    existing_recipe_id = menu["recipes"][0]["recipe_id"]
+
+    r = await authed_client.post(
+        f"/api/menus/{menu['id']}/suggest",
+        json={"recipe_id": existing_recipe_id},
+    )
+    assert r.status_code == 409
+
+
+async def test_suggest_menu_not_collecting(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    recipe_ids = await _create_recipes(admin_client, 5)
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
+    menu_recipe_ids = {r["recipe_id"] for r in menu["recipes"]}
+    extra = next(rid for rid in recipe_ids if rid not in menu_recipe_ids)
+
+    await admin_client.post("/api/menus/finalize", json={})
+
+    r = await authed_client.post(
+        f"/api/menus/{menu['id']}/suggest",
+        json={"recipe_id": extra},
+    )
+    assert r.status_code == 400
+
+
+# ---------- VOTE ERRORS ----------
+
+async def test_vote_recipe_not_in_menu(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    await _create_recipes(admin_client, 3)
+    await admin_client.post("/api/menus/create-daily", json={})
+    menu = (await admin_client.post("/api/menus/finalize", json={})).json()
+
+    r = await authed_client.post(
+        f"/api/menus/{menu['id']}/vote",
+        json={"recipe_id": FAKE_UUID},
+    )
+    assert r.status_code == 400
+
+
+# ---------- FINALIZE / CLOSE ERRORS ----------
+
+async def test_finalize_menu_not_found(admin_client: AsyncClient):
+    r = await admin_client.post(
+        "/api/menus/finalize", json={"date": "2000-01-01"}
+    )
+    assert r.status_code == 404
+
+
+async def test_close_voting_menu_not_found(admin_client: AsyncClient):
+    r = await admin_client.post(
+        "/api/menus/close-voting", json={"date": "2000-01-01"}
+    )
+    assert r.status_code == 404
+
+
+async def test_close_voting_not_in_voting_status(admin_client: AsyncClient):
+    await _create_recipes(admin_client, 3)
+    await admin_client.post("/api/menus/create-daily", json={})
+
+    r = await admin_client.post("/api/menus/close-voting", json={})
+    assert r.status_code == 400
+
+
+# ---------- GET ONE / LIST ----------
+
+async def test_get_menu_by_id(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    await _create_recipes(admin_client, 3)
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
+
+    r = await authed_client.get(f"/api/menus/{menu['id']}")
+    assert r.status_code == 200
+    assert r.json()["id"] == menu["id"]
+
+
+async def test_get_menu_not_found(authed_client: AsyncClient):
+    r = await authed_client.get(f"/api/menus/{FAKE_UUID}")
+    assert r.status_code == 404
+
+
+async def test_list_menus(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    await _create_recipes(admin_client, 3)
+    await admin_client.post("/api/menus/create-daily", json={})
+
+    r = await authed_client.get("/api/menus")
+    assert r.status_code == 200
+    assert len(r.json()) >= 1
