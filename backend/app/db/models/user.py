@@ -20,6 +20,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     birthday: Mapped[date | None] = mapped_column(Date)
     is_volkov: Mapped[bool] = mapped_column(Boolean, default=False)
     gender: Mapped[str | None] = mapped_column(String(10))
+    notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 

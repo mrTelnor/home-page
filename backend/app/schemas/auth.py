@@ -26,6 +26,7 @@ class UserResponse(BaseModel):
     birthday: date | None = None
     is_volkov: bool = False
     gender: Literal["male", "female"] | None = None
+    notifications_enabled: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -35,6 +36,7 @@ class UpdateProfileRequest(BaseModel):
     birthday: date | None = None
     is_volkov: bool | None = None
     gender: Literal["male", "female"] | None = None
+    notifications_enabled: bool | None = None
 
 
 class ChangePasswordRequest(BaseModel):
