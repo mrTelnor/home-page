@@ -47,7 +47,10 @@ interface Props {
   submitLabel: string;
 }
 
-const NUMERIC_RE = /^-?\d+([.,]\d+)?$/;
+function isNumericAmount(value: string): boolean {
+  const normalized = value.replace(",", ".");
+  return normalized !== "" && Number.isFinite(Number(normalized));
+}
 
 export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Readonly<Props>) {
   const [title, setTitle] = useState(initialData?.title ?? "");
@@ -127,7 +130,7 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
         hasValidIngredient = true;
       }
 
-      if (hasUnit && hasAmount && !NUMERIC_RE.test(ing.amount.trim())) {
+      if (hasUnit && hasAmount && !isNumericAmount(ing.amount.trim())) {
         rowErr.amountNotNumeric = true;
       }
 

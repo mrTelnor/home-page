@@ -12,10 +12,10 @@ import { Separator } from "@/components/ui/separator";
 
 function scaleAmount(amount: string, factor: number): string {
   const normalized = amount.replace(",", ".").trim();
-  const num = Number.parseFloat(normalized);
-  if (Number.isNaN(num) || !/^-?\d*\.?\d+$/.test(normalized)) {
+  if (!Number.isFinite(Number(normalized))) {
     return amount;
   }
+  const num = Number(normalized);
   const scaled = num * factor;
   const rounded = Math.round(scaled * 100) / 100;
   return String(rounded).replace(".", ",");
