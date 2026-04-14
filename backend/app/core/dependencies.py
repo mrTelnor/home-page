@@ -24,11 +24,16 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 async def get_current_user(
     session: DbSession,
     access_token: Annotated[str | None, Cookie()] = None,
+    authorization: Annotated[str | None, Header()] = None,
 ) -> User:
-    if access_token is None:
+    token = access_token
+    if token is None and authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+
+    if token is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    payload = decode_jwt(access_token)
+    payload = decode_jwt(token)
     if payload is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 

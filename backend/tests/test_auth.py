@@ -180,3 +180,40 @@ async def test_update_profile_partial(authed_client: AsyncClient):
 async def test_update_profile_requires_auth(client: AsyncClient):
     response = await client.patch("/api/auth/me", json={"first_name": "X"})
     assert response.status_code == 401
+
+
+# ---------- BEARER TOKEN AUTH ----------
+
+async def test_me_with_bearer_token(client: AsyncClient, test_user: User):
+    """Bot-style: telegram-login returns JWT, usable as Bearer token."""
+    import hashlib
+    import hmac
+    import time
+
+    BOT_TOKEN = "test-bot-token"
+    BOT_SECRET = "test-bot-secret"
+
+    # Login and link tg_id
+    await client.post("/api/auth/login", json={"username": "testuser", "password": "test12345"})
+    payload = {"id": 77777, "first_name": "Test", "auth_date": int(time.time())}
+    check_string = "\n".join(f"{k}={payload[k]}" for k in sorted(payload.keys()))
+    secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
+    payload["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+    await client.post("/api/auth/telegram-verify", json=payload)
+
+    # Get JWT via telegram-login
+    login_resp = await client.post(
+        "/api/auth/telegram-login",
+        headers={"X-Bot-Secret": BOT_SECRET},
+        json={"tg_id": 77777},
+    )
+    token = login_resp.json()["access_token"]
+
+    # Clear cookies, use Bearer header only
+    client.cookies.clear()
+    me_resp = await client.get(
+        "/api/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert me_resp.status_code == 200
+    assert me_resp.json()["username"] == "testuser"
