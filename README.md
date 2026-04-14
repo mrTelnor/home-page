@@ -4,13 +4,8 @@
 [![Frontend CI](https://github.com/mrTelnor/home-page/actions/workflows/frontend.yml/badge.svg)](https://github.com/mrTelnor/home-page/actions/workflows/frontend.yml)
 [![Sonar Analysis](https://github.com/mrTelnor/home-page/actions/workflows/sonar.yml/badge.svg)](https://github.com/mrTelnor/home-page/actions/workflows/sonar.yml)
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=coverage)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
-[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=bugs)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=mrTelnor_home-page&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=mrTelnor_home-page)
 
 Семейный домашний сервис. Первое приложение — **Dinner Vote**: голосование за ужин через веб-интерфейс (позже — через Telegram-бота).
 
