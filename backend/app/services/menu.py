@@ -1,4 +1,4 @@
-import random
+import secrets
 import uuid
 from datetime import date
 
@@ -41,7 +41,8 @@ async def create_daily_menu(session: AsyncSession, menu_date: date) -> DailyMenu
     result = await session.execute(select(Recipe.id))
     all_recipe_ids = [row[0] for row in result.all()]
 
-    random_ids = random.sample(all_recipe_ids, min(3, len(all_recipe_ids)))
+    rng = secrets.SystemRandom()
+    random_ids = rng.sample(all_recipe_ids, min(3, len(all_recipe_ids)))
 
     menu = DailyMenu(id=uuid.uuid4(), date=menu_date, status="collecting")
     for recipe_id in random_ids:
@@ -144,7 +145,7 @@ async def close_voting(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
 
     max_votes = max((vote_counts.get(rid, 0) for rid in menu_recipe_ids), default=0)
     candidates = [rid for rid in menu_recipe_ids if vote_counts.get(rid, 0) == max_votes]
-    winner = random.choice(candidates)
+    winner = secrets.choice(candidates)
 
     menu.winner_recipe_id = winner
     menu.status = "closed"
