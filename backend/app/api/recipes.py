@@ -10,6 +10,7 @@ from app.services.recipe import (
     get_all_recipes,
     get_recipe_by_id,
     is_recipe_in_active_voting,
+    search_recipes,
     update_recipe,
 )
 
@@ -35,6 +36,12 @@ async def create(data: RecipeCreateRequest, session: DbSession, user: CurrentUse
 async def list_all(session: DbSession, user: CurrentUser):
     _ = user
     return await get_all_recipes(session)
+
+
+@router.get("/search", response_model=list[RecipeResponse])
+async def search(q: str, session: DbSession, user: CurrentUser):
+    _ = user
+    return await search_recipes(session, q)
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)

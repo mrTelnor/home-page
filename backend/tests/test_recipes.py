@@ -163,3 +163,30 @@ async def test_admin_can_delete_any_recipe(
 
     response = await admin_client.delete(f"/api/recipes/{recipe_id}")
     assert response.status_code == 204
+
+
+# ---------- SEARCH ----------
+
+async def test_search_recipes(authed_client: AsyncClient):
+    await authed_client.post("/api/recipes", json=_sample_recipe_payload("Макароны по-флотски"))
+    await authed_client.post("/api/recipes", json=_sample_recipe_payload("Макароны с сосисками"))
+    await authed_client.post("/api/recipes", json=_sample_recipe_payload("Борщ"))
+
+    response = await authed_client.get("/api/recipes/search?q=макароны")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    titles = {r["title"] for r in data}
+    assert "Макароны по-флотски" in titles
+    assert "Макароны с сосисками" in titles
+
+
+async def test_search_recipes_no_results(authed_client: AsyncClient):
+    response = await authed_client.get("/api/recipes/search?q=несуществующий")
+    assert response.status_code == 200
+    assert len(response.json()) == 0
+
+
+async def test_search_recipes_requires_auth(client: AsyncClient):
+    response = await client.get("/api/recipes/search?q=test")
+    assert response.status_code == 401

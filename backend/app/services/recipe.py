@@ -84,3 +84,13 @@ async def is_recipe_in_active_voting(session: AsyncSession, recipe_id: uuid.UUID
 async def delete_recipe(session: AsyncSession, recipe: Recipe) -> None:
     await session.delete(recipe)
     await session.commit()
+
+
+async def search_recipes(session: AsyncSession, query: str) -> list[Recipe]:
+    result = await session.execute(
+        select(Recipe)
+        .where(Recipe.title.ilike(f"%{query}%"))
+        .options(selectinload(Recipe.ingredients))
+        .order_by(Recipe.title)
+    )
+    return list(result.scalars().all())
