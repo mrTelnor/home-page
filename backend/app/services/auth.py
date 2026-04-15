@@ -60,3 +60,10 @@ async def update_profile(session: AsyncSession, user: User, fields: dict) -> Use
     await session.commit()
     await session.refresh(user)
     return user
+
+
+async def get_notifiable_users(session: AsyncSession) -> list[User]:
+    result = await session.execute(
+        select(User).where(User.tg_id.is_not(None), User.notifications_enabled.is_(True))
+    )
+    return list(result.scalars().all())

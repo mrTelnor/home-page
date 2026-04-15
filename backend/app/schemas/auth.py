@@ -60,3 +60,11 @@ class TelegramLoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+
+
+class NotifiableUserResponse(BaseModel):
+    tg_id: int
+    first_name: str | None = None
+    username: str
+
+    model_config = {"from_attributes": True}

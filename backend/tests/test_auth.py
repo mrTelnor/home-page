@@ -217,3 +217,60 @@ async def test_me_with_bearer_token(client: AsyncClient, test_user: User):
     )
     assert me_resp.status_code == 200
     assert me_resp.json()["username"] == "testuser"
+
+
+# ---------- NOTIFIABLE USERS ----------
+
+async def test_notifiable_users(authed_client: AsyncClient, admin_client: AsyncClient):
+    """Users with tg_id and notifications_enabled=True are returned."""
+    import hashlib
+    import hmac
+    import time
+
+    BOT_TOKEN = "test-bot-token"
+    payload = {"id": 11111, "first_name": "Admin", "auth_date": int(time.time())}
+    check_string = "\n".join(f"{k}={payload[k]}" for k in sorted(payload.keys()))
+    secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
+    payload["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+    await admin_client.post("/api/auth/telegram-verify", json=payload)
+
+    response = await authed_client.get(
+        "/api/auth/users/notifiable",
+        headers={"X-Bot-Secret": "test-bot-secret"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["tg_id"] == 11111
+
+
+async def test_notifiable_users_wrong_secret(authed_client: AsyncClient):
+    response = await authed_client.get(
+        "/api/auth/users/notifiable",
+        headers={"X-Bot-Secret": "wrong"},
+    )
+    assert response.status_code == 403
+
+
+async def test_notifiable_users_muted_excluded(admin_client: AsyncClient):
+    """Users with notifications_enabled=False are excluded."""
+    import hashlib
+    import hmac
+    import time
+
+    BOT_TOKEN = "test-bot-token"
+    payload = {"id": 22222, "first_name": "Admin", "auth_date": int(time.time())}
+    check_string = "\n".join(f"{k}={payload[k]}" for k in sorted(payload.keys()))
+    secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
+    payload["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+    await admin_client.post("/api/auth/telegram-verify", json=payload)
+
+    # Mute notifications
+    await admin_client.patch("/api/auth/me", json={"notifications_enabled": False})
+
+    response = await admin_client.get(
+        "/api/auth/users/notifiable",
+        headers={"X-Bot-Secret": "test-bot-secret"},
+    )
+    assert response.status_code == 200
+    assert len(response.json()) == 0

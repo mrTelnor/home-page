@@ -8,6 +8,7 @@ from app.core.security import create_jwt, verify_password
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
+    NotifiableUserResponse,
     RegisterRequest,
     TelegramAuthData,
     TelegramLoginRequest,
@@ -18,6 +19,7 @@ from app.schemas.auth import (
 from app.services.auth import (
     authenticate_user,
     create_user,
+    get_notifiable_users,
     get_user_by_tg_id,
     set_telegram_id,
     update_password,
@@ -139,3 +141,15 @@ async def telegram_login(
 
     token = create_jwt(str(user.id))
     return TokenResponse(access_token=token)
+
+
+@router.get("/users/notifiable", response_model=list[NotifiableUserResponse])
+async def notifiable_users(
+    session: DbSession,
+    x_bot_secret: Annotated[str | None, Header()] = None,
+):
+    if x_bot_secret != settings.bot_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+    users = await get_notifiable_users(session)
+    return users
