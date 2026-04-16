@@ -60,6 +60,17 @@
       - "--exclude=dist"
   notify: Recreate containers
 
+- name: Sync bot source
+  ansible.posix.synchronize:
+    src: "{{ inventory_dir }}/../../../bot/"
+    dest: /opt/home-page/bot/
+    dest_port: "{{ ansible_port | int }}"
+    delete: true
+    rsync_opts:
+      - "--exclude=__pycache__"
+      - "--exclude=.pytest_cache"
+  notify: Recreate containers
+
 - name: Generate .env from vault variables
   template:
     src: env.j2
