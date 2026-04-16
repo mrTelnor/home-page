@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
@@ -17,8 +18,16 @@ logger = logging.getLogger(__name__)
 
 async def on_startup(bot: Bot) -> None:
     webhook_url = f"{settings.webhook_host}{settings.webhook_path}"
-    await bot.set_webhook(webhook_url)
-    logger.info("Webhook set: %s", webhook_url)
+    for attempt in range(1, 11):
+        try:
+            await bot.set_webhook(webhook_url)
+            logger.info("Webhook set: %s", webhook_url)
+            return
+        except Exception as e:
+            logger.warning("Webhook attempt %d/10 failed: %s", attempt, e)
+            if attempt < 10:
+                await asyncio.sleep(30)
+    logger.error("Failed to set webhook after 10 attempts, starting anyway")
 
 
 async def on_shutdown(bot: Bot) -> None:
