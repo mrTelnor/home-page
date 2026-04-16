@@ -100,7 +100,8 @@ curl https://api.telnor.ru/api/auth/me -b cookies.txt
   "first_name": "Иван",
   "birthday": "1990-05-15",
   "is_volkov": true,
-  "gender": "male"
+  "gender": "male",
+  "notifications_enabled": true
 }
 ```
 
@@ -123,6 +124,7 @@ curl -X PATCH https://api.telnor.ru/api/auth/me \
 - `birthday`: string (ISO date `YYYY-MM-DD`) | null
 - `is_volkov`: boolean
 - `gender`: `"male"` | `"female"` | null
+- `notifications_enabled`: boolean (управление уведомлениями бота)
 
 Ответ (200): обновлённый `UserResponse`.
 
@@ -186,11 +188,42 @@ curl -X POST https://api.telnor.ru/api/auth/telegram-login \
 - 403 — неверный секрет
 - 404 — пользователь не найден
 
+### GET /api/auth/users/notifiable
+
+Список пользователей с привязанным Telegram и включёнными уведомлениями. Для бота.
+
+```bash
+curl https://api.telnor.ru/api/auth/users/notifiable \
+  -H "X-Bot-Secret: $BOT_SECRET"
+```
+
+Ответ (200):
+```json
+[
+  {"tg_id": 123456, "first_name": "Никита", "username": "testuser"}
+]
+```
+
+Ошибки:
+- 403 — неверный секрет
+
 ---
 
 ## Recipes
 
-Все эндпоинты требуют авторизации (cookie из `/api/auth/login`).
+Все эндпоинты требуют авторизации (cookie или Bearer token).
+
+### GET /api/recipes/search?q=
+
+Поиск рецептов по подстроке в названии (ILIKE). Требуется авторизация.
+
+```bash
+curl "https://api.telnor.ru/api/recipes/search?q=макароны" -b cookies.txt
+```
+
+Ответ (200): массив `RecipeResponse` (тот же формат что у `GET /api/recipes`).
+
+Все эндпоинты требуют авторизации (cookie или `Authorization: Bearer <token>`).
 
 ### POST /api/recipes
 

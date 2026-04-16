@@ -37,8 +37,15 @@
 - **firewalld** — порты 80/443/9922, PostgreSQL 5432 ограничен домашним IP через rich rule
 - Docker-подсеть (172.16.0.0/12) в trusted zone
 
+### Telegram-бот
+- **Aiogram 3** (async) — polling mode, отдельный Docker-сервис
+- Общается с backend API через httpx (`http://backend:8000`) с JWT авторизацией
+- Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/mute`, `/unmute`
+- Уведомления: рассылка через `/notify` эндпоинт (вызывается cron-контейнером)
+- JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
+
 ### Автоматизация
-- **Cron-контейнер** (Alpine + curl) — вызывает backend-эндпоинты по расписанию с заголовком `X-Cron-Secret`
+- **Cron-контейнер** (Alpine + curl) — вызывает backend-эндпоинты по расписанию с заголовком `X-Cron-Secret`, затем `/notify` эндпоинт бота для рассылки уведомлений
 - Расписание: 08:00/13:00/17:00 GMT+3 для цикла голосования
 
 ### Управление
@@ -64,7 +71,8 @@
 ```
 Схема: auth
 ├── users          (id, tg_id, username, email, password_hash, role,
-│                   first_name, birthday, is_volkov, gender, created_at)
+│                   first_name, birthday, is_volkov, gender,
+│                   notifications_enabled, created_at)
 └── sessions       (id, user_id, token, expires_at)
 
 Схема: dinner
@@ -78,13 +86,15 @@
 - `daily_menus.status`: `collecting` → `voting` → `closed`
 - `daily_menu_recipes.source`: `random` | `user`
 - `votes` — unique constraint (user_id, menu_id): один голос на меню
-- `users.gender`: `male` | `female` (для будущих оповещений и склонений)
+- `users.gender`: `male` | `female` (для оповещений и склонений)
 - `users.is_volkov`: фамилия Волков/Волкова
+- `users.notifications_enabled`: управление уведомлениями через бота (default: true)
 - Username нормализуется в lowercase (регистронезависимость)
 
 ### Авторизация
 - **JWT токены** с HS256 (python-jose), срок 7 дней
 - **httpOnly cookie** для веба — cookie отправляется автоматически
+- **Bearer token** для бота — JWT в заголовке `Authorization: Bearer <token>`
 - **Регистрация по инвайт-коду** (в Ansible Vault)
 - **Пароль** — bcrypt (passlib + bcrypt 4.0 pinned), смена через `/profile`
 - **Роли:** `user` (по умолчанию), `admin`
@@ -130,6 +140,13 @@ home-page/
 │   ├── nginx.conf
 │   ├── Dockerfile
 │   └── package.json
+├── bot/
+│   └── app/
+│       ├── main.py           # Точка входа (polling + /notify сервер)
+│       ├── config.py          # Настройки из env
+│       ├── api_client.py      # HTTP-клиент к backend с JWT кэшем
+│       ├── notify.py          # Логика рассылки уведомлений
+│       └── handlers/          # start, menu, vote, suggest, recipes, notifications
 ├── infra/
 │   ├── ansible/              # Provisioning ВМ, деплой
 │   │   ├── playbooks/        # initial-setup.yml, setup.yml
@@ -176,7 +193,15 @@ home-page/
       ┌───────────┐ HTTP + X-Cron-Secret
       │   Cron    ├─────────────────────→ Backend API (create-daily, finalize, close-voting)
       │ (Alpine)  │ по расписанию GMT+3
+      │           ├─────────────────────→ Bot /notify (уведомления в Telegram)
       └───────────┘
+
+      ┌───────────┐ polling             ┌──────────────┐
+      │ Telegram  │ ←─────────────────── │     Bot      │
+      │   API     │                      │ (Aiogram 3)  │
+      └───────────┘                      └──────┬───────┘
+                                                │ HTTP + Bearer JWT
+                                                └──→ Backend API
 ```
 
 ---
