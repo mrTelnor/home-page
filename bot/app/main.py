@@ -5,7 +5,6 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 
 from app.api_client import api
@@ -17,19 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def on_startup(bot: Bot) -> None:
-    webhook_url = f"{settings.webhook_host}{settings.webhook_path}"
-    for attempt in range(1, 11):
-        try:
-            await bot.set_webhook(webhook_url)
-            logger.info("Webhook set: %s", webhook_url)
-            return
-        except Exception as e:
-            logger.warning("Webhook attempt %d/10 failed: %s", attempt, e)
-            if attempt < 10:
-                await asyncio.sleep(30)
-    logger.error("Failed to set webhook after 10 attempts, starting anyway")
-
+async def set_commands(bot: Bot) -> None:
     await bot.set_my_commands([
         BotCommand(command="menu", description="Меню дня"),
         BotCommand(command="vote", description="Голосовать за ужин"),
@@ -41,8 +28,13 @@ async def on_startup(bot: Bot) -> None:
     ])
 
 
-async def on_shutdown(bot: Bot) -> None:
-    await bot.delete_webhook()
+async def on_startup_polling(bot: Bot) -> None:
+    await bot.delete_webhook(drop_pending_updates=True)
+    await set_commands(bot)
+    logger.info("Bot started in polling mode")
+
+
+async def on_shutdown_polling(bot: Bot) -> None:
     await api.close()
     logger.info("Shutdown complete")
 
@@ -63,6 +55,18 @@ async def handle_notify(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def run_notify_server(bot: Bot) -> None:
+    """Run aiohttp server for /notify endpoint alongside polling."""
+    app = web.Application()
+    app["bot"] = bot
+    app.router.add_post("/notify", handle_notify)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", settings.port)
+    await site.start()
+    logger.info("Notify server started on port %d", settings.port)
+
+
 def main() -> None:
     bot = Bot(
         token=settings.telegram_bot_token,
@@ -70,19 +74,13 @@ def main() -> None:
     )
     dp = Dispatcher()
     dp.include_router(main_router)
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
+    dp.startup.register(on_startup_polling)
+    dp.shutdown.register(on_shutdown_polling)
 
-    app = web.Application()
-    app["bot"] = bot
-
-    webhook_handler = SimpleRequestHandler(dispatcher=dp, bot=bot)
-    webhook_handler.register(app, path=settings.webhook_path)
-
-    app.router.add_post("/notify", handle_notify)
-
-    setup_application(app, dp, bot=bot)
-    web.run_app(app, host="0.0.0.0", port=settings.port)
+    # Start notify server in background, then run polling
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(run_notify_server(bot))
+    dp.run_polling(bot)
 
 
 if __name__ == "__main__":
