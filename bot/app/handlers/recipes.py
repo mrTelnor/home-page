@@ -14,7 +14,10 @@ def build_recipes_keyboard(recipes: list[dict], page: int) -> InlineKeyboardMark
     end = start + PAGE_SIZE
     page_recipes = recipes[start:end]
 
-    buttons = [[InlineKeyboardButton(text=r["title"], callback_data="recipe_noop")] for r in page_recipes]
+    buttons = [
+        [InlineKeyboardButton(text=r["title"], callback_data=f"recipe:{r['id']}")]
+        for r in page_recipes
+    ]
 
     nav = []
     if page > 0:
@@ -25,6 +28,21 @@ def build_recipes_keyboard(recipes: list[dict], page: int) -> InlineKeyboardMark
         buttons.append(nav)
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def format_recipe(recipe: dict) -> str:
+    lines = [f"<b>{recipe['title']}</b>", f"Порций: {recipe['servings']}"]
+
+    if recipe.get("ingredients"):
+        lines.append("\nИнгредиенты:")
+        for ing in recipe["ingredients"]:
+            unit = f" {ing['unit']}" if ing.get("unit") else ""
+            lines.append(f"  • {ing['name']} — {ing['amount']}{unit}")
+
+    if recipe.get("description"):
+        lines.append(f"\n{recipe['description']}")
+
+    return "\n".join(lines)
 
 
 @router.message(Command("recipes"))
@@ -48,6 +66,27 @@ async def cmd_recipes(message: Message) -> None:
     )
 
 
+@router.callback_query(F.data.startswith("recipe:"))
+async def cb_recipe_detail(callback: CallbackQuery) -> None:
+    recipe_id = callback.data.split(":")[1]
+    tg_id = callback.from_user.id
+
+    resp = await api.get(f"/api/recipes/{recipe_id}", tg_id)
+    if resp is None:
+        await callback.answer(NOT_LINKED_MSG)
+        return
+
+    if resp.status_code != 200:
+        await callback.answer("Рецепт не найден.")
+        return
+
+    recipe = resp.json()
+    text = format_recipe(recipe)
+
+    await callback.message.answer(text)
+    await callback.answer()
+
+
 @router.callback_query(F.data.startswith("recipes_page:"))
 async def cb_recipes_page(callback: CallbackQuery) -> None:
     page = int(callback.data.split(":")[1])
@@ -60,9 +99,4 @@ async def cb_recipes_page(callback: CallbackQuery) -> None:
 
     recipes = resp.json()
     await callback.message.edit_reply_markup(reply_markup=build_recipes_keyboard(recipes, page))
-    await callback.answer()
-
-
-@router.callback_query(F.data == "recipe_noop")
-async def cb_recipe_noop(callback: CallbackQuery) -> None:
     await callback.answer()

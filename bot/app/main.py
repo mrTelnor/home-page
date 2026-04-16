@@ -4,6 +4,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import BotCommand
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 
@@ -28,6 +29,16 @@ async def on_startup(bot: Bot) -> None:
             if attempt < 10:
                 await asyncio.sleep(30)
     logger.error("Failed to set webhook after 10 attempts, starting anyway")
+
+    await bot.set_my_commands([
+        BotCommand(command="menu", description="Меню дня"),
+        BotCommand(command="vote", description="Голосовать за ужин"),
+        BotCommand(command="suggest", description="Предложить рецепт"),
+        BotCommand(command="recipes", description="Список рецептов"),
+        BotCommand(command="mute", description="Отключить уведомления"),
+        BotCommand(command="unmute", description="Включить уведомления"),
+        BotCommand(command="help", description="Справка"),
+    ])
 
 
 async def on_shutdown(bot: Bot) -> None:
