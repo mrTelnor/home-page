@@ -14,9 +14,9 @@ down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-USERS_FK = USERS_FK
-RECIPES_FK = RECIPES_FK
-MENUS_FK = MENUS_FK
+USERS_FK = "auth.users.id"
+RECIPES_FK = "dinner.recipes.id"
+MENUS_FK = "dinner.daily_menus.id"
 
 
 def upgrade() -> None:
