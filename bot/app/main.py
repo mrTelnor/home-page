@@ -28,17 +28,6 @@ async def set_commands(bot: Bot) -> None:
     ])
 
 
-async def on_startup_polling(bot: Bot) -> None:
-    await bot.delete_webhook(drop_pending_updates=True)
-    await set_commands(bot)
-    logger.info("Bot started in polling mode")
-
-
-async def on_shutdown_polling(bot: Bot) -> None:
-    await api.close()
-    logger.info("Shutdown complete")
-
-
 async def handle_notify(request: web.Request) -> web.Response:
     cron_secret = request.headers.get("X-Cron-Secret")
     if cron_secret != settings.cron_secret:
@@ -55,8 +44,9 @@ async def handle_notify(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
-async def run_notify_server(bot: Bot) -> None:
-    """Run aiohttp server for /notify endpoint alongside polling."""
+async def run(bot: Bot, dp: Dispatcher) -> None:
+    """Run polling + notify server on the same event loop."""
+    # Start /notify HTTP server
     app = web.Application()
     app["bot"] = bot
     app.router.add_post("/notify", handle_notify)
@@ -66,6 +56,19 @@ async def run_notify_server(bot: Bot) -> None:
     await site.start()
     logger.info("Notify server started on port %d", settings.port)
 
+    # Setup bot
+    await bot.delete_webhook(drop_pending_updates=True)
+    await set_commands(bot)
+    logger.info("Bot started in polling mode")
+
+    # Start polling (blocks until stopped)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await runner.cleanup()
+        await api.close()
+        logger.info("Shutdown complete")
+
 
 def main() -> None:
     bot = Bot(
@@ -74,13 +77,7 @@ def main() -> None:
     )
     dp = Dispatcher()
     dp.include_router(main_router)
-    dp.startup.register(on_startup_polling)
-    dp.shutdown.register(on_shutdown_polling)
-
-    # Start notify server in background, then run polling
-    loop = asyncio.new_event_loop()
-    loop.run_until_complete(run_notify_server(bot))
-    dp.run_polling(bot)
+    asyncio.run(run(bot, dp))
 
 
 if __name__ == "__main__":

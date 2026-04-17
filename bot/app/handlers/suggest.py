@@ -33,7 +33,6 @@ async def cmd_suggest(message: Message, state: FSMContext) -> None:
         return
 
     await state.set_state(SuggestStates.waiting_recipe_name)
-    await state.update_data(menu_id=menu["id"])
     await message.answer("Введите название рецепта:")
 
 
@@ -41,8 +40,6 @@ async def cmd_suggest(message: Message, state: FSMContext) -> None:
 async def on_recipe_name(message: Message, state: FSMContext) -> None:
     tg_id = message.from_user.id
     query = message.text.strip()
-    data = await state.get_data()
-    menu_id = data["menu_id"]
 
     resp = await api.get(f"/api/recipes/search?q={query}", tg_id)
     if resp is None:
@@ -61,7 +58,7 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     buttons = [
         [InlineKeyboardButton(
             text=r["title"],
-            callback_data=f"suggest:{menu_id}:{r['id']}",
+            callback_data=f"sug:{r['id']}",
         )]
         for r in recipes[:10]
     ]
@@ -74,11 +71,18 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.callback_query(F.data.startswith("suggest:"))
+@router.callback_query(F.data.startswith("sug:"))
 async def cb_suggest(callback: CallbackQuery) -> None:
-    _, menu_id, recipe_id = callback.data.split(":")
+    recipe_id = callback.data[4:]
     tg_id = callback.from_user.id
 
+    # Get today's menu for menu_id
+    today = await api.get("/api/menus/today", tg_id)
+    if today is None or today.status_code != 200:
+        await callback.answer("Меню не найдено.")
+        return
+
+    menu_id = today.json()["id"]
     resp = await api.post(f"/api/menus/{menu_id}/suggest", tg_id, json={"recipe_id": recipe_id})
     if resp is None:
         await callback.answer(NOT_LINKED_MSG)

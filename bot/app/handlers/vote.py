@@ -14,12 +14,12 @@ def build_vote_keyboard(menu: dict) -> InlineKeyboardMarkup:
         mark = " ✓" if r["recipe_id"] == user_voted else ""
         buttons.append([InlineKeyboardButton(
             text=f"{r['title']}{mark}",
-            callback_data=f"vote:{menu['id']}:{r['recipe_id']}",
+            callback_data=f"v:{r['recipe_id']}",
         )])
     if user_voted:
         buttons.append([InlineKeyboardButton(
             text="❌ Отменить голос",
-            callback_data=f"cancel_vote:{menu['id']}",
+            callback_data="cancel_vote",
         )])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -53,11 +53,18 @@ async def cmd_vote(message: Message) -> None:
     await message.answer(text, reply_markup=build_vote_keyboard(menu))
 
 
-@router.callback_query(F.data.startswith("vote:"))
+@router.callback_query(F.data.startswith("v:"))
 async def cb_vote(callback: CallbackQuery) -> None:
-    _, menu_id, recipe_id = callback.data.split(":")
+    recipe_id = callback.data[2:]
     tg_id = callback.from_user.id
 
+    # Get today's menu for menu_id
+    today = await api.get("/api/menus/today", tg_id)
+    if today is None or today.status_code != 200:
+        await callback.answer("Меню не найдено.")
+        return
+
+    menu_id = today.json()["id"]
     resp = await api.post(f"/api/menus/{menu_id}/vote", tg_id, json={"recipe_id": recipe_id})
     if resp is None:
         await callback.answer(NOT_LINKED_MSG)
@@ -80,11 +87,16 @@ async def cb_vote(callback: CallbackQuery) -> None:
     await callback.answer("Голос принят!")
 
 
-@router.callback_query(F.data.startswith("cancel_vote:"))
+@router.callback_query(F.data == "cancel_vote")
 async def cb_cancel_vote(callback: CallbackQuery) -> None:
-    _, menu_id = callback.data.split(":")
     tg_id = callback.from_user.id
 
+    today = await api.get("/api/menus/today", tg_id)
+    if today is None or today.status_code != 200:
+        await callback.answer("Меню не найдено.")
+        return
+
+    menu_id = today.json()["id"]
     resp = await api.delete(f"/api/menus/{menu_id}/vote", tg_id)
     if resp is None:
         await callback.answer(NOT_LINKED_MSG)
