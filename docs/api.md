@@ -499,3 +499,23 @@ curl -X DELETE https://api.telnor.ru/api/menus/{menu_id} -b cookies.txt
 Ошибки:
 - 403 — не admin
 - 404 — меню не найдено
+
+---
+
+## Bot Notifications (внутренний API)
+
+Бот принимает POST-запросы на `/notify` для рассылки уведомлений. Эндпоинт доступен только из Docker-сети (cron-контейнер вызывает автоматически по расписанию).
+
+Ручное тестирование с ВМ:
+
+```bash
+docker exec cron sh -c 'curl -s -X POST http://bot:8080/notify \
+  -H "X-Cron-Secret: $CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d "{\"event\":\"menu_created\"}"'
+```
+
+События:
+- `menu_created` — меню дня создано (08:00)
+- `voting_opened` — голосование открыто (13:00)
+- `voting_closed` — голосование завершено, победитель определён (17:00)
