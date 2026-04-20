@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useRecipesList } from "@/hooks/useRecipes";
+import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -33,6 +34,7 @@ function getInitialSortDir(): SortDir {
 
 export function RecipesPage() {
   usePageTitle("Рецепты");
+  const user = useAuthStore((s) => s.user);
   const { data: recipes, isLoading } = useRecipesList();
   const [sortField, setSortField] = useState<SortField>(getInitialSortField);
   const [sortDir, setSortDir] = useState<SortDir>(getInitialSortDir);
@@ -71,9 +73,11 @@ export function RecipesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Рецепты</h1>
-        <Button asChild>
-          <Link to="/recipes/new">Добавить рецепт</Link>
-        </Button>
+        {user && (
+          <Button asChild>
+            <Link to="/recipes/new">Добавить рецепт</Link>
+          </Button>
+        )}
       </div>
 
       {recipes?.length ? (

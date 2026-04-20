@@ -8,5 +8,6 @@
 
   roles:
     - docker
+    - vpn
     - app
     - firewalld

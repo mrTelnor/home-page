@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     webhook_host: str = "https://bot.telnor.ru"
     webhook_path: str = "/webhook"
     cron_secret: str
+    uptime_secret: str
     port: int = 8080
 
     model_config = {"env_file": ".env"}

@@ -123,6 +123,7 @@ services:
       BACKEND_URL: http://backend:8000
       WEBHOOK_HOST: https://bot.${DOMAIN}
       CRON_SECRET: ${CRON_SECRET}
+      UPTIME_SECRET: ${UPTIME_SECRET}
     networks:
       - web
     depends_on:

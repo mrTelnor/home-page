@@ -31,7 +31,7 @@ export function Layout() {
               Семейная страница Волковых
             </Link>
           </div>
-          {user && (
+          {user ? (
             <div className="flex items-center gap-2 sm:gap-4">
               <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
                 <Link to="/profile">{user.username}</Link>
@@ -43,6 +43,10 @@ export function Layout() {
                 Выйти
               </Button>
             </div>
+          ) : (
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/login">Войти</Link>
+            </Button>
           )}
         </div>
       </nav>

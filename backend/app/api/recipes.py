@@ -33,20 +33,17 @@ async def create(data: RecipeCreateRequest, session: DbSession, user: CurrentUse
 
 
 @router.get("", response_model=list[RecipeResponse])
-async def list_all(session: DbSession, user: CurrentUser):
-    _ = user
+async def list_all(session: DbSession):
     return await get_all_recipes(session)
 
 
 @router.get("/search", response_model=list[RecipeResponse])
-async def search(q: str, session: DbSession, user: CurrentUser):
-    _ = user
+async def search(q: str, session: DbSession):
     return await search_recipes(session, q)
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)
-async def get_one(recipe_id: uuid.UUID, session: DbSession, user: CurrentUser):
-    _ = user
+async def get_one(recipe_id: uuid.UUID, session: DbSession):
     recipe = await get_recipe_by_id(session, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECIPE_NOT_FOUND)

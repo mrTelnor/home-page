@@ -19,6 +19,7 @@ from app.schemas.auth import (
 from app.services.auth import (
     authenticate_user,
     create_user,
+    get_admin_users,
     get_notifiable_users,
     get_user_by_tg_id,
     set_telegram_id,
@@ -152,4 +153,16 @@ async def notifiable_users(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
 
     users = await get_notifiable_users(session)
+    return users
+
+
+@router.get("/users/admins", response_model=list[NotifiableUserResponse])
+async def admin_users(
+    session: DbSession,
+    x_bot_secret: Annotated[str | None, Header()] = None,
+):
+    if x_bot_secret != settings.bot_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+    users = await get_admin_users(session)
     return users

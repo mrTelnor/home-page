@@ -44,12 +44,51 @@ async def handle_notify(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def handle_uptime_alert(request: web.Request) -> web.Response:
+    """HetrixTools webhook. Secret passed as ?secret= query param."""
+    if request.query.get("secret") != settings.uptime_secret:
+        return web.json_response({"error": "forbidden"}, status=403)
+
+    data = await request.json()
+    monitor_name = data.get("monitor_name") or data.get("monitor_target") or "unknown"
+    monitor_target = data.get("monitor_target", "")
+    monitor_status = (data.get("monitor_status") or "").lower()
+
+    if monitor_status == "offline":
+        emoji = "🔴"
+        status_text = "DOWN"
+    elif monitor_status == "online":
+        emoji = "🟢"
+        status_text = "UP"
+    elif monitor_status == "maintenance":
+        emoji = "🔧"
+        status_text = "MAINTENANCE"
+    else:
+        emoji = "⚠️"
+        status_text = monitor_status or "unknown"
+
+    text = f"{emoji} <b>{monitor_name}</b>: {status_text}"
+    if monitor_target and monitor_target != monitor_name:
+        text += f"\n{monitor_target}"
+
+    bot: Bot = request.app["bot"]
+    admins = await api.get_admin_users()
+    for admin in admins:
+        try:
+            await bot.send_message(chat_id=admin["tg_id"], text=text)
+        except Exception:
+            logger.warning("Failed to alert admin tg_id=%s", admin["tg_id"])
+
+    return web.json_response({"ok": True})
+
+
 async def run(bot: Bot, dp: Dispatcher) -> None:
     """Run polling + notify server on the same event loop."""
-    # Start /notify HTTP server
+    # Start HTTP server
     app = web.Application()
     app["bot"] = bot
     app.router.add_post("/notify", handle_notify)
+    app.router.add_post("/uptime-alert", handle_uptime_alert)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", settings.port)

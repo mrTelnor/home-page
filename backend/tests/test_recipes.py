@@ -187,6 +187,25 @@ async def test_search_recipes_no_results(authed_client: AsyncClient):
     assert len(response.json()) == 0
 
 
-async def test_search_recipes_requires_auth(client: AsyncClient):
+async def test_search_recipes_public(client: AsyncClient):
+    """Guest access: search is public, returns empty list without auth."""
     response = await client.get("/api/recipes/search?q=test")
-    assert response.status_code == 401
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_list_recipes_public(client: AsyncClient):
+    """Guest access: list is public, returns empty list without auth."""
+    response = await client.get("/api/recipes")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_get_recipe_public(client: AsyncClient, authed_client: AsyncClient):
+    """Guest access: recipe detail is public."""
+    created = await authed_client.post("/api/recipes", json=_sample_recipe_payload())
+    recipe_id = created.json()["id"]
+
+    response = await client.get(f"/api/recipes/{recipe_id}")
+    assert response.status_code == 200
+    assert response.json()["title"] == "Борщ"
