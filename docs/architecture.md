@@ -37,16 +37,33 @@
 - **firewalld** — порты 80/443/9922, PostgreSQL 5432 ограничен домашним IP через rich rule
 - Docker-подсеть (172.16.0.0/12) в trusted zone
 
+### VPN для бота
+- **WireGuard** на ВМ (роль `vpn` в Ansible) — обходит блокировки Telegram API из РФ
+- `AllowedIPs` ограничены только подсетями Telegram (149.154.160.0/20, 91.108.4.0/22 и др.) — остальной трафик идёт напрямую
+- Endpoint — платный VPN-сервис в Германии
+
 ### Telegram-бот
 - **Aiogram 3** (async) — polling mode, отдельный Docker-сервис
 - Общается с backend API через httpx (`http://backend:8000`) с JWT авторизацией
-- Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/mute`, `/unmute`
-- Уведомления: рассылка через `/notify` эндпоинт (вызывается cron-контейнером)
+- Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/mute`, `/unmute`, `/start`, `/help`
+- Aiohttp-сервер на `:8080`:
+  - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
+  - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
 
-### Автоматизация
-- **Cron-контейнер** (Alpine + curl) — вызывает backend-эндпоинты по расписанию с заголовком `X-Cron-Secret`, затем `/notify` эндпоинт бота для рассылки уведомлений
-- Расписание: 08:00/13:00/17:00 GMT+3 для цикла голосования
+### Автоматизация (cron-контейнер)
+- **Alpine + curl + postgresql-client** — вызывает backend-эндпоинты по расписанию с заголовком `X-Cron-Secret`, затем `/notify` эндпоинт бота для рассылки уведомлений
+- Расписание (GMT+3):
+  - 03:00 — бэкап БД (`pg_dump -Fc | gzip` → Яндекс.Диск WebDAV, ротация 14 дней)
+  - 08:00/13:00/17:00 — цикл голосования (create-daily → finalize → close-voting + уведомления)
+
+### Мониторинг
+- **HetrixTools** (бесплатный тариф) — внешний uptime-мониторинг + blacklist-мониторинг
+- Webhook-алерты приходят на `/uptime-alert` бота, рассылаются администраторам через Telegram
+
+### DNS
+- **Cloudflare** — глобальные authoritative NS для `telnor.ru` (перенесены с `registrant.ru`)
+- DNS-запросы работают из любой точки мира, устойчивы к российским блокировкам
 
 ### Управление
 - **Portainer CE** — веб-UI для управления Docker-контейнерами, ограничен по IP
@@ -95,12 +112,14 @@
 - **JWT токены** с HS256 (python-jose), срок 7 дней
 - **httpOnly cookie** для веба — cookie отправляется автоматически
 - **Bearer token** для бота — JWT в заголовке `Authorization: Bearer <token>`
+- **Гостевой доступ** — `GET /api/recipes`, `GET /api/recipes/{id}`, `GET /api/recipes/search` открыты без авторизации (просмотр базы рецептов)
 - **Регистрация по инвайт-коду** (в Ansible Vault)
 - **Пароль** — bcrypt (passlib + bcrypt 4.0 pinned), смена через `/profile`
 - **Роли:** `user` (по умолчанию), `admin`
 - **Привязка Telegram** через Login Widget на странице `/profile` (HMAC-проверка через `TELEGRAM_BOT_TOKEN`)
 - Cron использует `X-Cron-Secret` вместо JWT
-- Бот использует `X-Bot-Secret` для получения JWT по `tg_id` (`POST /api/auth/telegram-login`)
+- Бот использует `X-Bot-Secret` для получения JWT по `tg_id` (`POST /api/auth/telegram-login`) и списков пользователей (`/users/notifiable`, `/users/admins`)
+- HetrixTools использует общий секрет (`?secret=...` в URL webhook'а) для вызова `/uptime-alert` бота
 
 ### Фронтенд
 - **React 18** + **Vite** + **TypeScript**
@@ -118,7 +137,7 @@
 home-page/
 ├── backend/
 │   ├── app/
-│   │   ├── api/              # Роутеры (auth, recipes, menus, health)
+│   │   ├── api/              # Роутеры (auth, recipes [публичные list/get/search + защищённые CUD], menus, health)
 │   │   ├── core/             # Конфиг, безопасность (JWT, bcrypt), dependencies, db
 │   │   ├── db/
 │   │   │   ├── base.py       # DeclarativeBase + mixins
@@ -133,7 +152,7 @@ home-page/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/              # fetch-клиент
-│   │   ├── components/       # Layout, ProtectedRoute, VoteWidget, MenuCollecting/Voting/Results, RecipeForm, SuggestRecipeDialog, TelegramLoginButton, ChangePasswordDialog, ProfileForm, ui/ (shadcn)
+│   │   ├── components/       # Layout, ProtectedRoute, AuthAwareRoute (guest-friendly), VoteWidget, MenuCollecting/Voting/Results, RecipeForm, SuggestRecipeDialog, TelegramLoginButton, ChangePasswordDialog, ProfileForm, ui/ (shadcn)
 │   │   ├── hooks/            # useAuth, useMenu, useRecipes, useProfile, usePageTitle
 │   │   ├── pages/            # Login, Register, Home, Vote, VoteHistory, Recipes, RecipeNew/Detail/Edit, Profile, NotFound
 │   │   └── store/            # auth (Zustand)
@@ -142,7 +161,7 @@ home-page/
 │   └── package.json
 ├── bot/
 │   └── app/
-│       ├── main.py           # Точка входа (polling + /notify сервер)
+│       ├── main.py           # Точка входа (polling + /notify + /uptime-alert сервер)
 │       ├── config.py          # Настройки из env
 │       ├── api_client.py      # HTTP-клиент к backend с JWT кэшем
 │       ├── notify.py          # Логика рассылки уведомлений
@@ -150,11 +169,11 @@ home-page/
 ├── infra/
 │   ├── ansible/              # Provisioning ВМ, деплой
 │   │   ├── playbooks/        # initial-setup.yml, setup.yml
-│   │   ├── roles/            # sshd, firewalld, docker, app
+│   │   ├── roles/            # sshd, firewalld, docker, vpn (WireGuard), app
 │   │   └── inventory/        # hosts.yml, group_vars/all/vault.yml
 │   └── docker/
 │       ├── docker-compose.yml
-│       ├── cron/             # Cron-контейнер (Dockerfile, crontab)
+│       ├── cron/             # Cron-контейнер (Dockerfile, crontab, backup.sh)
 │       └── traefik/
 └── docs/
     ├── architecture.md
@@ -188,20 +207,26 @@ home-page/
                           │ PostgreSQL  │
                           │  (schemas:  │
                           │ auth, dinner)│
-                          └─────────────┘
-
-      ┌───────────┐ HTTP + X-Cron-Secret
+                          └──────▲──────┘
+                                 │ pg_dump
+      ┌───────────┐ HTTP + X-Cron-Secret       │
       │   Cron    ├─────────────────────→ Backend API (create-daily, finalize, close-voting)
-      │ (Alpine)  │ по расписанию GMT+3
+      │ (Alpine)  │ по расписанию GMT+3         │
       │           ├─────────────────────→ Bot /notify (уведомления в Telegram)
+      │           ├─────────────────────→ Яндекс.Диск (WebDAV) — бэкапы, ротация 14 дней
       └───────────┘
 
-      ┌───────────┐ polling             ┌──────────────┐
-      │ Telegram  │ ←─────────────────── │     Bot      │
-      │   API     │                      │ (Aiogram 3)  │
-      └───────────┘                      └──────┬───────┘
-                                                │ HTTP + Bearer JWT
-                                                └──→ Backend API
+      ┌───────────┐  polling (через WireGuard)  ┌──────────────┐
+      │ Telegram  │ ←─────────────────────────── │     Bot      │
+      │   API     │                              │ (Aiogram 3)  │
+      └───────────┘                              └──────┬───────┘
+                                                        │ HTTP + Bearer JWT
+                                                        └──→ Backend API
+
+      ┌──────────────┐   webhook (/uptime-alert)
+      │ HetrixTools  ├──────────────────→ Bot → Telegram admin alerts
+      │   (внешний)  │
+      └──────────────┘
 ```
 
 ---
@@ -222,3 +247,8 @@ home-page/
 | Firewall | firewalld | UFW | Rich rules (IP-whitelist для PostgreSQL), trusted zone для Docker |
 | JWT storage | httpOnly cookie | localStorage + Bearer | Защита от XSS |
 | Расписание | Cron-контейнер | Celery Beat, APScheduler | Простота, изоляция от приложения |
+| DNS | Cloudflare | Регистратор (registrant.ru) | Глобальные NS, устойчивы к блокировкам |
+| Хранение бэкапов | Яндекс.Диск (WebDAV) | S3, локальный volume | Нет дополнительной оплаты, 1 ТБ, просто через curl |
+| Мониторинг | HetrixTools (внешний) | Self-hosted Uptime Kuma | Детектит падение всей ВМ |
+| VPN для бота | WireGuard к VPS в DE | Прокси, полный VPN ВМ | Обход блокировок Telegram в РФ, только нужные подсети |
+| Bot mode | Polling | Webhook | `telnor.ru` забанен на DNS-резолвере Telegram |

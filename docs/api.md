@@ -207,23 +207,41 @@ curl https://api.telnor.ru/api/auth/users/notifiable \
 Ошибки:
 - 403 — неверный секрет
 
+### GET /api/auth/users/admins
+
+Список admin-пользователей с привязанным Telegram. Используется ботом для отправки алертов от HetrixTools.
+
+```bash
+curl https://api.telnor.ru/api/auth/users/admins \
+  -H "X-Bot-Secret: $BOT_SECRET"
+```
+
+Ответ (200):
+```json
+[
+  {"tg_id": 123456, "first_name": "Никита", "username": "admin"}
+]
+```
+
+Ошибки:
+- 403 — неверный секрет
+
 ---
 
 ## Recipes
 
-Все эндпоинты требуют авторизации (cookie или Bearer token).
+`GET /api/recipes`, `GET /api/recipes/{id}`, `GET /api/recipes/search` — **публичные** (гостевой доступ).
+`POST`, `PUT`, `DELETE` — требуют авторизации (cookie или `Authorization: Bearer <token>`).
 
 ### GET /api/recipes/search?q=
 
-Поиск рецептов по подстроке в названии (ILIKE). Требуется авторизация.
+Поиск рецептов по подстроке в названии (ILIKE). Публично.
 
 ```bash
-curl "https://api.telnor.ru/api/recipes/search?q=макароны" -b cookies.txt
+curl "https://api.telnor.ru/api/recipes/search?q=макароны"
 ```
 
 Ответ (200): массив `RecipeResponse` (тот же формат что у `GET /api/recipes`).
-
-Все эндпоинты требуют авторизации (cookie или `Authorization: Bearer <token>`).
 
 ### POST /api/recipes
 
@@ -265,20 +283,20 @@ curl -X POST https://api.telnor.ru/api/recipes \
 
 ### GET /api/recipes
 
-Список всех рецептов с ингредиентами.
+Список всех рецептов с ингредиентами. Публично.
 
 ```bash
-curl https://api.telnor.ru/api/recipes -b cookies.txt
+curl https://api.telnor.ru/api/recipes
 ```
 
 Ответ (200): массив `RecipeResponse`.
 
 ### GET /api/recipes/{id}
 
-Один рецепт по ID.
+Один рецепт по ID. Публично.
 
 ```bash
-curl https://api.telnor.ru/api/recipes/a1b2c3d4-... -b cookies.txt
+curl https://api.telnor.ru/api/recipes/a1b2c3d4-...
 ```
 
 Ответ (200): `RecipeResponse`.
@@ -519,3 +537,24 @@ docker exec cron sh -c 'curl -s -X POST http://bot:8080/notify \
 - `menu_created` — меню дня создано (08:00)
 - `voting_opened` — голосование открыто (13:00)
 - `voting_closed` — голосование завершено, победитель определён (17:00)
+
+### POST https://bot.telnor.ru/uptime-alert?secret=...
+
+Webhook для HetrixTools. Секрет передаётся в query-параметре `?secret=...`. Бот парсит payload и рассылает алерт всем admin-пользователям в Telegram.
+
+Формат payload от HetrixTools (JSON):
+```json
+{
+  "monitor_name": "Home Page Frontend",
+  "monitor_target": "https://telnor.ru",
+  "monitor_status": "offline"
+}
+```
+
+Значения `monitor_status`:
+- `online` → 🟢 UP
+- `offline` → 🔴 DOWN
+- `maintenance` → 🔧 MAINTENANCE
+
+Ошибки:
+- 403 — неверный secret
