@@ -1,3 +1,6 @@
+# Бэкап БД на Яндекс.Диск (3:00 GMT+3 = 00:00 UTC)
+0 0 * * * /usr/local/bin/backup.sh >> /var/log/cron.log 2>&1
+
 # Создать меню на сегодня (8:00 GMT+3 = 05:00 UTC)
 0 5 * * * curl -s -X POST http://backend:8000/api/menus/create-daily -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' >> /var/log/cron.log 2>&1 && curl -s -X POST http://bot:8080/notify -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"event":"menu_created"}' >> /var/log/cron.log 2>&1
 

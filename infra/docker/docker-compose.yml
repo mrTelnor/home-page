@@ -101,8 +101,14 @@ services:
     restart: unless-stopped
     environment:
       CRON_SECRET: ${CRON_SECRET}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      YADISK_USER: ${YADISK_USER}
+      YADISK_APP_PASSWORD: ${YADISK_APP_PASSWORD}
     networks:
       - web
+      - internal
     depends_on:
       - backend
 

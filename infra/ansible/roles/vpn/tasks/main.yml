@@ -1,0 +1,21 @@
+---
+- name: Install WireGuard
+  apt:
+    name: wireguard
+    state: present
+    update_cache: yes
+
+- name: Generate WireGuard config for Telegram
+  template:
+    src: wg-telegram.conf.j2
+    dest: /etc/wireguard/wg-telegram.conf
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart WireGuard
+
+- name: Enable and start WireGuard
+  systemd:
+    name: wg-quick@wg-telegram
+    enabled: yes
+    state: started
