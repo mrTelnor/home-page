@@ -274,3 +274,69 @@ async def test_notifiable_users_muted_excluded(admin_client: AsyncClient):
     )
     assert response.status_code == 200
     assert len(response.json()) == 0
+
+
+# ---------- ADMIN USERS ----------
+
+async def test_admin_users_returns_admins_with_tg_id(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    """GET /api/auth/users/admins returns only admins with linked tg_id."""
+    import hashlib
+    import hmac
+    import time
+
+    BOT_TOKEN = "test-bot-token"
+
+    # Link tg_id to admin
+    payload_admin = {"id": 33333, "first_name": "Admin", "auth_date": int(time.time())}
+    check_string = "\n".join(f"{k}={payload_admin[k]}" for k in sorted(payload_admin.keys()))
+    secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
+    payload_admin["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+    await admin_client.post("/api/auth/telegram-verify", json=payload_admin)
+
+    # Link tg_id to regular user
+    payload_user = {"id": 44444, "first_name": "User", "auth_date": int(time.time())}
+    check_string = "\n".join(f"{k}={payload_user[k]}" for k in sorted(payload_user.keys()))
+    payload_user["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+    await authed_client.post("/api/auth/telegram-verify", json=payload_user)
+
+    response = await admin_client.get(
+        "/api/auth/users/admins",
+        headers={"X-Bot-Secret": "test-bot-secret"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["tg_id"] == 33333
+
+
+async def test_admin_users_wrong_secret(admin_client: AsyncClient):
+    response = await admin_client.get(
+        "/api/auth/users/admins",
+        headers={"X-Bot-Secret": "wrong"},
+    )
+    assert response.status_code == 403
+
+
+# ---------- NOTIFICATIONS_ENABLED FIELD ----------
+
+async def test_update_profile_notifications_enabled(authed_client: AsyncClient):
+    """PATCH /api/auth/me can toggle notifications_enabled and returns it in response."""
+    # Default is true
+    me = await authed_client.get("/api/auth/me")
+    assert me.json()["notifications_enabled"] is True
+
+    # Disable
+    response = await authed_client.patch(
+        "/api/auth/me", json={"notifications_enabled": False}
+    )
+    assert response.status_code == 200
+    assert response.json()["notifications_enabled"] is False
+
+    # Enable back
+    response = await authed_client.patch(
+        "/api/auth/me", json={"notifications_enabled": True}
+    )
+    assert response.status_code == 200
+    assert response.json()["notifications_enabled"] is True
