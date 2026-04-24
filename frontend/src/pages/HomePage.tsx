@@ -5,6 +5,7 @@ import { useRecipesList } from "@/hooks/useRecipes";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { VoteWidget } from "@/components/VoteWidget";
+import { WolfMark } from "@/components/WolfMark";
 
 export function HomePage() {
   usePageTitle("Главная");
@@ -14,6 +15,9 @@ export function HomePage() {
   if (!user) {
     return (
       <div className="space-y-8 text-center py-12">
+        <div className="flex justify-center">
+          <WolfMark size={96} className="text-foreground opacity-90" stroke={1.4} />
+        </div>
         <h1 className="text-4xl font-bold">Семейная страница Волковых</h1>
         <p className="text-muted-foreground text-lg">
           Добро пожаловать! Вы можете посмотреть нашу базу рецептов.

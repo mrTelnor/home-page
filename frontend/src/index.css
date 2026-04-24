@@ -1,13 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'Geist Variable', sans-serif;
+    --font-sans: 'Inter Tight', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,83 +48,110 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Light: warm cream cookbook palette */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --background: #F5EFE3;      /* paper */
+    --foreground: #1E1B14;      /* ink */
+    --card: #FBF6E9;
+    --card-foreground: #1E1B14;
+    --popover: #FFFBF2;         /* chip */
+    --popover-foreground: #1E1B14;
+    --primary: #B8442A;         /* terracotta accent */
+    --primary-foreground: #FFFBF2;
+    --secondary: #EDE5D3;       /* paper-2 */
+    --secondary-foreground: #1E1B14;
+    --muted: #EDE5D3;
+    --muted-foreground: #6C6553; /* ink-3 */
+    --accent: #E4D9C2;           /* paper-3 */
+    --accent-foreground: #1E1B14;
+    --destructive: #8C2A18;
+    --border: rgba(30, 27, 20, 0.12);
+    --input: rgba(30, 27, 20, 0.12);
+    --ring: #B8442A;
+    --chart-1: #B8442A;
+    --chart-2: #6B7A4B;
+    --chart-3: #C48A2A;
+    --chart-4: #7A5AA0;
+    --chart-5: #3A3527;
+    --radius: 0.875rem;
+    --sidebar: #F5EFE3;
+    --sidebar-foreground: #1E1B14;
+    --sidebar-primary: #B8442A;
+    --sidebar-primary-foreground: #FFFBF2;
+    --sidebar-accent: #EDE5D3;
+    --sidebar-accent-foreground: #1E1B14;
+    --sidebar-border: rgba(30, 27, 20, 0.12);
+    --sidebar-ring: #B8442A;
 }
 
+/* Dark: warm paper dark mode */
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --background: #17140E;
+    --foreground: #F5EEDC;
+    --card: #1C1912;
+    --card-foreground: #F5EEDC;
+    --popover: #201C15;
+    --popover-foreground: #F5EEDC;
+    --primary: #D9654A;
+    --primary-foreground: #17140E;
+    --secondary: #1D1A13;
+    --secondary-foreground: #F5EEDC;
+    --muted: #1D1A13;
+    --muted-foreground: #A49C82;
+    --accent: #25211A;
+    --accent-foreground: #F5EEDC;
+    --destructive: #D9654A;
+    --border: rgba(245, 238, 220, 0.12);
+    --input: rgba(245, 238, 220, 0.15);
+    --ring: #D9654A;
+    --chart-1: #D9654A;
+    --chart-2: #9DB370;
+    --chart-3: #E0A94A;
+    --chart-4: #A78BD9;
+    --chart-5: #E4DBC2;
+    --sidebar: #17140E;
+    --sidebar-foreground: #F5EEDC;
+    --sidebar-primary: #D9654A;
+    --sidebar-primary-foreground: #17140E;
+    --sidebar-accent: #25211A;
+    --sidebar-accent-foreground: #F5EEDC;
+    --sidebar-border: rgba(245, 238, 220, 0.12);
+    --sidebar-ring: #D9654A;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
+  }
   body {
     @apply bg-background text-foreground;
-    }
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
   html {
     @apply font-sans;
-    }
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  /* Subtle paper grain for cookbook feel */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(184, 68, 42, 0.04), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(107, 122, 75, 0.04), transparent 40%);
+    mix-blend-mode: multiply;
+  }
+  .dark body::before {
+    mix-blend-mode: screen;
+    opacity: 0.2;
+  }
+  #root {
+    position: relative;
+    z-index: 1;
+  }
 }
