@@ -247,6 +247,10 @@ curl "https://api.telnor.ru/api/recipes/search?q=макароны"
 
 Создать рецепт с ингредиентами. `author_id` берётся из JWT.
 
+Опциональные поля иконки:
+- `glyph_kind` — тип SVG-иконки. Допустимые значения: `soup`, `noodles`, `eggs`, `pancakes`, `pelmeni`, `pie`, `pizza`, `salad`, `steak`, `chicken`, `toast`, `roast`, `shashlik`, `pot`, `bread`. Если не задан — выбирается автоматически по хешу названия
+- `glyph_color` — палитра. Допустимые значения: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `cream`. Если не задан — выбирается автоматически
+
 ```bash
 curl -X POST https://api.telnor.ru/api/recipes \
   -H "Content-Type: application/json" \
@@ -255,6 +259,8 @@ curl -X POST https://api.telnor.ru/api/recipes \
     "title": "Борщ",
     "description": "Классический борщ",
     "servings": 4,
+    "glyph_kind": "soup",
+    "glyph_color": "red",
     "ingredients": [
       {"name": "Свёкла", "amount": "2", "unit": "шт"},
       {"name": "Картофель", "amount": "3", "unit": "шт"},
@@ -271,6 +277,8 @@ curl -X POST https://api.telnor.ru/api/recipes \
   "description": "Классический борщ",
   "servings": 4,
   "author_id": "4fe43be5-...",
+  "glyph_kind": "soup",
+  "glyph_color": "red",
   "ingredients": [
     {"id": "...", "name": "Свёкла", "amount": "2", "unit": "шт"},
     {"id": "...", "name": "Картофель", "amount": "3", "unit": "шт"},
@@ -306,7 +314,7 @@ curl https://api.telnor.ru/api/recipes/a1b2c3d4-...
 
 ### PUT /api/recipes/{id}
 
-Обновить рецепт. Доступно автору или admin. Если передан `ingredients` — полная замена.
+Обновить рецепт. Доступно автору или admin. Если передан `ingredients` — полная замена. Поля `glyph_kind` и `glyph_color` обновляются только если присутствуют в запросе (можно передать `null` чтобы вернуться к авто-выбору).
 
 ```bash
 curl -X PUT https://api.telnor.ru/api/recipes/a1b2c3d4-... \
@@ -315,6 +323,7 @@ curl -X PUT https://api.telnor.ru/api/recipes/a1b2c3d4-... \
   -d '{
     "title": "Борщ украинский",
     "servings": 6,
+    "glyph_color": "orange",
     "ingredients": [
       {"name": "Свёкла", "amount": "3", "unit": "шт"},
       {"name": "Картофель", "amount": "4", "unit": "шт"}

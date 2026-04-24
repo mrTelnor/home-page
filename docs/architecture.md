@@ -107,6 +107,8 @@
 - `users.gender`: `male` | `female` (для оповещений и склонений)
 - `users.is_volkov`: фамилия Волков/Волкова
 - `users.notifications_enabled`: управление уведомлениями через бота (default: true)
+- `recipes.glyph_kind` ∈ {`soup`, `noodles`, `eggs`, `pancakes`, `pelmeni`, `pie`, `pizza`, `salad`, `steak`, `chicken`, `toast`, `roast`, `shashlik`, `pot`, `bread`} — тип SVG-иконки. NULL → авто-выбор по хешу названия
+- `recipes.glyph_color` ∈ {`red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `cream`} — палитра иконки. NULL → авто-выбор
 - Username нормализуется в lowercase (регистронезависимость)
 
 ### Авторизация
@@ -124,10 +126,12 @@
 
 ### Фронтенд
 - **React 18** + **Vite** + **TypeScript**
-- **React Router v7** — навигация (ProtectedRoute для защищённых маршрутов)
+- **React Router v7** — навигация (ProtectedRoute для защищённых маршрутов, AuthAwareRoute для гостевых)
 - **TanStack Query v5** — работа с API, кэширование, polling
 - **Zustand** — хранение текущего пользователя
 - **Tailwind CSS v4** + **shadcn/ui (Radix)** — стилизация и компоненты
+- **Дизайн-система** — cream-палитра «кулинарная книга» (paper `#F5EFE3` + ink `#1E1B14` + терракота `#B8442A`), тёмная тема (`localStorage` + `prefers-color-scheme`), шрифты Inter Tight + JetBrains Mono (Google Fonts), маскот-волк в SVG (`WolfMark`)
+- **FoodGlyph** — компонент иконок блюд (15 SVG × 10 палитр) с пикером в форме рецепта
 - **Nginx** (alpine) — раздача собранного бандла с SPA fallback
 
 ---
