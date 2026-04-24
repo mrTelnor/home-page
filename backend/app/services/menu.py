@@ -163,6 +163,22 @@ async def get_votes_for_menu(session: AsyncSession, menu_id: uuid.UUID) -> dict[
     return {row.recipe_id: row.cnt for row in result.all()}
 
 
+async def get_voters_for_menu(session: AsyncSession, menu_id: uuid.UUID) -> dict[uuid.UUID, list]:
+    """Return dict {recipe_id: [User, User, ...]} for all votes in the menu."""
+    from app.db.models.user import User
+
+    result = await session.execute(
+        select(Vote.recipe_id, User)
+        .join(User, User.id == Vote.user_id)
+        .where(Vote.menu_id == menu_id)
+        .order_by(User.first_name, User.username)
+    )
+    voters: dict[uuid.UUID, list] = {}
+    for recipe_id, user in result.all():
+        voters.setdefault(recipe_id, []).append(user)
+    return voters
+
+
 async def delete_menu(session: AsyncSession, menu: DailyMenu) -> None:
     await session.delete(menu)
     await session.commit()

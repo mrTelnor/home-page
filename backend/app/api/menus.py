@@ -25,6 +25,7 @@ from app.services.menu import (
     get_menu_by_date,
     get_menu_by_id,
     get_user_vote,
+    get_voters_for_menu,
     get_votes_for_menu,
     is_recipe_in_menu,
     recipe_exists,
@@ -40,12 +41,15 @@ VOTING_NOT_OPEN = "Voting is not open"
 async def _build_menu_response(
     session: AsyncSession, menu, user_id: uuid.UUID | None = None
 ) -> MenuResponse:
-    vote_counts = await get_votes_for_menu(session, menu.id) if menu.status != "collecting" else {}
+    is_collecting = menu.status == "collecting"
+    vote_counts = await get_votes_for_menu(session, menu.id) if not is_collecting else {}
+    voters_by_recipe = await get_voters_for_menu(session, menu.id) if not is_collecting else {}
     recipes = []
     for mr in menu.menu_recipes:
         from app.services.recipe import get_recipe_by_id
 
         recipe = await get_recipe_by_id(session, mr.recipe_id)
+        recipe_voters = voters_by_recipe.get(mr.recipe_id, [])
         recipes.append(
             MenuRecipeResponse(
                 id=mr.id,
@@ -54,6 +58,10 @@ async def _build_menu_response(
                 source=mr.source,
                 added_by=mr.added_by,
                 votes_count=vote_counts.get(mr.recipe_id, 0),
+                voters=[
+                    {"id": v.id, "first_name": v.first_name, "username": v.username}
+                    for v in recipe_voters
+                ],
             )
         )
 

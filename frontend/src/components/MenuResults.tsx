@@ -3,6 +3,7 @@ import { type Menu } from "@/hooks/useMenu";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { AvatarStack } from "@/components/Avatar";
 
 interface Props {
   menu: Menu;
@@ -22,12 +23,15 @@ export function MenuResults({ menu }: Readonly<Props>) {
             <Link key={r.id} to={`/recipes/${r.recipe_id}`}>
               <Card className={`hover:shadow-md transition-shadow cursor-pointer ${isWinner ? "border-primary border-2 bg-primary/5" : ""}`}>
                 <CardHeader className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">{r.title}</CardTitle>
-                      {isWinner && <Badge>Победитель</Badge>}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <CardTitle className="text-lg truncate">{r.title}</CardTitle>
+                      {isWinner && <Badge className="shrink-0">Победитель</Badge>}
                     </div>
-                    <Badge variant="outline">{r.votes_count} гол.</Badge>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {r.voters.length > 0 && <AvatarStack users={r.voters} size={24} />}
+                      <Badge variant="outline">{r.votes_count} гол.</Badge>
+                    </div>
                   </div>
                 </CardHeader>
               </Card>

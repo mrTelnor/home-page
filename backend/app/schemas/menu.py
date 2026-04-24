@@ -21,6 +21,14 @@ class VoteRequest(BaseModel):
     recipe_id: uuid.UUID
 
 
+class VoterResponse(BaseModel):
+    id: uuid.UUID
+    first_name: str | None = None
+    username: str
+
+    model_config = {"from_attributes": True}
+
+
 class MenuRecipeResponse(BaseModel):
     id: uuid.UUID
     recipe_id: uuid.UUID
@@ -28,6 +36,7 @@ class MenuRecipeResponse(BaseModel):
     source: str
     added_by: uuid.UUID | None = None
     votes_count: int = 0
+    voters: list[VoterResponse] = []
 
     model_config = {"from_attributes": True}
 

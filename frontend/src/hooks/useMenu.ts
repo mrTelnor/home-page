@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 
+export interface Voter {
+  id: string;
+  first_name: string | null;
+  username: string;
+}
+
 export interface MenuRecipe {
   id: string;
   recipe_id: string;
@@ -8,6 +14,7 @@ export interface MenuRecipe {
   source: "random" | "user";
   added_by: string | null;
   votes_count: number;
+  voters: Voter[];
 }
 
 export interface Menu {
