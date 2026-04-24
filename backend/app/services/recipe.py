@@ -15,6 +15,8 @@ async def create_recipe(
     servings: int,
     author_id: uuid.UUID,
     ingredients: list[dict],
+    glyph_kind: str | None = None,
+    glyph_color: str | None = None,
 ) -> Recipe:
     recipe = Recipe(
         id=uuid.uuid4(),
@@ -22,6 +24,8 @@ async def create_recipe(
         description=description,
         servings=servings,
         author_id=author_id,
+        glyph_kind=glyph_kind,
+        glyph_color=glyph_color,
     )
     for ing in ingredients:
         recipe.ingredients.append(
@@ -54,6 +58,9 @@ async def update_recipe(
     description: str | None,
     servings: int | None,
     ingredients: list[dict] | None,
+    glyph_kind: str | None = None,
+    glyph_color: str | None = None,
+    glyph_provided: bool = False,
 ) -> Recipe:
     if title is not None:
         recipe.title = title
@@ -61,6 +68,9 @@ async def update_recipe(
         recipe.description = description
     if servings is not None:
         recipe.servings = servings
+    if glyph_provided:
+        recipe.glyph_kind = glyph_kind
+        recipe.glyph_color = glyph_color
     if ingredients is not None:
         recipe.ingredients.clear()
         for ing in ingredients:

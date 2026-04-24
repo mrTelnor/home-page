@@ -93,7 +93,8 @@
 └── sessions       (id, user_id, token, expires_at)
 
 Схема: dinner
-├── recipes            (id, title, description, servings, author_id, created_at, updated_at)
+├── recipes            (id, title, description, servings, author_id,
+│                       glyph_kind, glyph_color, created_at, updated_at)
 ├── ingredients        (id, recipe_id, name, amount, unit)
 ├── daily_menus        (id, date, status, winner_recipe_id, created_at)
 ├── daily_menu_recipes (id, menu_id, recipe_id, source, added_by)

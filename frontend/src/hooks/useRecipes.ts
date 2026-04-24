@@ -16,6 +16,8 @@ export interface Recipe {
   servings: number;
   author_id: string;
   ingredients: Ingredient[];
+  glyph_kind: string | null;
+  glyph_color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,7 +42,7 @@ export function useCreateRecipe() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: (data: { title: string; description?: string; servings: number; ingredients: Omit<Ingredient, "id">[] }) =>
+    mutationFn: (data: { title: string; description?: string; servings: number; ingredients: Omit<Ingredient, "id">[]; glyph_kind?: string | null; glyph_color?: string | null }) =>
       api.post<Recipe>("/api/recipes", data),
     onSuccess: (recipe) => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
@@ -54,7 +56,7 @@ export function useUpdateRecipe(id: string) {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: (data: { title?: string; description?: string; servings?: number; ingredients?: Omit<Ingredient, "id">[] }) =>
+    mutationFn: (data: { title?: string; description?: string; servings?: number; ingredients?: Omit<Ingredient, "id">[]; glyph_kind?: string | null; glyph_color?: string | null }) =>
       api.put<Recipe>(`/api/recipes/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });

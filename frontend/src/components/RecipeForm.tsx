@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { FoodGlyph, FOOD_KINDS, FOOD_COLORS } from "@/components/FoodGlyph";
 
 interface IngredientRow {
   id: string;
@@ -36,12 +37,16 @@ interface Props {
     description: string;
     servings: number;
     ingredients: Ingredient[];
+    glyph_kind?: string | null;
+    glyph_color?: string | null;
   };
   onSubmit: (data: {
     title: string;
     description: string;
     servings: number;
     ingredients: { name: string; amount: string; unit: string | null }[];
+    glyph_kind: string | null;
+    glyph_color: string | null;
   }) => void;
   isPending: boolean;
   submitLabel: string;
@@ -66,6 +71,8 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
       unit: i.unit ?? "",
     })) ?? [{ id: newRowId(), name: "", amount: "", unit: "" }]
   );
+  const [glyphKind, setGlyphKind] = useState<string>(initialData?.glyph_kind ?? "");
+  const [glyphColor, setGlyphColor] = useState<string>(initialData?.glyph_color ?? "");
   const [errors, setErrors] = useState<FormErrors>({});
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
@@ -164,7 +171,14 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
     const validIngredients = ingredients
       .filter((i) => i.name.trim() && i.amount.trim())
       .map((i) => ({ name: i.name, amount: i.amount, unit: i.unit || null }));
-    onSubmit({ title, description, servings: servingsNum, ingredients: validIngredients });
+    onSubmit({
+      title,
+      description,
+      servings: servingsNum,
+      ingredients: validIngredients,
+      glyph_kind: glyphKind || null,
+      glyph_color: glyphColor || null,
+    });
   };
 
   const errorClass = "border-destructive focus-visible:ring-destructive";
@@ -197,6 +211,59 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
             placeholder="Сколько порций получится"
             className={errors.servings ? errorClass : ""}
           />
+        </div>
+        <div className="space-y-2">
+          <Label>Иконка</Label>
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="w-32 shrink-0 overflow-hidden rounded-md border border-border">
+              <FoodGlyph title={title} kind={glyphKind || null} color={glyphColor || null} />
+            </div>
+            <div className="flex-1 min-w-[200px] space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="glyph-kind" className="text-xs">Тип</Label>
+                <select
+                  id="glyph-kind"
+                  value={glyphKind}
+                  onChange={(e) => setGlyphKind(e.target.value)}
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="">— Авто (по названию) —</option>
+                  {FOOD_KINDS.map((k) => (
+                    <option key={k.id} value={k.id}>{k.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Цвет</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setGlyphColor("")}
+                    aria-label="Авто-цвет"
+                    title="Авто (по названию)"
+                    className={`h-7 w-7 rounded-full border-2 text-xs ${
+                      glyphColor === "" ? "border-foreground" : "border-border"
+                    }`}
+                  >
+                    ↺
+                  </button>
+                  {(Object.keys(FOOD_COLORS) as Array<keyof typeof FOOD_COLORS>).map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setGlyphColor(c)}
+                      aria-label={c}
+                      title={c}
+                      style={{ background: FOOD_COLORS[c].dk }}
+                      className={`h-7 w-7 rounded-full border-2 ${
+                        glyphColor === c ? "border-foreground" : "border-transparent"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

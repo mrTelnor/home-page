@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { FoodGlyph } from "@/components/FoodGlyph";
 
 function scaleAmount(amount: string, factor: number): string {
   const normalized = amount.replace(",", ".").trim();
@@ -49,6 +50,13 @@ export function RecipeDetailPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <div className="overflow-hidden rounded-lg border border-border">
+        <FoodGlyph
+          title={recipe.title}
+          kind={recipe.glyph_kind}
+          color={recipe.glyph_color}
+        />
+      </div>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{recipe.title}</h1>
         {canEdit && (

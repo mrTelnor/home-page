@@ -28,6 +28,8 @@ async def create(data: RecipeCreateRequest, session: DbSession, user: CurrentUse
         servings=data.servings,
         author_id=user.id,
         ingredients=[ing.model_dump() for ing in data.ingredients],
+        glyph_kind=data.glyph_kind,
+        glyph_color=data.glyph_color,
     )
     return recipe
 
@@ -63,6 +65,7 @@ async def update(
     if recipe.author_id != user.id and user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
 
+    fields_set = data.model_fields_set
     recipe = await update_recipe(
         session,
         recipe,
@@ -70,6 +73,9 @@ async def update(
         description=data.description,
         servings=data.servings,
         ingredients=[ing.model_dump() for ing in data.ingredients] if data.ingredients is not None else None,
+        glyph_kind=data.glyph_kind,
+        glyph_color=data.glyph_color,
+        glyph_provided="glyph_kind" in fields_set or "glyph_color" in fields_set,
     )
     return recipe
 

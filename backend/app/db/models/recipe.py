@@ -15,6 +15,8 @@ class Recipe(Base, UUIDMixin, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text)
     servings: Mapped[int] = mapped_column(Integer, default=4)
     author_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("auth.users.id"))
+    glyph_kind: Mapped[str | None] = mapped_column(String(20))
+    glyph_color: Mapped[str | None] = mapped_column(String(20))
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     ingredients: Mapped[list["Ingredient"]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
