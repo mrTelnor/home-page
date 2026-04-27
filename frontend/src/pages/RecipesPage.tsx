@@ -128,7 +128,7 @@ export function RecipesPage() {
                         {recipe.description}
                       </p>
                     )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
                       <span>{recipe.servings} порц.</span>
                       <span>{recipe.ingredients.length} ингр.</span>
                     </div>
