@@ -107,7 +107,7 @@ export function RecipesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {sorted.map((recipe) => (
               <Link key={recipe.id} to={`/recipes/${recipe.id}`}>
-                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer overflow-hidden p-0">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer overflow-hidden pt-0">
                   <FoodGlyph
                     title={recipe.title}
                     kind={recipe.glyph_kind}
@@ -128,7 +128,7 @@ export function RecipesPage() {
                         {recipe.description}
                       </p>
                     )}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>{recipe.servings} порц.</span>
                       <span>{recipe.ingredients.length} ингр.</span>
                     </div>
