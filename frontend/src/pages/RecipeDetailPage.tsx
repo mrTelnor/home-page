@@ -50,6 +50,12 @@ export function RecipeDetailPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <Link
+        to="/recipes"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        ← К списку рецептов
+      </Link>
       <div className="overflow-hidden rounded-lg border border-border">
         <FoodGlyph
           title={recipe.title}

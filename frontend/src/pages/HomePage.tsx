@@ -1,17 +1,14 @@
 import { Link } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { usePageTitle } from "@/hooks/usePageTitle";
-import { useRecipesList } from "@/hooks/useRecipes";
 import { useTodayMenu } from "@/hooks/useMenu";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { VoteWidget } from "@/components/VoteWidget";
 import { WolfMark } from "@/components/WolfMark";
 
 export function HomePage() {
   usePageTitle("Главная");
   const user = useAuthStore((s) => s.user);
-  const { data: recipes } = useRecipesList();
   const { data: menu } = useTodayMenu();
 
   if (!user) {
@@ -62,22 +59,8 @@ export function HomePage() {
         </Button>
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <VoteWidget />
-        <Link to="/recipes" className="block h-full">
-          <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
-              <CardTitle>Книга рецептов</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                {recipes ? `${recipes.length} рецептов в базе` : "Загрузка..."}
-              </p>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
+      {/* Status widget */}
+      <VoteWidget />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useRecipe, useUpdateRecipe } from "@/hooks/useRecipes";
 import { RecipeForm } from "@/components/RecipeForm";
@@ -19,6 +19,12 @@ export function RecipeEditPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <Link
+        to={`/recipes/${recipe.id}`}
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
+        ← К рецепту
+      </Link>
       <h1 className="text-3xl font-bold">Редактирование рецепта</h1>
       <RecipeForm
         initialData={{
