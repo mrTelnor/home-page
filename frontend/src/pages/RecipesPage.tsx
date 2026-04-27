@@ -124,7 +124,7 @@ export function RecipesPage() {
                   </CardHeader>
                   <CardContent>
                     {recipe.description && (
-                      <p className="text-muted-foreground text-sm line-clamp-2 mb-2">
+                      <p className="text-muted-foreground text-sm truncate mb-2">
                         {recipe.description}
                       </p>
                     )}
