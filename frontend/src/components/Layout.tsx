@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useLogout } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { useTodayMenu } from "@/hooks/useMenu";
 import { Button } from "@/components/ui/button";
 import { WolfMark } from "@/components/WolfMark";
 
@@ -11,13 +12,18 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { data: menu } = useTodayMenu();
   const isHome = location.pathname === "/";
+
+  let voteLabel = "Меню дня";
+  if (menu?.status === "voting") voteLabel = "Проголосовать";
+  else if (menu?.status === "collecting") voteLabel = "Предложить рецепт";
 
   return (
     <div className="min-h-screen bg-background">
       <nav className="border-b border-border">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -33,7 +39,31 @@ export function Layout() {
               </span>
             </Link>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
+
+          {user && (
+            <div className="hidden md:flex items-center gap-1">
+              <Link
+                to="/vote"
+                className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
+              >
+                {voteLabel}
+              </Link>
+              <Link
+                to="/recipes/new"
+                className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
+              >
+                Добавить рецепт
+              </Link>
+              <Link
+                to="/recipes"
+                className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
+              >
+                Открыть книгу
+              </Link>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -45,7 +75,7 @@ export function Layout() {
             </Button>
             {user ? (
               <>
-                <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
+                <Button variant="ghost" size="sm" asChild className="hidden lg:inline-flex">
                   <Link to="/profile">{user.username}</Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
