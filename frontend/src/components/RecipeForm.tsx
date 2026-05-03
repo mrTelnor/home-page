@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { FoodGlyph, FOOD_KINDS, FOOD_COLORS } from "@/components/FoodGlyph";
+import { FoodGlyph } from "@/components/FoodGlyph";
+import { FOOD_KINDS, FOOD_COLORS } from "@/components/food-kinds";
 
 interface IngredientRow {
   id: string;
