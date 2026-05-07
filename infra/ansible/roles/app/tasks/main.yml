@@ -19,7 +19,7 @@
     dest: /opt/home-page/docker-compose.yml
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  notify: Recreate containers
+  notify: Recreate all containers
 
 - name: Copy traefik.yml
   copy:
@@ -27,7 +27,7 @@
     dest: /opt/home-page/traefik/traefik.yml
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  notify: Recreate containers
+  notify: Recreate all containers
 
 - name: Sync backend source
   ansible.posix.synchronize:
@@ -39,7 +39,8 @@
       - "--exclude=__pycache__"
       - "--exclude=.pytest_cache"
       - "--exclude=*.egg-info"
-  notify: Recreate containers
+  notify: Recreate backend
+  tags: [backend]
 
 - name: Sync cron config
   ansible.posix.synchronize:
@@ -47,7 +48,8 @@
     dest: /opt/home-page/cron/
     dest_port: "{{ ansible_port | int }}"
     delete: true
-  notify: Recreate containers
+  notify: Recreate cron
+  tags: [cron]
 
 - name: Sync frontend source
   ansible.posix.synchronize:
@@ -58,7 +60,8 @@
     rsync_opts:
       - "--exclude=node_modules"
       - "--exclude=dist"
-  notify: Recreate containers
+  notify: Recreate frontend
+  tags: [frontend]
 
 - name: Sync bot source
   ansible.posix.synchronize:
@@ -69,7 +72,8 @@
     rsync_opts:
       - "--exclude=__pycache__"
       - "--exclude=.pytest_cache"
-  notify: Recreate containers
+  notify: Recreate bot
+  tags: [bot]
 
 - name: Generate .env from vault variables
   template:
@@ -78,7 +82,7 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0600"
-  notify: Recreate containers
+  notify: Recreate all containers
 
 - name: Start services
   community.docker.docker_compose_v2:

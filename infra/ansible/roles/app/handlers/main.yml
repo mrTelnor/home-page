@@ -1,7 +1,43 @@
 ---
-- name: Recreate containers
+- name: Recreate all containers
   community.docker.docker_compose_v2:
     project_src: /opt/home-page
+    state: present
+    build: always
+    recreate: always
+  become_user: "{{ ansible_user }}"
+
+- name: Recreate backend
+  community.docker.docker_compose_v2:
+    project_src: /opt/home-page
+    services: [backend]
+    state: present
+    build: always
+    recreate: always
+  become_user: "{{ ansible_user }}"
+
+- name: Recreate frontend
+  community.docker.docker_compose_v2:
+    project_src: /opt/home-page
+    services: [frontend]
+    state: present
+    build: always
+    recreate: always
+  become_user: "{{ ansible_user }}"
+
+- name: Recreate bot
+  community.docker.docker_compose_v2:
+    project_src: /opt/home-page
+    services: [bot]
+    state: present
+    build: always
+    recreate: always
+  become_user: "{{ ansible_user }}"
+
+- name: Recreate cron
+  community.docker.docker_compose_v2:
+    project_src: /opt/home-page
+    services: [cron]
     state: present
     build: always
     recreate: always

@@ -249,7 +249,7 @@ def format_single_reminder(event: CalendarEvent, reminder_label: str) -> str:
 
 
 def format_digest(today_events: list[CalendarEvent], tomorrow_events: list[CalendarEvent]) -> str:
-    lines = ["☀️ <b>Доброе утро! Расписание на сегодня и завтра</b>", ""]
+    lines = ["☀️ <b>Доброе утро! Расписание на сегодня и завтра:</b>", ""]
 
     today = datetime.now(TZ).date()
     lines.append(f"<b>Сегодня ({today.strftime('%d.%m')}):</b>")
