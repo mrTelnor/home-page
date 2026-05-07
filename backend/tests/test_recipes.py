@@ -209,3 +209,78 @@ async def test_get_recipe_public(client: AsyncClient, authed_client: AsyncClient
     response = await client.get(f"/api/recipes/{recipe_id}")
     assert response.status_code == 200
     assert response.json()["title"] == "Борщ"
+
+
+# ---------- GLYPH (kind + color) ----------
+
+async def test_create_recipe_with_glyph(authed_client: AsyncClient):
+    payload = _sample_recipe_payload("Пицца")
+    payload["glyph_kind"] = "pizza"
+    payload["glyph_color"] = "red"
+
+    response = await authed_client.post("/api/recipes", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["glyph_kind"] == "pizza"
+    assert data["glyph_color"] == "red"
+
+
+async def test_create_recipe_without_glyph_returns_null(authed_client: AsyncClient):
+    """Glyph fields default to null when not specified."""
+    response = await authed_client.post("/api/recipes", json=_sample_recipe_payload())
+    assert response.status_code == 201
+    data = response.json()
+    assert data["glyph_kind"] is None
+    assert data["glyph_color"] is None
+
+
+async def test_update_recipe_glyph(authed_client: AsyncClient):
+    """PUT can set glyph fields."""
+    created = await authed_client.post("/api/recipes", json=_sample_recipe_payload())
+    recipe_id = created.json()["id"]
+
+    response = await authed_client.put(
+        f"/api/recipes/{recipe_id}",
+        json={"glyph_kind": "soup", "glyph_color": "green"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["glyph_kind"] == "soup"
+    assert data["glyph_color"] == "green"
+
+
+async def test_update_recipe_clear_glyph(authed_client: AsyncClient):
+    """Passing null glyph fields explicitly clears them."""
+    payload = _sample_recipe_payload()
+    payload["glyph_kind"] = "pizza"
+    payload["glyph_color"] = "red"
+    created = await authed_client.post("/api/recipes", json=payload)
+    recipe_id = created.json()["id"]
+
+    response = await authed_client.put(
+        f"/api/recipes/{recipe_id}",
+        json={"glyph_kind": None, "glyph_color": None},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["glyph_kind"] is None
+    assert data["glyph_color"] is None
+
+
+async def test_update_recipe_preserves_glyph_when_not_passed(authed_client: AsyncClient):
+    """If glyph is not in PUT body, existing values are preserved."""
+    payload = _sample_recipe_payload()
+    payload["glyph_kind"] = "pizza"
+    payload["glyph_color"] = "red"
+    created = await authed_client.post("/api/recipes", json=payload)
+    recipe_id = created.json()["id"]
+
+    response = await authed_client.put(
+        f"/api/recipes/{recipe_id}",
+        json={"title": "Пицца обновлённая"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["title"] == "Пицца обновлённая"
+    assert data["glyph_kind"] == "pizza"
+    assert data["glyph_color"] == "red"

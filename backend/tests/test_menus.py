@@ -327,3 +327,51 @@ async def test_list_menus(
     r = await authed_client.get("/api/menus")
     assert r.status_code == 200
     assert len(r.json()) >= 1
+
+
+# ---------- VOTERS LIST (avatars on voting page) ----------
+
+async def test_voters_populated_after_vote(
+    admin_client: AsyncClient, authed_client: AsyncClient
+):
+    """MenuRecipeResponse.voters lists users who voted for that recipe."""
+    await _create_recipes(admin_client, 3)
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
+    recipe_id = menu["recipes"][0]["recipe_id"]
+
+    # Open voting
+    await admin_client.post("/api/menus/finalize", json={})
+
+    # User votes
+    voted_response = await authed_client.post(
+        f"/api/menus/{menu['id']}/vote",
+        json={"recipe_id": recipe_id},
+    )
+    assert voted_response.status_code == 200
+
+    # Voted recipe has the user in voters list
+    data = voted_response.json()
+    voted_recipe = next(r for r in data["recipes"] if r["recipe_id"] == recipe_id)
+    assert len(voted_recipe["voters"]) == 1
+    voter = voted_recipe["voters"][0]
+    assert voter["username"] == "testuser"
+    assert "id" in voter
+    assert "first_name" in voter
+
+    # Other recipes have empty voters list
+    other_recipes = [r for r in data["recipes"] if r["recipe_id"] != recipe_id]
+    for r in other_recipes:
+        assert r["voters"] == []
+
+
+async def test_voters_empty_during_collecting(
+    admin_client: AsyncClient, authed_client: AsyncClient
+):
+    """During collecting phase voters list is always empty."""
+    await _create_recipes(admin_client, 3)
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
+
+    r = await authed_client.get(f"/api/menus/{menu['id']}")
+    data = r.json()
+    for recipe in data["recipes"]:
+        assert recipe["voters"] == []
