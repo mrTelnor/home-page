@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime, timedelta
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -8,6 +9,16 @@ from aiogram.types import BotCommand
 from aiohttp import web
 
 from app.api_client import api
+from app.calendar_service import (
+    TZ as CALENDAR_TZ,
+    fetch_digest_events,
+    fetch_events,
+    format_digest,
+    format_single_reminder,
+    mark_digest_sent,
+    save_sent,
+    select_reminders_to_send,
+)
 from app.config import settings
 from app.handlers import main_router
 from app.notify import EVENT_HANDLERS
@@ -82,6 +93,59 @@ async def handle_uptime_alert(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def _send_to_admins(bot: Bot, text: str) -> None:
+    admins = await api.get_admin_users()
+    for admin in admins:
+        try:
+            await bot.send_message(chat_id=admin["tg_id"], text=text)
+        except Exception:
+            logger.warning("Failed to send calendar message to tg_id=%s", admin["tg_id"])
+
+
+async def handle_check_calendar(request: web.Request) -> web.Response:
+    """Cron-driven calendar check.
+
+    Query params:
+      ?digest=true     — отправить утренний дайджест на сегодня и завтра
+      ?force=true      — игнорировать дедупликацию (для дайджеста — отправить
+                          даже если уже был сегодня)
+    """
+    if request.headers.get("X-Cron-Secret") != settings.cron_secret:
+        return web.json_response({"error": "forbidden"}, status=403)
+
+    bot: Bot = request.app["bot"]
+    is_digest = request.query.get("digest") == "true"
+    force = request.query.get("force") == "true"
+
+    if is_digest:
+        today = datetime.now(CALENDAR_TZ).date()
+        if not force and not mark_digest_sent(today):
+            return web.json_response({"ok": True, "skipped": "already_sent"})
+        today_events, tomorrow_events = fetch_digest_events()
+        text = format_digest(today_events, tomorrow_events)
+        await _send_to_admins(bot, text)
+        return web.json_response({
+            "ok": True,
+            "today": len(today_events),
+            "tomorrow": len(tomorrow_events),
+            "forced": force,
+        })
+
+    # Per-event reminders: fetch events in next ~24h, decide which to send now
+    now = datetime.now(CALENDAR_TZ)
+    time_min = now - timedelta(minutes=5)
+    time_max = now + timedelta(hours=25)
+    events = fetch_events(time_min, time_max)
+    reminders, updated_sent = select_reminders_to_send(now, events)
+    save_sent(updated_sent)
+
+    for event, label in reminders:
+        text = format_single_reminder(event, label)
+        await _send_to_admins(bot, text)
+
+    return web.json_response({"ok": True, "sent": len(reminders), "events_fetched": len(events)})
+
+
 async def run(bot: Bot, dp: Dispatcher) -> None:
     """Run polling + notify server on the same event loop."""
     # Start HTTP server
@@ -89,6 +153,7 @@ async def run(bot: Bot, dp: Dispatcher) -> None:
     app["bot"] = bot
     app.router.add_post("/notify", handle_notify)
     app.router.add_post("/uptime-alert", handle_uptime_alert)
+    app.router.add_post("/check-calendar", handle_check_calendar)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", settings.port)

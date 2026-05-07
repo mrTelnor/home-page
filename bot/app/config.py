@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     cron_secret: str
     uptime_secret: str
     port: int = 8080
+    # Google Calendar integration
+    google_service_account_b64: str = ""
+    calendar_configs: str = "[]"
+    reminders_data_path: str = "/data/sent_reminders.json"
 
     model_config = {"env_file": ".env"}
 

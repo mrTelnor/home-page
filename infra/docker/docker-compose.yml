@@ -8,6 +8,7 @@ volumes:
   letsencrypt:
   pg_data:
   portainer_data:
+  bot_data:
 
 services:
   traefik:
@@ -124,6 +125,11 @@ services:
       WEBHOOK_HOST: https://bot.${DOMAIN}
       CRON_SECRET: ${CRON_SECRET}
       UPTIME_SECRET: ${UPTIME_SECRET}
+      GOOGLE_SERVICE_ACCOUNT_B64: ${GOOGLE_SERVICE_ACCOUNT_B64}
+      CALENDAR_CONFIGS: ${CALENDAR_CONFIGS}
+      REMINDERS_DATA_PATH: /data/sent_reminders.json
+    volumes:
+      - bot_data:/data
     networks:
       - web
     depends_on:

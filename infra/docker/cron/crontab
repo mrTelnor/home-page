@@ -9,3 +9,9 @@
 
 # Закрыть голосование (17:00 GMT+3 = 14:00 UTC)
 0 14 * * * curl -s -X POST http://backend:8000/api/menus/close-voting -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' >> /var/log/cron.log 2>&1 && curl -s -X POST http://bot:8080/notify -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"event":"voting_closed"}' >> /var/log/cron.log 2>&1
+
+# Календарь: проверка часовых напоминаний и встроенных reminders каждые 5 минут
+*/5 * * * * curl -s -X POST http://bot:8080/check-calendar -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1
+
+# Календарь: утренний дайджест (9:00 GMT+3 = 06:00 UTC)
+0 6 * * * curl -s -X POST "http://bot:8080/check-calendar?digest=true" -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1

@@ -48,6 +48,7 @@ alembic/versions/*.pyc
 
 # Ansible
 **/ansible/.vault_pass
+**/ansible/home-page-bot-baf6b4e73f89.json
 
 # Test artifacts
 cookies.txt
