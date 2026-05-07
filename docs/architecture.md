@@ -16,6 +16,7 @@
 ### Управление конфигурацией
 - **Ansible** — provisioning ВМ, установка Docker, настройка firewalld, генерация `.env` из Vault, синхронизация кода (rsync)
 - Terraform не используется (избыточен для одной ВМ)
+- **Селективный деплой через теги** — каждый сервис помечен тегом (`backend`, `frontend`, `bot`, `cron`), у каждого свой handler; `--tags bot` пересоздаёт только bot-контейнер. Без тегов — полный деплой
 
 ### Управление секретами
 | Место хранения | Назначение |
@@ -45,10 +46,12 @@
 ### Telegram-бот
 - **Aiogram 3** (async) — polling mode, отдельный Docker-сервис
 - Общается с backend API через httpx (`http://backend:8000`) с JWT авторизацией
-- Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/mute`, `/unmute`, `/start`, `/help`
+- Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/schedule`, `/mute`, `/unmute`, `/start`, `/help`
 - Aiohttp-сервер на `:8080`:
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
+  - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию
+- **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 09:00. Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
 
 ### Автоматизация (cron-контейнер)
@@ -232,6 +235,12 @@ home-page/
       │ HetrixTools  ├──────────────────→ Bot → Telegram admin alerts
       │   (внешний)  │
       └──────────────┘
+
+      ┌──────────────┐   service account (read-only)    ┌─────┐
+      │ Google       │ ←──────────────────────────────── │ Bot │ → Telegram admin reminders
+      │ Calendar API │                                   └─────┘
+      └──────────────┘   опрос через cron каждые 5 мин
+                         + утренний дайджест в 09:00 GMT+3
 ```
 
 ---
@@ -257,3 +266,6 @@ home-page/
 | Мониторинг | HetrixTools (внешний) | Self-hosted Uptime Kuma | Детектит падение всей ВМ |
 | VPN для бота | WireGuard к VPS в DE | Прокси, полный VPN ВМ | Обход блокировок Telegram в РФ, только нужные подсети |
 | Bot mode | Polling | Webhook | `telnor.ru` забанен на DNS-резолвере Telegram |
+| Calendar API auth | Service account + sharing | OAuth per-user, iCal-фид | Минимум кода, без user flow; iCal кэшируется до 24 ч на стороне Google |
+| Дедуп напоминаний | JSON-файл в Docker volume | БД, in-memory | Простота; данные переживают рестарт бота |
+| Селективный деплой | Ansible tags + per-service handlers | Один общий handler | Быстрее деплой при работе над одним сервисом, готовность к росту числа сервисов |

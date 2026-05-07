@@ -17,6 +17,7 @@
 - 🗳️ **Голосование за ужин** — ежедневно по расписанию (8:00 GMT+3) создаётся меню из 3 случайных рецептов, члены семьи могут предлагать свои варианты и голосовать. После голоса показывается счётчик участников и кнопка "Отменить голос". В 17:00 определяется победитель
 - 📜 **История голосований** — прошлые меню с результатами
 - 🤖 **Telegram-бот** — просмотр меню, голосование, предложение рецептов, уведомления о событиях (новое меню, открытие голосования, результаты). Настройка уведомлений per-user (`/mute`, `/unmute`). Поиск рецептов по названию через `/suggest`
+- 📅 **Интеграция с Google Calendar** — бот читает несколько семейных календарей через service account и шлёт админам почасовые напоминания о событиях, поддерживает встроенные reminders из календаря, утренний дайджест в 9:00 и команду `/schedule` для запроса расписания на сегодня и завтра по требованию
 - 🔐 **Авторизация** — регистрация по инвайт-коду, JWT в httpOnly cookie (веб) и Bearer token (бот)
 - 👁 **Гостевой доступ** — публичный просмотр базы рецептов без авторизации (без возможности редактировать/голосовать)
 - 👤 **Личный кабинет** — личные данные (имя, день рождения, пол, фамилия Волков/Волкова), смена пароля, привязка Telegram через Login Widget
@@ -31,8 +32,8 @@
 | Бэкенд | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2 |
 | База данных | PostgreSQL 16 (схемы `auth`, `dinner`) |
 | Фронтенд | React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, Zustand |
-| Telegram-бот | Python 3.12, Aiogram 3 (polling), aiohttp, httpx |
-| Автоматизация | Cron-контейнер (Alpine + curl + postgresql-client): расписание голосования, уведомления, бэкапы |
+| Telegram-бот | Python 3.12, Aiogram 3 (polling), aiohttp, httpx, google-api-python-client |
+| Автоматизация | Cron-контейнер (Alpine + curl + postgresql-client): расписание голосования, уведомления, бэкапы, проверка календаря |
 | Инфраструктура | Docker, Docker Compose, Traefik v3 (Let's Encrypt), Ansible, Cloudflare DNS, WireGuard (VPN для бота) |
 | Мониторинг | HetrixTools (uptime + blacklist), алерты в Telegram через бот |
 | Хранилище бэкапов | Яндекс.Диск (WebDAV) |
@@ -145,6 +146,40 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml
 - Генерирует `.env` из переменных Ansible Vault
 - Пересобирает и перезапускает контейнеры при изменениях (build + recreate)
 
+### 5. Селективный деплой через теги
+
+Чтобы не пересобирать все контейнеры при изменении только одного сервиса, используй теги:
+
+```bash
+ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot
+```
+
+Доступные теги: `backend`, `frontend`, `bot`, `cron`. Можно комбинировать: `--tags bot,backend`.
+
+| Изменение | Команда |
+|---|---|
+| Только код бота (Python в `bot/app/`) | `--tags bot` |
+| Только backend (Python в `backend/app/`, миграции) | `--tags backend` |
+| Только frontend (React) | `--tags frontend` |
+| Только cron (расписание, скрипты) | `--tags cron` |
+| `docker-compose.yml`, `.env`, traefik | без тегов (полный деплой) |
+| Несколько сервисов | `--tags bot,backend` |
+
+Каждый тегированный сервис имеет свой handler (`Recreate bot`, `Recreate backend` и т.д.), который пересобирает и перезапускает только нужный контейнер. Изменения в общих файлах (`docker-compose.yml`, `.env`, `traefik.yml`) триггерят `Recreate all containers` — нужен полный деплой без `--tags`.
+
+Полезные служебные команды:
+
+```bash
+# показать список доступных тегов
+ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --list-tags
+
+# увидеть какие задачи будут запущены (план без выполнения)
+ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot --list-tasks
+
+# dry-run: что бы изменилось, без выполнения
+ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot --check
+```
+
 ### Ansible Vault
 
 Чувствительные данные зашифрованы поштучно в `infra/ansible/inventory/group_vars/all/vault.yml`:
@@ -174,6 +209,8 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml
 | `vault_wg_preshared_key` | WireGuard PresharedKey | да |
 | `vault_wg_address` | Адрес WireGuard-клиента (`10.x.x.x/24`) | да |
 | `vault_wg_endpoint` | Endpoint WireGuard-сервера (`host:port`) | да |
+| `vault_google_service_account_b64` | JSON-ключ Google service account в base64 (для Calendar API) | да |
+| `vault_calendar_configs` | Список календарей: `[{label, id}, ...]` | нет |
 
 Пароль vault хранится в `infra/ansible/.vault_pass` (не попадает в git).
 
