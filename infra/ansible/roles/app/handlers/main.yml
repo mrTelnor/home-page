@@ -1,44 +1,34 @@
 ---
+# Используем shell вместо community.docker.docker_compose_v2 из-за бага
+# в post-action `compose images --format json`, которая падает на ссылке
+# на orphan-образы после --build --force-recreate.
+
 - name: Recreate all containers
-  community.docker.docker_compose_v2:
-    project_src: /opt/home-page
-    state: present
-    build: always
-    recreate: always
+  shell: docker compose up -d --build --force-recreate --remove-orphans
+  args:
+    chdir: /opt/home-page
   become_user: "{{ ansible_user }}"
 
 - name: Recreate backend
-  community.docker.docker_compose_v2:
-    project_src: /opt/home-page
-    services: [backend]
-    state: present
-    build: always
-    recreate: always
+  shell: docker compose up -d --build --force-recreate backend
+  args:
+    chdir: /opt/home-page
   become_user: "{{ ansible_user }}"
 
 - name: Recreate frontend
-  community.docker.docker_compose_v2:
-    project_src: /opt/home-page
-    services: [frontend]
-    state: present
-    build: always
-    recreate: always
+  shell: docker compose up -d --build --force-recreate frontend
+  args:
+    chdir: /opt/home-page
   become_user: "{{ ansible_user }}"
 
 - name: Recreate bot
-  community.docker.docker_compose_v2:
-    project_src: /opt/home-page
-    services: [bot]
-    state: present
-    build: always
-    recreate: always
+  shell: docker compose up -d --build --force-recreate bot
+  args:
+    chdir: /opt/home-page
   become_user: "{{ ansible_user }}"
 
 - name: Recreate cron
-  community.docker.docker_compose_v2:
-    project_src: /opt/home-page
-    services: [cron]
-    state: present
-    build: always
-    recreate: always
+  shell: docker compose up -d --build --force-recreate cron
+  args:
+    chdir: /opt/home-page
   become_user: "{{ ansible_user }}"

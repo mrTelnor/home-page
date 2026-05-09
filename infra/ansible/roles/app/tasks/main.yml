@@ -1,7 +1,6 @@
 ---
-# Чистим dangling-образы перед деплоем. Иначе при rebuild старые образы
-# остаются «осиротевшими» и docker_compose_v2 модуль падает в post-action
-# `compose images --format json` со ссылкой на удалённый sha (см. README).
+# Чистим dangling-образы перед деплоем (профилактика — образы накапливаются
+# после rebuild и занимают место).
 - name: Prune dangling Docker images
   command: docker image prune -f
   register: prune_result
@@ -94,7 +93,8 @@
   notify: Recreate all containers
 
 - name: Start services
-  community.docker.docker_compose_v2:
-    project_src: /opt/home-page
-    state: present
+  shell: docker compose up -d
+  args:
+    chdir: /opt/home-page
   become_user: "{{ ansible_user }}"
+  changed_when: false

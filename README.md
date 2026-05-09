@@ -182,15 +182,19 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot --check
 
 ### Очистка Docker-образов
 
-При каждом деплое плейбук автоматически выполняет `docker image prune -f` (задача `Prune dangling Docker images` с тегом `always`). Это убирает «осиротевшие» образы, которые остаются после `--build --force-recreate`.
+При каждом деплое плейбук автоматически выполняет `docker image prune -f` (задача `Prune dangling Docker images` с тегом `always`). Это убирает «осиротевшие» образы после rebuild и не даёт диску переполняться.
 
-**Зачем:** без очистки модуль `community.docker.docker_compose_v2` после rebuild может упасть на post-action `compose images --format json`:
+### Внутренности handler-ов
+
+Для пересоздания контейнеров используется прямой вызов `docker compose up -d --build --force-recreate <service>` через shell-модуль Ansible. Раньше использовался `community.docker.docker_compose_v2`, но он падает на post-action `compose images --format json`:
 
 ```
 Error response from daemon: No such image: sha256:290ca7626…
 ```
 
-Если такая ошибка всё-таки случилась (например, если кто-то задеплоил раньше с другой машины без актуального плейбука) — ручное восстановление:
+Это известный баг модуля при `--build --force-recreate`. Прямой `docker compose` не делает такой post-action и работает стабильно.
+
+Если ошибка всё же появилась (например, после обновлений docker compose) — ручное восстановление:
 
 ```bash
 ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && cd /opt/home-page && docker compose up -d --build --force-recreate <service>'

@@ -223,6 +223,16 @@ def mark_digest_sent(target_date: date) -> bool:
     return True
 
 
+def mark_event_sent(key: str) -> bool:
+    """Generic single-shot marker. Returns True if not yet sent (and records it)."""
+    sent = _prune_old(_load_sent())
+    if key in sent:
+        return False
+    sent[key] = datetime.now(TZ).isoformat()
+    _save_sent(sent)
+    return True
+
+
 def save_sent(data: dict[str, str]) -> None:
     _save_sent(data)
 
@@ -270,17 +280,40 @@ def format_digest(
     else:
         lines.append("  — событий нет")
 
-    if menu and menu.get("status") == "collecting" and menu.get("recipes"):
+    if menu and menu.get("recipes"):
         lines.append("")
         lines.append("━━━━━━━━━━━━━━")
         lines.append("")
-        lines.append("🍽 <b>Кстати, меню дня готово!</b>")
-        lines.append("")
-        lines.append("Рецепты:")
-        for i, recipe in enumerate(menu["recipes"], start=1):
-            lines.append(f"  {•} {recipe['title']}")
-        lines.append("")
-        lines.append("Предлагайте свои варианты! /suggest")
+        status = menu.get("status")
+        recipes = menu["recipes"]
+        if status == "collecting":
+            lines.append("🍽 <b>Кстати, меню дня готово!</b>")
+            lines.append("")
+            lines.append("Рецепты:")
+            for recipe in recipes:
+                lines.append(f"  • {recipe['title']}")
+            lines.append("")
+            lines.append("Предлагайте свои варианты! /suggest")
+        elif status == "voting":
+            lines.append("🗳 <b>Голосование за ужин открыто!</b>")
+            lines.append("")
+            for recipe in recipes:
+                votes = recipe.get("votes_count", 0)
+                lines.append(f"  • {recipe['title']} — {votes} гол.")
+            lines.append("")
+            lines.append("Голосуй! /vote")
+        elif status == "closed":
+            winner_id = menu.get("winner_recipe_id")
+            winner = next((r for r in recipes if r["recipe_id"] == winner_id), None)
+            if winner:
+                lines.append(f"🎉 <b>Победитель ужина:</b> {winner['title']}")
+            else:
+                lines.append("🍽 <b>Меню дня</b>")
+            lines.append("")
+            for recipe in recipes:
+                votes = recipe.get("votes_count", 0)
+                mark = " 🏆" if recipe["recipe_id"] == winner_id else ""
+                lines.append(f"  • {recipe['title']} — {votes} гол.{mark}")
 
     return "\n".join(lines)
 

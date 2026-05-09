@@ -21,7 +21,7 @@ from app.calendar_service import (
 )
 from app.config import settings
 from app.handlers import main_router
-from app.notify import EVENT_HANDLERS
+from app.notify import EVENT_HANDLERS, notify_voting_closed, notify_voting_opened
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -3,6 +3,7 @@ import logging
 from aiogram import Bot
 
 from app.api_client import api
+from app.calendar_service import mark_event_sent
 
 logger = logging.getLogger(__name__)
 
@@ -55,13 +56,30 @@ async def notify_menu_created(bot: Bot) -> None:
 
 
 async def notify_voting_opened(bot: Bot) -> None:
-    """Notify that voting is open."""
-    text = "🗳 Голосование открыто! Используйте /vote для выбора ужина."
-    await broadcast(bot, text)
+    """Уведомить, что голосование открылось. Идемпотентно: дедуп по id меню."""
+    users = await api.get_notifiable_users()
+    if not users:
+        return
+    resp = await api.get("/api/menus/today", users[0]["tg_id"])
+    if resp is None or resp.status_code != 200:
+        return
+    menu = resp.json()
+    if menu.get("status") != "voting":
+        return
+    if not mark_event_sent(f"voting_opened:{menu['id']}"):
+        return
+
+    recipes = menu.get("recipes", [])
+    lines = ["🗳 Голосование за ужин открыто!", ""]
+    for r in recipes:
+        lines.append(f"  • {r['title']}")
+    lines.append("")
+    lines.append("Голосуй: /vote")
+    await broadcast(bot, "\n".join(lines))
 
 
 async def notify_voting_closed(bot: Bot) -> None:
-    """Notify about voting results."""
+    """Уведомить о результатах голосования. Идемпотентно: дедуп по id меню."""
     users = await api.get_notifiable_users()
     if not users:
         return
@@ -72,6 +90,10 @@ async def notify_voting_closed(bot: Bot) -> None:
         return
 
     menu = resp.json()
+    if menu.get("status") != "closed":
+        return
+    if not mark_event_sent(f"voting_closed:{menu['id']}"):
+        return
     winner_id = menu.get("winner_recipe_id")
     results = []
     winner_title = "Не определён"

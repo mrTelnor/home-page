@@ -17,7 +17,8 @@
 - **Ansible** — provisioning ВМ, установка Docker, настройка firewalld, генерация `.env` из Vault, синхронизация кода (rsync)
 - Terraform не используется (избыточен для одной ВМ)
 - **Селективный деплой через теги** — каждый сервис помечен тегом (`backend`, `frontend`, `bot`, `cron`), у каждого свой handler; `--tags bot` пересоздаёт только bot-контейнер. Без тегов — полный деплой
-- **Автоочистка dangling-образов** — задача `Prune dangling Docker images` с тегом `always` запускается перед каждым деплоем, чтобы избежать накопления осиротевших образов после `--build --force-recreate` и связанного бага в `community.docker.docker_compose_v2`
+- **Handler'ы вызывают `docker compose` напрямую** через shell-модуль (а не `community.docker.docker_compose_v2`) — модуль падает на post-action `compose images --format json` при `--build --force-recreate`. Прямой вызов стабилен
+- **Автоочистка dangling-образов** — `docker image prune -f` запускается с тегом `always` перед каждым деплоем, чтобы образы не копились на диске
 
 ### Управление секретами
 | Место хранения | Назначение |
