@@ -56,3 +56,4 @@ cookies.txt
 # Superpowers (specs, plans, brainstorm)
 docs/superpowers/
 .superpowers/
+.claude/
