@@ -52,15 +52,18 @@
 - Aiohttp-сервер на `:8080`:
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
-  - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию
-- **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 09:00. Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`
+  - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
+- **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 08:00 (вместе с меню). Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
 
 ### Автоматизация (cron-контейнер)
 - **Alpine + curl + postgresql-client** — вызывает backend-эндпоинты по расписанию с заголовком `X-Cron-Secret`, затем `/notify` эндпоинт бота для рассылки уведомлений
 - Расписание (GMT+3):
   - 03:00 — бэкап БД (`pg_dump -Fc | gzip` → Яндекс.Диск WebDAV, ротация 14 дней)
-  - 08:00/13:00/17:00 — цикл голосования (create-daily → finalize → close-voting + уведомления)
+  - 08:00 — `create-daily` + уведомление о меню для не-админов + утренний дайджест админам (расписание Google Calendar + меню)
+  - 13:00 — `finalize` + `voting_opened`
+  - 17:00 — `close-voting` + `voting_closed`
+  - каждые 5 минут — `/check-calendar` (часовые reminders, custom reminders, catch-up для voting-уведомлений)
 
 ### Мониторинг
 - **HetrixTools** (бесплатный тариф) — внешний uptime-мониторинг + blacklist-мониторинг
@@ -242,7 +245,7 @@ home-page/
       │ Google       │ ←──────────────────────────────── │ Bot │ → Telegram admin reminders
       │ Calendar API │                                   └─────┘
       └──────────────┘   опрос через cron каждые 5 мин
-                         + утренний дайджест в 09:00 GMT+3
+                         + утренний дайджест в 08:00 GMT+3
 ```
 
 ---
@@ -271,3 +274,4 @@ home-page/
 | Calendar API auth | Service account + sharing | OAuth per-user, iCal-фид | Минимум кода, без user flow; iCal кэшируется до 24 ч на стороне Google |
 | Дедуп напоминаний | JSON-файл в Docker volume | БД, in-memory | Простота; данные переживают рестарт бота |
 | Селективный деплой | Ansible tags + per-service handlers | Один общий handler | Быстрее деплой при работе над одним сервисом, готовность к росту числа сервисов |
+| Catch-up voting-уведомлений | Идемпотентный poll в `/check-calendar` | Retry в curl, очередь, webhook | Self-healing при пропуске разового cron-вызова, дедуп по menu_id предотвращает дубли |
