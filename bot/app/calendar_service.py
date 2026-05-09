@@ -278,7 +278,7 @@ def format_digest(
         lines.append("")
         lines.append("Рецепты:")
         for i, recipe in enumerate(menu["recipes"], start=1):
-            lines.append(f"  {i}. {recipe['title']}")
+            lines.append(f"  {•} {recipe['title']}")
         lines.append("")
         lines.append("Предлагайте свои варианты! /suggest")
 
