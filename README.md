@@ -180,6 +180,22 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot --list-ta
 ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot --check
 ```
 
+### Очистка Docker-образов
+
+При каждом деплое плейбук автоматически выполняет `docker image prune -f` (задача `Prune dangling Docker images` с тегом `always`). Это убирает «осиротевшие» образы, которые остаются после `--build --force-recreate`.
+
+**Зачем:** без очистки модуль `community.docker.docker_compose_v2` после rebuild может упасть на post-action `compose images --format json`:
+
+```
+Error response from daemon: No such image: sha256:290ca7626…
+```
+
+Если такая ошибка всё-таки случилась (например, если кто-то задеплоил раньше с другой машины без актуального плейбука) — ручное восстановление:
+
+```bash
+ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && cd /opt/home-page && docker compose up -d --build --force-recreate <service>'
+```
+
 ### Ansible Vault
 
 Чувствительные данные зашифрованы поштучно в `infra/ansible/inventory/group_vars/all/vault.yml`:

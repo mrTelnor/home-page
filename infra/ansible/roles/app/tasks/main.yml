@@ -1,4 +1,13 @@
 ---
+# Чистим dangling-образы перед деплоем. Иначе при rebuild старые образы
+# остаются «осиротевшими» и docker_compose_v2 модуль падает в post-action
+# `compose images --format json` со ссылкой на удалённый sha (см. README).
+- name: Prune dangling Docker images
+  command: docker image prune -f
+  register: prune_result
+  changed_when: "'Total reclaimed space: 0B' not in prune_result.stdout"
+  tags: [always]
+
 - name: Create app directory
   file:
     path: /opt/home-page

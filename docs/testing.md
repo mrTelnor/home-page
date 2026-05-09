@@ -334,6 +334,7 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker exec cron /usr/loc
 - **Custom reminders** в календаре ловятся только если у события стоит `useDefault=False` и есть явный override. Дефолтные напоминания календаря бот не знает.
 - **Дедуп напоминаний** хранится в Docker volume `bot_data` — переживает рестарт. Старше 7 дней удаляется автоматически.
 - **Деплой** через `ansible-playbook ... --tags <service>` пересоздаёт только указанный контейнер. Без тегов — полный деплой при изменениях в `docker-compose.yml`/`.env`.
+- **Dangling Docker images** — после rebuild старые образы становятся «осиротевшими». Перед каждым деплоем плейбук делает `docker image prune -f` (задача с тегом `always`). Если ошибка `No such image: sha256:...` всё-таки появилась — на ВМ запустить `docker image prune -f && docker compose up -d --build --force-recreate <service>`.
 
 ---
 
