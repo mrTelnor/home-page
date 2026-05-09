@@ -13,10 +13,20 @@ STATUS_LABELS = {
 }
 
 
-async def broadcast(bot: Bot, text: str) -> None:
-    """Send text to all notifiable users."""
+async def broadcast(bot: Bot, text: str, *, exclude_admins: bool = False) -> None:
+    """Send text to all notifiable users.
+
+    If exclude_admins=True, skip admin users (they receive a richer message
+    elsewhere — e.g., as part of the unified morning digest).
+    """
     users = await api.get_notifiable_users()
+    excluded_ids: set[int] = set()
+    if exclude_admins:
+        admins = await api.get_admin_users()
+        excluded_ids = {a["tg_id"] for a in admins}
     for user in users:
+        if user["tg_id"] in excluded_ids:
+            continue
         try:
             await bot.send_message(chat_id=user["tg_id"], text=text)
         except Exception:
@@ -24,7 +34,11 @@ async def broadcast(bot: Bot, text: str) -> None:
 
 
 async def notify_menu_created(bot: Bot) -> None:
-    """Notify about new daily menu."""
+    """Notify non-admin users about new daily menu.
+
+    Admins skip this — they get menu info as part of the unified morning
+    digest at 09:00 via /check-calendar?digest=true.
+    """
     users = await api.get_notifiable_users()
     if not users:
         return
@@ -37,7 +51,7 @@ async def notify_menu_created(bot: Bot) -> None:
     menu = resp.json()
     recipes = "\n".join(f"  • {r['title']}" for r in menu["recipes"])
     text = f"🍽 Меню дня готово! Предлагайте свои варианты.\n\nРецепты:\n{recipes}\n\nИспользуйте /suggest"
-    await broadcast(bot, text)
+    await broadcast(bot, text, exclude_admins=True)
 
 
 async def notify_voting_opened(bot: Bot) -> None:

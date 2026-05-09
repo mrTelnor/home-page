@@ -248,7 +248,11 @@ def format_single_reminder(event: CalendarEvent, reminder_label: str) -> str:
     )
 
 
-def format_digest(today_events: list[CalendarEvent], tomorrow_events: list[CalendarEvent]) -> str:
+def format_digest(
+    today_events: list[CalendarEvent],
+    tomorrow_events: list[CalendarEvent],
+    menu: dict | None = None,
+) -> str:
     lines = ["☀️ <b>Доброе утро! Расписание на сегодня и завтра:</b>", ""]
 
     today = datetime.now(TZ).date()
@@ -265,6 +269,18 @@ def format_digest(today_events: list[CalendarEvent], tomorrow_events: list[Calen
         lines.extend(format_event_line(e) for e in tomorrow_events)
     else:
         lines.append("  — событий нет")
+
+    if menu and menu.get("status") == "collecting" and menu.get("recipes"):
+        lines.append("")
+        lines.append("━━━━━━━━━━━━━━")
+        lines.append("")
+        lines.append("🍽 <b>Кстати, меню дня готово!</b>")
+        lines.append("")
+        lines.append("Рецепты:")
+        for i, recipe in enumerate(menu["recipes"], start=1):
+            lines.append(f"  {i}. {recipe['title']}")
+        lines.append("")
+        lines.append("Предлагайте свои варианты! /suggest")
 
     return "\n".join(lines)
 

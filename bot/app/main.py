@@ -103,6 +103,18 @@ async def _send_to_admins(bot: Bot, text: str) -> None:
             logger.warning("Failed to send calendar message to tg_id=%s", admin["tg_id"])
 
 
+async def _fetch_today_menu() -> dict | None:
+    """Fetch today's menu via API using any admin's tg_id for auth.
+    Returns None if no admins are linked or menu not found."""
+    admins = await api.get_admin_users()
+    if not admins:
+        return None
+    resp = await api.get("/api/menus/today", admins[0]["tg_id"])
+    if resp is None or resp.status_code != 200:
+        return None
+    return resp.json()
+
+
 async def handle_check_calendar(request: web.Request) -> web.Response:
     """Cron-driven calendar check.
 
@@ -123,12 +135,14 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
         if not force and not mark_digest_sent(today):
             return web.json_response({"ok": True, "skipped": "already_sent"})
         today_events, tomorrow_events = fetch_digest_events()
-        text = format_digest(today_events, tomorrow_events)
+        menu = await _fetch_today_menu()
+        text = format_digest(today_events, tomorrow_events, menu=menu)
         await _send_to_admins(bot, text)
         return web.json_response({
             "ok": True,
             "today": len(today_events),
             "tomorrow": len(tomorrow_events),
+            "menu_included": menu is not None,
             "forced": force,
         })
 
