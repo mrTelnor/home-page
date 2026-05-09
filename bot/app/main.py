@@ -158,6 +158,15 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
         text = format_single_reminder(event, label)
         await _send_to_admins(bot, text)
 
+    # Catch-up: переопросить статус меню. Если cron-вызов /notify пропал
+    # (бот рестартил, сеть моргнула) — досылаем здесь. Дедуп в notify_*
+    # гарантирует, что повторного сообщения не будет.
+    try:
+        await notify_voting_opened(bot)
+        await notify_voting_closed(bot)
+    except Exception:
+        logger.exception("voting catch-up failed")
+
     return web.json_response({"ok": True, "sent": len(reminders), "events_fetched": len(events)})
 
 
