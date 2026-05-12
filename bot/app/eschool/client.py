@@ -27,7 +27,14 @@ class ESchoolClient:
         self._http = httpx.AsyncClient(
             base_url=self._base_url,
             timeout=httpx.Timeout(15.0, connect=5.0),
-            headers={"User-Agent": "Mozilla/5.0 (compatible; HomePageBot)"},
+            # Реальный Chrome-UA — eschool возвращает 503 на «бот»-агенты типа `compatible; XBot`.
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
+            },
         )
         self.parent_prs_id: int | None = None
         self.children: list[dict] = []
