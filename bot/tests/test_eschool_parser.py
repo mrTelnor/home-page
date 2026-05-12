@@ -87,3 +87,37 @@ def test_parse_homework_skips_when_has_task_zero():
         ]
     }
     assert parse_homework(diary, target_date=date(2026, 5, 12)) == []
+
+
+def test_parse_grades_uses_dt_for_filtering(diary_sample):
+    from app.eschool.parser import parse_grades
+    grades = parse_grades(diary_sample, target_date=date(2026, 5, 12))
+    assert len(grades) == 2
+
+
+def test_parse_grades_resolves_subject_via_lesson_id(diary_sample):
+    from app.eschool.parser import parse_grades
+    grades = parse_grades(diary_sample, target_date=date(2026, 5, 12))
+    english = next(g for g in grades if g.subject.startswith("Иностранный"))
+    assert english.value == "5"
+    assert english.comment == "Контрольная работа"
+    math = next(g for g in grades if g.subject == "Математика")
+    assert math.value == "4"
+    assert math.comment is None
+
+
+def test_parse_grades_empty_when_no_marks_on_date(diary_sample):
+    from app.eschool.parser import parse_grades
+    grades = parse_grades(diary_sample, target_date=date(2026, 5, 13))
+    assert grades == []
+
+
+def test_parse_grades_handles_missing_lesson_mapping():
+    from app.eschool.parser import parse_grades
+    diary = {
+        "user": [{"mark": [{"id": 1, "lessonId": 99999, "mark": "3", "dt": 1778533200000}]}],
+        "lesson": [],
+    }
+    grades = parse_grades(diary, target_date=date(2026, 5, 12))
+    assert len(grades) == 1
+    assert grades[0].subject == "Без предмета"
