@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     google_service_account_b64: str = ""
     calendar_configs: str = "[]"
     reminders_data_path: str = "/data/sent_reminders.json"
+    # Eschool integration
+    eschool_login: str = ""
+    eschool_password: str = ""
+    eschool_base_url: str = "https://app.eschool.center/ec-server"
 
     model_config = {"env_file": ".env"}
 
