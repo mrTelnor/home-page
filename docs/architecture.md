@@ -53,6 +53,7 @@
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
   - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
+  - `POST /check-eschool` (X-Cron-Secret) — eschool-интеграция; `?action=homework_digest|homework_push|grades_digest`; `?force=true` обходит дедуп
 - **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 08:00 (вместе с меню). Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
 
@@ -64,6 +65,9 @@
   - 13:00 — `finalize` + `voting_opened`
   - 17:00 — `close-voting` + `voting_closed`
   - каждые 5 минут — `/check-calendar` (часовые reminders, custom reminders, catch-up для voting-уведомлений)
+  - 15:00 — `/check-eschool?action=homework_digest` (ДЗ на следующий школьный день)
+  - 15:30–22:30 (каждые 30 мин) — `/check-eschool?action=homework_push`
+  - 18:00 — `/check-eschool?action=grades_digest`
 
 ### Мониторинг
 - **HetrixTools** (бесплатный тариф) — внешний uptime-мониторинг + blacklist-мониторинг
@@ -275,3 +279,4 @@ home-page/
 | Дедуп напоминаний | JSON-файл в Docker volume | БД, in-memory | Простота; данные переживают рестарт бота |
 | Селективный деплой | Ansible tags + per-service handlers | Один общий handler | Быстрее деплой при работе над одним сервисом, готовность к росту числа сервисов |
 | Catch-up voting-уведомлений | Идемпотентный poll в `/check-calendar` | Retry в curl, очередь, webhook | Self-healing при пропуске разового cron-вызова, дедуп по menu_id предотвращает дубли |
+| Eschool API | Reverse-engineered HTTP-клиент с cookie-сессией | OAuth, iCal, web-scraping | Официального API нет; cookie-session — единственный способ; дедуп через тот же sent_reminders.json |

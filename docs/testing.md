@@ -354,3 +354,47 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker exec cron /usr/loc
 8. ☐ Открыть `https://api.telnor.ru/api/health` (с домашнего IP) — `{"status":"ok"}`
 9. ☐ Логи `docker logs bot --tail 20` — без ошибок
 10. ☐ Логи `docker logs backend --tail 20` — без ошибок
+
+---
+
+## 12. Eschool — оценки и ДЗ
+
+### Дайджест ДЗ (15:00 МСК автоматически)
+- Шлётся админам-Волковым и пользователю с `eschool_prs_id = <child_prs_id>`
+- В пн–чт текст «на завтра», в пт «на понедельник», в сб/вс «Напоминаю — на понедельник»
+- Если ДЗ нет (например, в субботу на воскресенье) — сообщение не приходит
+
+### Push новых ДЗ (15:30–22:30 каждые 30 мин)
+- Шлётся только если в `getPrsDiary` появились новые `lesson.id+variant.id`, которых ещё не было в state
+- Текст «📝 Новое домашнее задание на ДД.ММ»
+
+### Дайджест оценок (18:00 МСК)
+- Шлётся только админам-Волковым
+- Несколько оценок по одному предмету объединяются: «Русский: 5, 4»
+
+### Ручные триггеры
+
+```bash
+# Дайджест ДЗ (force=true чтобы обойти дедуп)
+docker exec cron sh -c 'curl -s -X POST "http://bot:8080/check-eschool?action=homework_digest&force=true" -H "X-Cron-Secret: $CRON_SECRET"'
+
+# Push новых ДЗ (дедуп по lesson_id+variant_id всегда работает — force здесь не нужен)
+docker exec cron sh -c 'curl -s -X POST "http://bot:8080/check-eschool?action=homework_push" -H "X-Cron-Secret: $CRON_SECRET"'
+
+# Дайджест оценок
+docker exec cron sh -c 'curl -s -X POST "http://bot:8080/check-eschool?action=grades_digest&force=true" -H "X-Cron-Secret: $CRON_SECRET"'
+
+# Посмотреть state
+docker exec bot cat /data/sent_reminders.json | python -m json.tool
+```
+
+### Тест-кейсы
+
+| Кейс | Шаги | Ожидание |
+|---|---|---|
+| Дайджест ДЗ в будний день | Триггер `homework_digest&force=true` в будни | Сообщение «📚 Домашка на завтра» админам и ученику |
+| Дайджест ДЗ в пятницу | Тот же триггер в пятницу | «Домашка на понедельник» |
+| Push без новых ДЗ | Триггер `homework_push` без изменений в eschool | Тихий 200 с `new: 0` |
+| Грейды есть | Триггер `grades_digest&force=true` если за сегодня есть оценки | Сообщение «📊 Оценки за сегодня» только админам-Волковым |
+| Грейды пусто | Тот же триггер если оценок нет | 200 с `grades: 0, skipped: empty`, сообщений нет |
+| Креды не настроены | Удалить vault_eschool_*, передеплоить | Endpoint вернёт 503 |

@@ -595,3 +595,30 @@ docker exec cron sh -c 'curl -s -X POST http://bot:8080/check-calendar \
 - `custom-<minutes>:<calendar_id>:<event_id>:<start>` — custom reminder из события
 - `voting_opened:<menu_id>` — открытие голосования
 - `voting_closed:<menu_id>` — закрытие голосования
+
+### POST http://bot:8080/check-eschool
+
+Eschool-интеграция: дайджесты и push-уведомления об оценках и ДЗ. Доступен только из Docker-сети, защищён `X-Cron-Secret`. Если eschool-креды не настроены — возвращает 503.
+
+Query-параметры:
+- `action=homework_digest` — дайджест ДЗ на следующий школьный день
+- `action=homework_push` — push новых ДЗ (только то, чего ещё не было в state)
+- `action=grades_digest` — дайджест оценок за сегодня
+- `force=true` — обойти дедуп дайджеста
+
+Ручное тестирование:
+
+```bash
+docker exec cron sh -c 'curl -s -X POST "http://bot:8080/check-eschool?action=homework_digest&force=true" -H "X-Cron-Secret: $CRON_SECRET"'
+docker exec cron sh -c 'curl -s -X POST "http://bot:8080/check-eschool?action=grades_digest&force=true" -H "X-Cron-Secret: $CRON_SECRET"'
+```
+
+Дедуп-ключи в `sent_reminders.json`:
+- `eschool_hw_digest:<prs_id>:YYYY-MM-DD` — дайджест ДЗ за день
+- `eschool_hw_lesson:<prs_id>:<lesson_id>:<variant_id>` — конкретное задание показано
+- `eschool_grades_digest:<prs_id>:YYYY-MM-DD` — дайджест оценок за день
+- `eschool_grade:<prs_id>:<mark_id>` — конкретная оценка показана
+
+Также два новых backend-endpoint'а для получения списков получателей:
+- `GET /api/auth/users/admin-volkovs` (X-Bot-Secret) — админы-Волковы с tg_id
+- `GET /api/auth/users/by-eschool-prs-id/{prs_id}` (X-Bot-Secret) — пользователь по eschool_prs_id, либо null
