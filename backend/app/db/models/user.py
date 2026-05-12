@@ -1,7 +1,7 @@
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, String
+from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
@@ -21,7 +21,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     is_volkov: Mapped[bool] = mapped_column(Boolean, default=False)
     gender: Mapped[str | None] = mapped_column(String(10))
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    eschool_prs_id: Mapped[int | None] = mapped_column(unique=True, nullable=True)
+    eschool_prs_id: Mapped[int | None] = mapped_column(Integer, unique=True)
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
