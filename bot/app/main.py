@@ -249,7 +249,7 @@ async def _handle_homework_digest(
     force: bool,
 ) -> web.Response:
     digest_key = f"eschool_hw_digest:{child_prs_id}:{today.isoformat()}"
-    if not force and not mark_event_sent(digest_key):
+    if not force and has_event_sent(digest_key):
         return web.json_response({"ok": True, "skipped": "already_sent"})
 
     target_date = next_school_day(today)
@@ -269,6 +269,7 @@ async def _handle_homework_digest(
     sent = await _send_to_tg_ids(bot, recipients, text)
 
     if sent > 0:
+        mark_event_sent(digest_key)
         for item in items:
             mark_event_sent(f"eschool_hw_lesson:{child_prs_id}:{item.lesson_id}:{item.variant_id}")
 
@@ -317,7 +318,7 @@ async def _handle_grades_digest(
     force: bool,
 ) -> web.Response:
     digest_key = f"eschool_grades_digest:{child_prs_id}:{today.isoformat()}"
-    if not force and not mark_event_sent(digest_key):
+    if not force and has_event_sent(digest_key):
         return web.json_response({"ok": True, "skipped": "already_sent"})
 
     d1, d2 = week_range_ms(today)
@@ -336,6 +337,7 @@ async def _handle_grades_digest(
     sent = await _send_to_tg_ids(bot, recipients, text)
 
     if sent > 0:
+        mark_event_sent(digest_key)
         for g in grades:
             mark_event_sent(f"eschool_grade:{child_prs_id}:{g.mark_id}")
 
