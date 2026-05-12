@@ -7,6 +7,7 @@ from app.core.dependencies import NOT_ALLOWED, CurrentUser, DbSession
 from app.core.security import create_jwt, verify_password
 from app.schemas.auth import (
     ChangePasswordRequest,
+    EschoolUserResponse,
     LoginRequest,
     NotifiableUserResponse,
     RegisterRequest,
@@ -20,7 +21,9 @@ from app.services.auth import (
     authenticate_user,
     create_user,
     get_admin_users,
+    get_admin_volkov_users,
     get_notifiable_users,
+    get_user_by_eschool_prs_id,
     get_user_by_tg_id,
     set_telegram_id,
     update_password,
@@ -166,3 +169,30 @@ async def admin_users(
 
     users = await get_admin_users(session)
     return users
+
+
+@router.get("/users/admin-volkovs", response_model=list[NotifiableUserResponse])
+async def admin_volkov_users(
+    session: DbSession,
+    x_bot_secret: Annotated[str | None, Header()] = None,
+):
+    if x_bot_secret != settings.bot_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+    users = await get_admin_volkov_users(session)
+    return users
+
+
+@router.get("/users/by-eschool-prs-id/{prs_id}", response_model=EschoolUserResponse | None)
+async def user_by_eschool_prs_id(
+    prs_id: int,
+    session: DbSession,
+    x_bot_secret: Annotated[str | None, Header()] = None,
+):
+    if x_bot_secret != settings.bot_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+    user = await get_user_by_eschool_prs_id(session, prs_id)
+    if user is None:
+        return None
+    return user

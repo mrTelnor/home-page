@@ -85,6 +85,9 @@ async def _create_user_standalone(
     password: str = "test12345",
     role: str = "user",
     tg_id: int | None = None,
+    is_volkov: bool = False,
+    eschool_prs_id: int | None = None,
+    notifications_enabled: bool = True,
 ) -> User:
     """Создать пользователя в отдельной сессии и закрыть её сразу."""
     async with TestSessionMaker() as session:
@@ -94,6 +97,9 @@ async def _create_user_standalone(
             password_hash=hash_password(password),
             role=role,
             tg_id=tg_id,
+            is_volkov=is_volkov,
+            eschool_prs_id=eschool_prs_id,
+            notifications_enabled=notifications_enabled,
         )
         session.add(user)
         await session.commit()
