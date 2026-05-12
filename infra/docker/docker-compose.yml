@@ -128,6 +128,8 @@ services:
       GOOGLE_SERVICE_ACCOUNT_B64: ${GOOGLE_SERVICE_ACCOUNT_B64}
       CALENDAR_CONFIGS: ${CALENDAR_CONFIGS}
       REMINDERS_DATA_PATH: /data/sent_reminders.json
+      ESCHOOL_LOGIN: ${ESCHOOL_LOGIN:-}
+      ESCHOOL_PASSWORD: ${ESCHOOL_PASSWORD:-}
     volumes:
       - bot_data:/data
     networks:
