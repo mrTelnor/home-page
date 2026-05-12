@@ -233,6 +233,12 @@ def mark_event_sent(key: str) -> bool:
     return True
 
 
+def has_event_sent(key: str) -> bool:
+    """Проверка без побочного эффекта: True если ключ уже есть в state."""
+    sent = _prune_old(_load_sent())
+    return key in sent
+
+
 def save_sent(data: dict[str, str]) -> None:
     _save_sent(data)
 
