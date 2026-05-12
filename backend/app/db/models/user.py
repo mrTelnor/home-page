@@ -21,6 +21,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     is_volkov: Mapped[bool] = mapped_column(Boolean, default=False)
     gender: Mapped[str | None] = mapped_column(String(10))
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    eschool_prs_id: Mapped[int | None] = mapped_column(unique=True, nullable=True)
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
