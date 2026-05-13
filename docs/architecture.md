@@ -54,7 +54,7 @@
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
   - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
   - `POST /check-eschool` (X-Cron-Secret) — eschool-интеграция; `?action=homework_digest|homework_push|grades_digest`; `?force=true` обходит дедуп
-- **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 08:00 (вместе с меню). Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`
+- **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 08:00 (вместе с меню). Для событий с `useDefault=true` (рекуррентные, настройки уведомлений на уровне календаря — service account не видит реальные минуты) применяются дефолты из env `CALENDAR_DEFAULT_REMINDERS_MIN` (по умолчанию `30`, поддерживается список через запятую). Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
 
 ### Автоматизация (cron-контейнер)
@@ -280,3 +280,5 @@ home-page/
 | Селективный деплой | Ansible tags + per-service handlers | Один общий handler | Быстрее деплой при работе над одним сервисом, готовность к росту числа сервисов |
 | Catch-up voting-уведомлений | Идемпотентный poll в `/check-calendar` | Retry в curl, очередь, webhook | Self-healing при пропуске разового cron-вызова, дедуп по menu_id предотвращает дубли |
 | Eschool API | Reverse-engineered HTTP-клиент с cookie-сессией | OAuth, iCal, web-scraping | Официального API нет; cookie-session — единственный способ; дедуп через тот же sent_reminders.json |
+| Дефолтные напоминания календаря | Env `CALENDAR_DEFAULT_REMINDERS_MIN` для событий с `useDefault=true` | Per-user calendarList.defaultReminders, domain-wide delegation | Service account видит чужие default reminders как пустые; domain-delegation требует Google Workspace; глобальный дефолт «30» покрывает 95% семейных кейсов |
+| Регенерация `.env` | Task с `tags: [always]` | Тег для каждого сервиса; рукотворный hook | `.env` влияет на все контейнеры; при `--tags bot/cron` обновление vault-переменных должно подхватываться автоматически. Handler срабатывает только при реальном изменении содержимого |

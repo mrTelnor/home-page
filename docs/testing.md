@@ -273,8 +273,9 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker exec cron sh -c "c
 - Текст: «⏰ Напоминание за 1 час\n\n{название}\n🗓 {время} [Календарь]»
 
 ### Custom-напоминания из события
-- Если в Google Calendar у события задан конкретный reminder (например, за 30 мин), бот тоже отправит уведомление в это время
-- Использует `event.reminders.overrides`, не `useDefault`
+- Если в Google Calendar у события задан конкретный reminder (например, за 30 мин), бот отправит уведомление в это время
+- Источник: `event.reminders.overrides` если он есть, иначе fallback на env `CALENDAR_DEFAULT_REMINDERS_MIN` (по умолчанию `30`)
+- Это покрывает случай рекуррентных событий и событий с `useDefault=true` — service account через API такие минуты напрямую не видит
 
 ### Тест-кейсы
 
@@ -333,7 +334,7 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker exec cron /usr/loc
 - **DNS-кэш Telegram для `bot.telnor.ru`** — Telegram не может разрезолвить домен `telnor.ru` после долгих попыток установить webhook (DNS забанен на их резолверах). Поэтому бот работает в **polling mode** — мгновенный отклик, но через WireGuard VPN до сервера в Германии (обход блокировок РФ).
 - **Гость не сохраняет состояние** — каждый раз при заходе сортировка/тема выставляются по-новому (нет аккаунта в БД).
 - **Бот может отвечать с задержкой 1-2 сек** при большом количестве сообщений (polling-цикл).
-- **Custom reminders** в календаре ловятся только если у события стоит `useDefault=False` и есть явный override. Дефолтные напоминания календаря бот не знает.
+- **Custom reminders** в календаре ловятся либо из `event.reminders.overrides` (если есть), либо через fallback на `CALENDAR_DEFAULT_REMINDERS_MIN` (по умолчанию `30`). Дефолтные напоминания, выставленные владельцем календаря в своём интерфейсе, service account не видит — для них используется глобальный fallback.
 - **Дедуп напоминаний** хранится в Docker volume `bot_data` — переживает рестарт. Старше 7 дней удаляется автоматически.
 - **Деплой** через `ansible-playbook ... --tags <service>` пересоздаёт только указанный контейнер. Без тегов — полный деплой при изменениях в `docker-compose.yml`/`.env`.
 - **Dangling Docker images** — после rebuild старые образы становятся «осиротевшими». Перед каждым деплоем плейбук делает `docker image prune -f` (задача с тегом `always`). Если ошибка `No such image: sha256:...` всё-таки появилась — на ВМ запустить `docker image prune -f && docker compose up -d --build --force-recreate <service>`.
