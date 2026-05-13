@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     google_service_account_b64: str = ""
     calendar_configs: str = "[]"
     reminders_data_path: str = "/data/sent_reminders.json"
+    # Default reminders (минуты, через запятую) — применяются когда у события
+    # нет explicit overrides (useDefault=true или поле отсутствует).
+    calendar_default_reminders_min: str = "30"
     # Eschool integration
     eschool_login: str = ""
     eschool_password: str = ""

@@ -91,12 +91,30 @@ def _parse_event_start(raw_event: dict) -> tuple[datetime, datetime | None, bool
     return start, end, True
 
 
-def _extract_reminders(raw_event: dict) -> tuple[int, ...]:
-    """Return list of minute offsets from custom reminder overrides."""
-    reminders = raw_event.get("reminders", {})
-    if reminders.get("useDefault"):
+def _default_reminders() -> tuple[int, ...]:
+    """Парсит CALENDAR_DEFAULT_REMINDERS_MIN ('30,15' → (30,15))."""
+    raw = (settings.calendar_default_reminders_min or "").strip()
+    if not raw:
         return ()
+    try:
+        return tuple(int(m.strip()) for m in raw.split(",") if m.strip())
+    except ValueError:
+        logger.warning("Invalid CALENDAR_DEFAULT_REMINDERS_MIN=%r", raw)
+        return ()
+
+
+def _extract_reminders(raw_event: dict) -> tuple[int, ...]:
+    """Return list of minute offsets from custom reminder overrides.
+
+    Если у события `useDefault=true` или нет `overrides` — отдаём дефолт из
+    CALENDAR_DEFAULT_REMINDERS_MIN. Это нужно для рекуррентных событий и для
+    событий с настройками уведомлений на уровне календаря: API через service
+    account возвращает их как useDefault=true, не раскрывая реальные минуты.
+    """
+    reminders = raw_event.get("reminders") or {}
     overrides = reminders.get("overrides") or []
+    if not overrides:
+        return _default_reminders()
     return tuple(int(o["minutes"]) for o in overrides if "minutes" in o)
 
 
