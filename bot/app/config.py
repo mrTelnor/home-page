@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     eschool_login: str = ""
     eschool_password: str = ""
     eschool_base_url: str = "https://app.eschool.center/ec-server"
+    # Cookie-режим: строка из заголовка Cookie браузерной сессии,
+    # например "JSESSIONID=...; es_prs=...; es_user=..."
+    # Если задано — клиент использует cookies и не пытается логиниться.
+    eschool_cookies: str = ""
 
     model_config = {"env_file": ".env"}
 

@@ -24,7 +24,7 @@ from app.calendar_service import (
     select_reminders_to_send,
 )
 from app.config import settings
-from app.eschool.client import ESchoolClient
+from app.eschool.client import ESchoolClient, EschoolAuthError
 from app.eschool.formatters import format_grades_digest, format_homework_digest, format_homework_push
 from app.eschool.parser import parse_grades, parse_homework
 from app.eschool.service import next_school_day, week_range_ms
@@ -205,6 +205,36 @@ async def _send_to_tg_ids(bot: Bot, tg_ids: list[int], text: str) -> int:
     return sent
 
 
+async def _alert_eschool_cookies_expired(bot: Bot) -> None:
+    """Уведомить админов-Волковых, что cookies eschool протухли — нужно обновить.
+    Дедуп — раз в сутки, чтобы не спамить на каждом cron-тике."""
+    today_iso = datetime.now(CALENDAR_TZ).date().isoformat()
+    if not mark_event_sent(f"eschool_auth_alert:{today_iso}"):
+        return
+    text = (
+        "⚠️ <b>Eschool: cookies протухли</b>\n\n"
+        "Дайджесты ДЗ и оценок остановлены до обновления сессии.\n\n"
+        "<b>Что делать (≈3 мин):</b>\n"
+        "1. Залогиниться на <a href=\"https://app.eschool.center\">app.eschool.center</a>.\n"
+        "2. F12 → <b>Network</b> → любой запрос к <code>/ec-server/…</code> → "
+        "<b>Request Headers</b> → скопировать значение заголовка <code>Cookie</code> целиком "
+        "(строка с <code>JSESSIONID=…; es_prs=…; es_user=…</code>).\n"
+        "3. (опционально) Прогнать smoke:\n"
+        "<pre>cd bot\npython scripts/check_eschool_cookies.py '&lt;вставить cookie&gt;'</pre>"
+        "Ожидаемый вывод: <code>connected ok (cookies_mode=True)</code>.\n"
+        "4. Зашифровать и обновить vault:\n"
+        "<pre>cd infra/ansible\nansible-vault encrypt_string '&lt;вставить cookie&gt;' --name vault_eschool_cookies</pre>"
+        "Заменить блок <code>vault_eschool_cookies</code> в "
+        "<code>inventory/group_vars/all/vault.yml</code>.\n"
+        "5. Передеплоить bot:\n"
+        "<pre>ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot</pre>\n"
+        "Полный runbook: <code>docs/testing.md</code> → «Восстановление cookies eschool»."
+    )
+    admins = await api.get_eschool_admin_volkovs()
+    tg_ids = [a["tg_id"] for a in admins]
+    await _send_to_tg_ids(bot, tg_ids, text)
+
+
 async def handle_check_eschool(request: web.Request) -> web.Response:
     """Cron-driven eschool check.
 
@@ -256,6 +286,10 @@ async def _handle_homework_digest(
     d1, d2 = week_range_ms(target_date)
     try:
         diary = await eschool.get_diary(child_prs_id, d1, d2)
+    except EschoolAuthError:
+        logger.warning("eschool homework_digest: cookies expired")
+        await _alert_eschool_cookies_expired(bot)
+        return web.json_response({"error": "auth_expired"}, status=503)
     except Exception:
         logger.exception("eschool homework_digest: fetch failed")
         return web.json_response({"error": "fetch_failed"}, status=502)
@@ -286,6 +320,10 @@ async def _handle_homework_push(
     d1, d2 = week_range_ms(target_date)
     try:
         diary = await eschool.get_diary(child_prs_id, d1, d2)
+    except EschoolAuthError:
+        logger.warning("eschool homework_push: cookies expired")
+        await _alert_eschool_cookies_expired(bot)
+        return web.json_response({"error": "auth_expired"}, status=503)
     except Exception:
         logger.exception("eschool homework_push: fetch failed")
         return web.json_response({"error": "fetch_failed"}, status=502)
@@ -324,6 +362,10 @@ async def _handle_grades_digest(
     d1, d2 = week_range_ms(today)
     try:
         diary = await eschool.get_diary(child_prs_id, d1, d2)
+    except EschoolAuthError:
+        logger.warning("eschool grades_digest: cookies expired")
+        await _alert_eschool_cookies_expired(bot)
+        return web.json_response({"error": "auth_expired"}, status=503)
     except Exception:
         logger.exception("eschool grades_digest: fetch failed")
         return web.json_response({"error": "fetch_failed"}, status=502)
@@ -350,24 +392,39 @@ async def run(bot: Bot, dp: Dispatcher) -> None:
     app = web.Application()
     app["bot"] = bot
 
-    # Eschool client (опциональный — если не сконфигурирован, endpoint вернёт 503)
-    if settings.eschool_login and settings.eschool_password:
+    # Eschool client (опциональный — endpoint вернёт 503 если клиент не создан).
+    # Приоритет режима: cookies > login/password.
+    has_cookies = bool(settings.eschool_cookies)
+    has_credentials = bool(settings.eschool_login and settings.eschool_password)
+    if has_cookies or has_credentials:
         eschool = ESchoolClient(
+            base_url=settings.eschool_base_url,
             login=settings.eschool_login,
             password=settings.eschool_password,
-            base_url=settings.eschool_base_url,
+            cookie_header=settings.eschool_cookies,
         )
         try:
             await eschool.connect()
             app["eschool"] = eschool
-            logger.info("Eschool client connected: parent_prs_id=%s, children=%d",
-                        eschool.parent_prs_id, len(eschool.children))
+            mode = "cookies" if eschool.cookies_mode else "login/password"
+            logger.info(
+                "Eschool client connected (%s mode): parent_prs_id=%s, children=%d",
+                mode, eschool.parent_prs_id, len(eschool.children),
+            )
+        except EschoolAuthError:
+            logger.warning("Eschool cookies invalid on startup — alerting admins")
+            await eschool.aclose()
+            app["eschool"] = None
+            try:
+                await _alert_eschool_cookies_expired(bot)
+            except Exception:
+                logger.exception("Failed to send eschool cookies-expired alert on startup")
         except Exception:
             logger.exception("Eschool client connect failed — endpoint will return 503")
             await eschool.aclose()
             app["eschool"] = None
     else:
-        logger.info("Eschool credentials not set — /check-eschool will return 503")
+        logger.info("Eschool not configured (no cookies or login/password) — /check-eschool will return 503")
         app["eschool"] = None
 
     app.router.add_post("/notify", handle_notify)
