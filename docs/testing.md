@@ -399,3 +399,54 @@ docker exec bot cat /data/sent_reminders.json | python -m json.tool
 | Грейды есть | Триггер `grades_digest&force=true` если за сегодня есть оценки | Сообщение «📊 Оценки за сегодня» только админам-Волковым |
 | Грейды пусто | Тот же триггер если оценок нет | 200 с `grades: 0, skipped: empty`, сообщений нет |
 | Креды не настроены | Удалить vault_eschool_*, передеплоить | Endpoint вернёт 503 |
+| Cookies протухли (cookies-режим) | Подменить `vault_eschool_cookies` на невалидную строку, триггер любого action | 503 `auth_expired` + алерт «cookies протухли» админам-Волковым (раз в сутки, дедуп) |
+
+### Восстановление cookies eschool
+
+Сессия в eschool живёт ограниченное время (TTL не задокументирован — на практике дни-недели). Когда она протухает, бот шлёт админам-Волковым алерт с инструкцией и до обновления cookies возвращает `503 auth_expired` на все `/check-eschool` action'ы. Шаги по восстановлению:
+
+1. **Получить новые cookies.** Залогиниться на [app.eschool.center](https://app.eschool.center) → DevTools (`F12`) → вкладка **Network** → любой запрос к `/ec-server/...` → **Request Headers** → скопировать значение заголовка `Cookie` целиком. Должно содержать как минимум `JSESSIONID`, `es_prs`, `es_user`. Заголовок `Application → Storage → Cookies` показывает куки построчно — это **не то**, что нужно.
+
+2. **Smoke-чек** через [bot/scripts/check_eschool_cookies.py](../bot/scripts/check_eschool_cookies.py) — проверяет, что cookies валидны и `/state` возвращает `authenticated=true`:
+
+   ```powershell
+   cd bot
+   $env:PYTHONPATH = "."
+   ./.venv/Scripts/python.exe scripts/check_eschool_cookies.py '<вставить cookie-строку>'
+   ```
+
+   Ожидаемый вывод:
+   ```
+   connected ok (cookies_mode=True)
+     parent_prs_id = <число>
+     default child = <число>
+   fetching diary for child=<число>, target_day=...
+     homework items on ...: N
+     grades today ...: M
+   ```
+
+   Если выводит `AUTH FAIL` — cookies невалидны, повторяем шаг 1.
+
+3. **Зашифровать** для Ansible Vault (запускать из `infra/ansible/`, `.vault_pass` подхватится автоматически):
+
+   ```powershell
+   cd infra/ansible
+   ansible-vault encrypt_string '<вставить cookie-строку>' --name vault_eschool_cookies
+   ```
+
+   Кавычки одинарные обязательно — внутри строки `;`, `=`, `/`, которые иначе ломают shell.
+
+4. **Заменить блок** `vault_eschool_cookies: !vault |` в [infra/ansible/inventory/group_vars/all/vault.yml](../infra/ansible/inventory/group_vars/all/vault.yml) на вывод предыдущей команды, сохраняя отступ (10 пробелов перед `$ANSIBLE_VAULT;1.1;AES256` и далее).
+
+5. **Передеплоить bot** (Ansible перегенерит `.env` и перезапустит контейнер):
+
+   ```powershell
+   cd infra/ansible
+   ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot
+   ```
+
+6. **Проверка**: в логах `docker logs bot` после рестарта должно быть `Eschool client connected (cookies mode): parent_prs_id=..., children=N`. Дополнительно — триггер любого action и убедиться, что не возвращается `auth_expired`:
+
+   ```bash
+   docker exec cron sh -c 'curl -s -X POST "http://bot:8080/check-eschool?action=homework_digest&force=true" -H "X-Cron-Secret: $CRON_SECRET"'
+   ```

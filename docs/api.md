@@ -600,6 +600,12 @@ docker exec cron sh -c 'curl -s -X POST http://bot:8080/check-calendar \
 
 Eschool-интеграция: дайджесты и push-уведомления об оценках и ДЗ. Доступен только из Docker-сети, защищён `X-Cron-Secret`. Если eschool-креды не настроены — возвращает 503.
 
+Авторизация в eschool — два режима, приоритет cookies > login/password:
+- `ESCHOOL_COOKIES` — строка Cookie из браузерной сессии (рекомендуется). Login через `/ec-server/login` сейчас блокируется reCAPTCHA, поэтому login/password в боевом профиле не работает.
+- `ESCHOOL_LOGIN` / `ESCHOOL_PASSWORD` — fallback на случай если eschool снимет капчу.
+
+При истечении cookies endpoint возвращает 503 `{"error": "auth_expired"}` и отправляет алерт админам-Волковым с инструкцией обновить cookies (дедуп — раз в сутки).
+
 Query-параметры:
 - `action=homework_digest` — дайджест ДЗ на следующий школьный день
 - `action=homework_push` — push новых ДЗ (только то, чего ещё не было в state)
