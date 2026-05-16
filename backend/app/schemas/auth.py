@@ -27,7 +27,6 @@ class UserResponse(BaseModel):
     is_volkov: bool = False
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool = True
-    eschool_prs_id: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -38,7 +37,6 @@ class UpdateProfileRequest(BaseModel):
     is_volkov: bool | None = None
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool | None = None
-    eschool_prs_id: int | None = None
 
 
 class ChangePasswordRequest(BaseModel):
@@ -66,15 +64,6 @@ class TokenResponse(BaseModel):
 
 class NotifiableUserResponse(BaseModel):
     tg_id: int
-    first_name: str | None = None
-    username: str
-
-    model_config = {"from_attributes": True}
-
-
-class EschoolUserResponse(BaseModel):
-    tg_id: int
-    eschool_prs_id: int
     first_name: str | None = None
     username: str
 

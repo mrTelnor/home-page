@@ -15,15 +15,3 @@
 
 # Календарь: проверка часовых напоминаний и встроенных reminders каждые 5 минут
 */5 * * * * curl -s -X POST http://bot:8080/check-calendar -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1
-
-# Eschool: дайджест ДЗ на следующий школьный день (15:00 МСК = 12:00 UTC)
-0 12 * * * curl -s -X POST "http://bot:8080/check-eschool?action=homework_digest" -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1
-
-# Eschool: push новых ДЗ (каждые 30 мин с 15:30 до 22:30 МСК).
-# Две строки: минута 30 в часах 12-19 UTC + минута 0 в часах 13-19 UTC.
-# Так избегаем коллизии с homework_digest в 12:00 UTC.
-30 12-19 * * * curl -s -X POST "http://bot:8080/check-eschool?action=homework_push" -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1
-0 13-19 * * * curl -s -X POST "http://bot:8080/check-eschool?action=homework_push" -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1
-
-# Eschool: дайджест оценок за сегодня (18:00 МСК = 15:00 UTC)
-0 15 * * * curl -s -X POST "http://bot:8080/check-eschool?action=grades_digest" -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1

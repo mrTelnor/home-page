@@ -76,27 +76,3 @@ async def get_admin_users(session: AsyncSession) -> list[User]:
     return list(result.scalars().all())
 
 
-async def get_admin_volkov_users(session: AsyncSession) -> list[User]:
-    """Админы-Волковы с привязанным Telegram и включёнными уведомлениями."""
-    result = await session.execute(
-        select(User).where(
-            User.tg_id.is_not(None),
-            User.role == "admin",
-            User.is_volkov.is_(True),
-            User.notifications_enabled.is_(True),
-        )
-    )
-    return list(result.scalars().all())
-
-
-async def get_user_by_eschool_prs_id(session: AsyncSession, prs_id: int) -> User | None:
-    """Пользователь с указанным eschool_prs_id. Включён в выборку
-    только если у него есть tg_id и notifications_enabled=True."""
-    result = await session.execute(
-        select(User).where(
-            User.eschool_prs_id == prs_id,
-            User.tg_id.is_not(None),
-            User.notifications_enabled.is_(True),
-        )
-    )
-    return result.scalar_one_or_none()

@@ -86,7 +86,6 @@ async def _create_user_standalone(
     role: str = "user",
     tg_id: int | None = None,
     is_volkov: bool = False,
-    eschool_prs_id: int | None = None,
     notifications_enabled: bool = True,
 ) -> User:
     """Создать пользователя в отдельной сессии и закрыть её сразу."""
@@ -98,7 +97,6 @@ async def _create_user_standalone(
             role=role,
             tg_id=tg_id,
             is_volkov=is_volkov,
-            eschool_prs_id=eschool_prs_id,
             notifications_enabled=notifications_enabled,
         )
         session.add(user)

@@ -79,21 +79,5 @@ class ApiClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def get_eschool_admin_volkovs(self) -> list[dict]:
-        resp = await self._http.get(
-            "/api/auth/users/admin-volkovs",
-            headers={"X-Bot-Secret": settings.bot_secret},
-        )
-        resp.raise_for_status()
-        return resp.json()
-
-    async def get_user_by_eschool_prs_id(self, prs_id: int) -> dict | None:
-        resp = await self._http.get(
-            f"/api/auth/users/by-eschool-prs-id/{prs_id}",
-            headers={"X-Bot-Secret": settings.bot_secret},
-        )
-        resp.raise_for_status()
-        return resp.json()  # либо dict, либо None
-
 
 api = ApiClient()
