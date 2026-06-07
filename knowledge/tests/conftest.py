@@ -12,7 +12,9 @@ TEST_URL = os.environ.get(
 @pytest_asyncio.fixture
 async def db_session():
     engine = create_async_engine(TEST_URL)
-    SessionMaker = async_sessionmaker(engine, expire_on_commit=False)
-    async with SessionMaker() as session:
-        yield session
-    await engine.dispose()
+    try:
+        SessionMaker = async_sessionmaker(engine, expire_on_commit=False)
+        async with SessionMaker() as session:
+            yield session
+    finally:
+        await engine.dispose()
