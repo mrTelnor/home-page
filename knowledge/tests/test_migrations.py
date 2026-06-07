@@ -64,3 +64,27 @@ async def test_tags_many_to_many(db_session):
     """))
     assert (await db_session.execute(text("SELECT count(*) FROM note_tags"))).scalar() == 2
     await db_session.rollback()
+
+
+async def test_note_links_and_backlinks_view(db_session):
+    await db_session.execute(text("INSERT INTO notebooks (name, slug) VALUES ('nb', 'nb')"))
+    await db_session.execute(text("""
+        INSERT INTO notes (notebook_id, title, slug)
+        SELECT (SELECT id FROM notebooks WHERE slug='nb'), n, 'nb/' || n
+        FROM (VALUES ('a'), ('b'), ('c')) v(n)
+    """))
+    await db_session.execute(text("""
+        INSERT INTO note_links (source_note_id, target_note_id)
+        SELECT (SELECT id FROM notes WHERE slug='nb/a'),
+               (SELECT id FROM notes WHERE slug='nb/b')
+    """))
+    await db_session.execute(text("""
+        INSERT INTO note_links (source_note_id, target_note_id)
+        SELECT (SELECT id FROM notes WHERE slug='nb/c'),
+               (SELECT id FROM notes WHERE slug='nb/b')
+    """))
+    n = (await db_session.execute(text(
+        "SELECT count(*) FROM backlinks_view WHERE target_slug='nb/b'"
+    ))).scalar()
+    assert n == 2
+    await db_session.rollback()
