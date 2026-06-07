@@ -88,3 +88,14 @@ async def test_note_links_and_backlinks_view(db_session):
     ))).scalar()
     assert n == 2
     await db_session.rollback()
+
+
+async def test_knowledge_rw_role_with_grants(db_session):
+    assert (await db_session.execute(text(
+        "SELECT rolname FROM pg_roles WHERE rolname='knowledge_rw'"
+    ))).scalar() == "knowledge_rw"
+    for table in ("notebooks", "notes", "tags", "note_tags", "note_links"):
+        for priv in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+            assert (await db_session.execute(text(
+                f"SELECT has_table_privilege('knowledge_rw', 'public.{table}', '{priv}')"
+            ))).scalar() is True
