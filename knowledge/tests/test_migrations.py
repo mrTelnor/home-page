@@ -49,3 +49,18 @@ async def test_fts_trigger_updates_search_vector(db_session):
     assert "hello" in vec.lower()
     assert "содерж" in vec.lower()
     await db_session.rollback()
+
+
+async def test_tags_many_to_many(db_session):
+    await db_session.execute(text("INSERT INTO notebooks (name, slug) VALUES ('nb', 'nb')"))
+    await db_session.execute(text("""
+        INSERT INTO notes (notebook_id, title, slug)
+        VALUES ((SELECT id FROM notebooks WHERE slug='nb'), 'n1', 'nb/n1')
+    """))
+    await db_session.execute(text("INSERT INTO tags (name) VALUES ('work'), ('idea')"))
+    await db_session.execute(text("""
+        INSERT INTO note_tags (note_id, tag_id)
+        SELECT n.id, t.id FROM notes n CROSS JOIN tags t WHERE n.slug='nb/n1'
+    """))
+    assert (await db_session.execute(text("SELECT count(*) FROM note_tags"))).scalar() == 2
+    await db_session.rollback()
