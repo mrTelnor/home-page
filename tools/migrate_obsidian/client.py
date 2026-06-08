@@ -40,8 +40,9 @@ class PostgRESTClient:
         return resp.json()[0]
 
     async def ensure_tag(self, name: str) -> str:
+        # PostgREST upsert requires explicit on_conflict for non-PK unique columns.
         resp = await self._request(
-            "POST", "/tags", json={"name": name},
+            "POST", "/tags?on_conflict=name", json={"name": name},
             headers={"Prefer": "resolution=merge-duplicates,return=representation"},
         )
         return resp.json()[0]["id"]
@@ -51,8 +52,10 @@ class PostgRESTClient:
             return
         tag_ids = [await self.ensure_tag(n) for n in tag_names]
         rows = [{"note_id": note_id, "tag_id": tid} for tid in tag_ids]
-        await self._request("POST", "/note_tags", json=rows,
-                             headers={"Prefer": "resolution=ignore-duplicates"})
+        await self._request(
+            "POST", "/note_tags?on_conflict=note_id,tag_id", json=rows,
+            headers={"Prefer": "resolution=ignore-duplicates"},
+        )
 
     async def create_note(self, *, notebook_id: str, title: str, slug: str,
                           content: str = "", metadata: dict | None = None,
@@ -70,7 +73,7 @@ class PostgRESTClient:
     async def create_link(self, *, source_id: str, target_id: str,
                           alias: str | None = None) -> None:
         await self._request(
-            "POST", "/note_links",
+            "POST", "/note_links?on_conflict=source_note_id,target_note_id,alias",
             json={"source_note_id": source_id, "target_note_id": target_id,
                   "alias": alias},
             headers={"Prefer": "resolution=ignore-duplicates"},
