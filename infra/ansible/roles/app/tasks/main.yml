@@ -59,6 +59,15 @@
   notify: Recreate cron
   tags: [cron]
 
+- name: Sync postgrest config
+  ansible.posix.synchronize:
+    src: "{{ inventory_dir }}/../../docker/postgrest/"
+    dest: /opt/home-page/postgrest/
+    dest_port: "{{ ansible_port | int }}"
+    delete: true
+  notify: Recreate postgrest
+  tags: [postgrest]
+
 - name: Sync frontend source
   ansible.posix.synchronize:
     src: "{{ inventory_dir }}/../../../frontend/"
