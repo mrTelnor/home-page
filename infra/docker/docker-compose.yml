@@ -69,6 +69,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       BOT_SECRET: ${BOT_SECRET}
+      KNOWLEDGE_JWT_SECRET: ${KNOWLEDGE_JWT_SECRET}
     networks:
       - web
       - internal
