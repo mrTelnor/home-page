@@ -340,3 +340,47 @@ async def test_update_profile_notifications_enabled(authed_client: AsyncClient):
     )
     assert response.status_code == 200
     assert response.json()["notifications_enabled"] is True
+
+
+# ---------- KNOWLEDGE TOKEN ----------
+
+async def test_knowledge_token_for_admin(client: AsyncClient):
+    from tests.conftest import _create_user_standalone
+    await _create_user_standalone("admin1", password="adminpass123", role="admin")
+    resp = await client.post("/api/auth/knowledge-token",
+                              json={"username": "admin1", "password": "adminpass123"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+    assert data["expires_in"] == 86400
+    import jwt as pyjwt
+    from app.core.config import settings
+    payload = pyjwt.decode(
+        data["access_token"], settings.knowledge_jwt_secret,
+        algorithms=["HS256"], audience="knowledge",
+    )
+    assert payload["role"] == "knowledge_rw"
+    assert payload["aud"] == "knowledge"
+
+
+async def test_knowledge_token_rejects_non_admin(client: AsyncClient):
+    from tests.conftest import _create_user_standalone
+    await _create_user_standalone("user1", password="userpass123", role="user")
+    resp = await client.post("/api/auth/knowledge-token",
+                              json={"username": "user1", "password": "userpass123"})
+    assert resp.status_code == 403
+
+
+async def test_knowledge_token_rejects_wrong_password(client: AsyncClient):
+    from tests.conftest import _create_user_standalone
+    await _create_user_standalone("admin2", password="rightpass", role="admin")
+    resp = await client.post("/api/auth/knowledge-token",
+                              json={"username": "admin2", "password": "wrongpass"})
+    assert resp.status_code == 401
+
+
+async def test_knowledge_token_rejects_unknown_user(client: AsyncClient):
+    resp = await client.post("/api/auth/knowledge-token",
+                              json={"username": "nobody", "password": "x"})
+    assert resp.status_code == 401

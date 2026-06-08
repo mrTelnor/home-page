@@ -1,5 +1,7 @@
+import time
 from datetime import UTC, datetime, timedelta
 
+import jwt as pyjwt
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -29,3 +31,17 @@ def decode_jwt(token: str) -> dict | None:
         return jwt.decode(token, settings.jwt_secret, algorithms=[ALGORITHM])
     except JWTError:
         return None
+
+
+def create_knowledge_jwt(user_id: str, ttl_seconds: int = 86400) -> str:
+    """Подписывает JWT для PostgREST с claim role=knowledge_rw, aud=knowledge.
+    Используется только эндпоинтом /api/auth/knowledge-token."""
+    now = int(time.time())
+    payload = {
+        "sub": str(user_id),
+        "role": "knowledge_rw",
+        "aud": "knowledge",
+        "iat": now,
+        "exp": now + ttl_seconds,
+    }
+    return pyjwt.encode(payload, settings.knowledge_jwt_secret, algorithm=ALGORITHM)

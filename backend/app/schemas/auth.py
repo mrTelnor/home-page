@@ -68,3 +68,14 @@ class NotifiableUserResponse(BaseModel):
     username: str
 
     model_config = {"from_attributes": True}
+
+
+class KnowledgeTokenRequest(BaseModel):
+    username: str
+    password: str
+
+
+class KnowledgeTokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int
