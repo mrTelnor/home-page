@@ -1,6 +1,7 @@
 """Parse one Obsidian .md file into a dataclass."""
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -8,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import frontmatter
+import yaml
+
+logger = logging.getLogger(__name__)
 
 _WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]")
 _TAG_RE = re.compile(r"(?:^|\s)#([A-Za-zА-Яа-яЁё_][\w/-]*)", re.UNICODE)
@@ -42,9 +46,18 @@ class ParsedNote:
 
 
 def parse_note(path: Path) -> ParsedNote:
-    post = frontmatter.loads(path.read_text(encoding="utf-8"))
-    metadata = _jsonable(dict(post.metadata))
-    body = post.content
+    raw = path.read_text(encoding="utf-8")
+    try:
+        post = frontmatter.loads(raw)
+        metadata = _jsonable(dict(post.metadata))
+        body = post.content
+    except yaml.YAMLError as exc:
+        # Invalid YAML frontmatter — import the file as plain markdown without
+        # parsed metadata. Better than crashing the whole migration.
+        logger.warning("invalid YAML frontmatter in %s, importing as plain: %s",
+                       path, exc)
+        metadata = {}
+        body = raw
 
     tags: list[str] = []
     fm_tags = metadata.pop("tags", None) or []
