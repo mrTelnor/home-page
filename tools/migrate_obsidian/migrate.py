@@ -18,7 +18,9 @@ async def migrate_vault(*, vault_path: Path, knowledge_url: str,
     client = PostgRESTClient(base_url=knowledge_url, token_manager=tm)
     try:
         notebooks_by_folder: dict[str, str] = {}
-        for folder in sorted(p for p in vault_path.iterdir() if p.is_dir()):
+        # Skip hidden dirs like `.obsidian` (Obsidian config) and `.trash`/`.git`.
+        for folder in sorted(p for p in vault_path.iterdir()
+                              if p.is_dir() and not p.name.startswith(".")):
             slug = slugify(folder.name)
             nb = await client.create_notebook(name=folder.name, slug=slug)
             notebooks_by_folder[folder.name] = nb["id"]
@@ -28,14 +30,17 @@ async def migrate_vault(*, vault_path: Path, knowledge_url: str,
         notes_to_link: list[tuple[str, list]] = []
 
         for md_file in sorted(vault_path.rglob("*.md")):
-            try:
-                folder = md_file.relative_to(vault_path).parts[0]
-            except (IndexError, ValueError):
+            rel = md_file.relative_to(vault_path)
+            # Skip anything under hidden top-level dirs (.obsidian etc).
+            if any(part.startswith(".") for part in rel.parts):
                 continue
+            folder = rel.parts[0]
             if folder not in notebooks_by_folder:
                 continue
             parsed = parse_note(md_file)
-            slug = f"{slugify(folder)}/{slugify(parsed.title)}"
+            # Slug includes full relative path so notes with the same title
+            # in different subdirs don't collide.
+            slug = "/".join(slugify(part) for part in rel.with_suffix("").parts)
             note = await client.create_note(
                 notebook_id=notebooks_by_folder[folder],
                 title=parsed.title, slug=slug,
