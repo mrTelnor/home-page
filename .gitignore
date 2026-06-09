@@ -57,3 +57,10 @@ cookies.txt
 docs/superpowers/
 .superpowers/
 .claude/
+
+# Agent skills tooling (npx skills add ...)
+.agents/
+skills-lock.json
+
+# Project-scoped MCP config — MCP-серверы подключаются на user scope, не в репо
+.mcp.json
