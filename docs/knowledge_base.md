@@ -1,154 +1,85 @@
-# Knowledge Base (Postgres + PostgREST + MCP)
+# База знаний (Supabase)
 
-База знаний — отдельная database `knowledge` в существующем Postgres-контейнере.
-Доступ MCP-серверу `knowledge-mcp` через PostgREST на `https://knowledge.telnor.ru`,
-JWT выдаётся backend'ом по логину/паролю админа (`POST /api/auth/knowledge-token`).
+Личная база знаний — зеркало Obsidian-хранилища «Удивительная жизнь Никиты»,
+перенесённое в **Supabase** (managed Postgres). Доступ — через подключённый
+Supabase MCP-сервер (см. [`.mcp.json`](../.mcp.json)) из Claude / Claude Code.
 
-## Архитектура
+> Это отдельный от веб-сервиса `home-page` контур: к рецептам/голосованию он
+> отношения не имеет, живёт в собственном Supabase-проекте.
 
-Полный план: [`docs/superpowers/plans/2026-06-06-knowledge-base-postgres.md`](superpowers/plans/2026-06-06-knowledge-base-postgres.md).
+## История (почему Supabase, а не self-hosted)
 
-Краткая схема:
+Изначально (июнь 2026) база знаний разворачивалась self-hosted: отдельная БД
+`knowledge` в том же Postgres-контейнере, REST поверх PostgREST на
+`knowledge.telnor.ru`, JWT от backend (`POST /api/auth/knowledge-token`),
+MCP-сервер `knowledge-mcp` и одноразовый мигратор `tools/migrate_obsidian`.
 
-```
-Claude Desktop
-  │  stdio MCP
-  ▼
-knowledge-mcp (Python, локально у пользователя)
-  │  HTTPS, JWT
-  ▼
-PostgREST (Docker, knowledge.telnor.ru)
-  │  SQL
-  ▼
-Postgres `knowledge` database (тот же контейнер что homepage)
-```
+От этого подхода отказались — слишком много движущихся частей ради личной базы
+заметок (свой контейнер PostgREST, свой Traefik-route и сертификат, отдельный
+JWT-секрет и его ротация, кастомная роль `knowledge_rw`, локальная установка
+`knowledge-mcp` в Claude Desktop, дублирование в бэкапах). Supabase закрывает всё
+это из коробки: managed Postgres с PostgREST, готовый MCP-сервер, бэкапы,
+аутентификация.
 
-Backend выдаёт JWT по логину/паролю через `/api/auth/knowledge-token` — только пользователям с `role=admin`. JWT подписывается `KNOWLEDGE_JWT_SECRET` (отдельный от backend `JWT_SECRET`).
+Весь self-hosted-код удалён из репозитория, БД `knowledge` на ВМ выведена из
+эксплуатации. Исходный план — [`docs/superpowers/plans/2026-06-06-knowledge-base-postgres.md`](superpowers/plans/2026-06-06-knowledge-base-postgres.md)
+(помечен устаревшим).
 
-## Initial setup на прод (одноразово)
+## Где живут данные
 
-1. Vault уже содержит `vault_knowledge_jwt_secret`.
-2. Создать БД на проде (initdb-скрипт не сработает на существующем volume):
+Supabase-проект `vcfqubocjfnzebpiwczw`, схема `public`. Полная реляционная модель
+(перенесена 1:1 из self-hosted-схемы):
 
-   ```bash
-   wsl bash -c "cd /mnt/d/Gitlab/home-page/home-page/infra/ansible && \
-     ANSIBLE_ROLES_PATH=roles ansible -i inventory/hosts.yml homepage -m shell \
-     -a 'docker exec postgres psql -U postgres -c \"CREATE DATABASE knowledge\" || true' \
-     --vault-password-file /tmp/vp"
-   ```
+| Объект | Назначение |
+|---|---|
+| `notebooks` | папки; иерархия через `parent_id` (self-FK, ON DELETE CASCADE) |
+| `notes` | заметки: `title`, `slug` (уникальный), `content` (markdown), `metadata` (JSONB из frontmatter), `search_vector` (TSVECTOR) |
+| `tags`, `note_tags` | теги и M:N-связь с заметками |
+| `note_links` | wiki-ссылки `[[...]]` как рёбра графа (`source`→`target`, опц. `alias`) |
+| `backlinks_view` | view обратных ссылок (`security_invoker`) |
 
-3. Передеплоить (без тегов — много новых файлов):
+- **Полнотекстовый поиск:** `search_vector` заполняется триггером
+  `notes_search_vector_update` (конфиг `simple` — работает с RU/EN, title=A,
+  content=B), GIN-индекс `idx_notes_search`.
+- **RLS** включён на всех таблицах, публичных политик нет — доступ только через
+  `service_role` (Supabase MCP / Dashboard). Если понадобится публичное чтение
+  (например, отдельный фронтенд) — добавить `SELECT`-политику для роли `anon`.
 
-   ```bash
-   wsl bash -c "cd /mnt/d/Gitlab/home-page/home-page/infra/ansible && \
-     ANSIBLE_ROLES_PATH=roles ansible-playbook -i inventory/hosts.yml playbooks/setup.yml \
-     --vault-password-file /tmp/vp"
-   ```
+## Доступ из Claude
 
-   Это создаст `postgrest` контейнер, новый Traefik route, новые env-переменные, backend перезапустится с новым endpoint.
+Через Supabase MCP (`.mcp.json`):
 
-4. Применить миграции knowledge на проде:
+- структура БД — `list_tables`;
+- чтение/поиск — `execute_sql`. Полнотекстовый поиск:
+  ```sql
+  select title, slug, ts_rank(search_vector, q) rank
+  from notes, to_tsquery('simple', 'argocd') q
+  where search_vector @@ q order by rank desc;
+  ```
+- обратные ссылки — `select * from backlinks_view where target_slug = '...'`;
+- изменения схемы — `apply_migration`.
 
-   ```bash
-   wsl bash -c "cd /mnt/d/Gitlab/home-page/home-page && \
-     KNOWLEDGE_DATABASE_URL=postgresql+asyncpg://<user>:<pass>@<server>:5432/knowledge \
-     cd knowledge && ./.venv/Scripts/python.exe -m alembic upgrade head"
-   ```
+## Миграция из Obsidian (как это делалось)
 
-   (Или альтернативно — скопировать `knowledge/` на сервер через `scp` и применить там.)
+Перенос выполнен из vault `D:\Obsidian Vault\Удивительная жизнь Никиты`:
 
-5. Запустить миграцию Obsidian → DB (см. ниже).
+- папки верхнего уровня → `notebooks`; файлы `.md` в корне vault → ноутбук
+  «Разное» (`raznoe`);
+- каждый `.md` → `notes` (`title` = имя файла, `slug` = путь со slug-ификацией и
+  кириллической транслитерацией, `content` = тело без frontmatter,
+  `metadata` = frontmatter как JSONB);
+- frontmatter-теги и инлайновые `#tag` → `tags` + `note_tags`;
+- `[[wikilink|alias]]` → `note_links` (резолв по точному заголовку-цели;
+  неразрешённые ссылки на заголовки/пути пропускаются).
 
-## Миграция Obsidian → DB
+Итог: **3 ноутбука, 86 заметок, 17 тегов, 323 связи.**
 
-Локально:
+Повторная миграция (если Obsidian правился) — заново собрать `INSERT`'ы из vault
+и применить к Supabase напрямую (session pooler) или через `apply_migration`.
+Одноразовый мигратор намеренно не хранится в репозитории.
 
-```bash
-cd tools/migrate_obsidian
-KNOWLEDGE_USERNAME=<admin> KNOWLEDGE_PASSWORD=<pass> \
-  ./.venv/Scripts/python.exe -m migrate_obsidian "/d/Obsidian Vault/Удивительная жизнь Никиты" \
-  --knowledge-url https://knowledge.telnor.ru \
-  --backend-url https://api.telnor.ru
-```
+## Бэкап
 
-Проверить:
-
-```bash
-TOKEN=$(curl -s https://api.telnor.ru/api/auth/knowledge-token \
-  -H "Content-Type: application/json" \
-  -d '{"username":"<admin>","password":"<pass>"}' \
-  | python -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-curl -s -H "Authorization: Bearer $TOKEN" -H "Prefer: count=exact" \
-  "https://knowledge.telnor.ru/notes?limit=0" -I | grep -i content-range
-```
-
-Ожидается: `Content-Range: 0-0/86` (или сколько у тебя .md в vault).
-
-## Установка knowledge-mcp + Claude Desktop config
-
-```bash
-cd /d/Gitlab/home-page/home-page/knowledge-mcp
-python -m pip install -e .
-```
-
-Открыть `%APPDATA%\Claude\claude_desktop_config.json` и добавить:
-
-```json
-{
-  "mcpServers": {
-    "knowledge": {
-      "command": "knowledge-mcp",
-      "env": {
-        "KNOWLEDGE_URL": "https://knowledge.telnor.ru",
-        "KNOWLEDGE_BACKEND_URL": "https://api.telnor.ru",
-        "KNOWLEDGE_USERNAME": "<твой admin username>",
-        "KNOWLEDGE_PASSWORD": "<твой пароль>"
-      }
-    }
-  }
-}
-```
-
-Полный quit Claude Desktop (System tray → Quit) и запустить заново. В чате: «Список всех ноутбуков». Claude вызывает `list_notebooks` → 2 ноутбука.
-
-## Смена пароля админа
-
-Меняется через `POST /api/auth/change-password` (или admin UI). После смены — обнови `KNOWLEDGE_PASSWORD` в `claude_desktop_config.json` и перезапусти Claude Desktop. MCP-клиент сам перелогинится.
-
-## Ротация `KNOWLEDGE_JWT_SECRET`
-
-1. Сгенерировать новый: `openssl rand -base64 48`
-2. Перешифровать в vault:
-   ```bash
-   cd infra/ansible
-   ansible-vault encrypt_string '<новый>' --name vault_knowledge_jwt_secret
-   ```
-3. Заменить блок `vault_knowledge_jwt_secret` в `inventory/group_vars/all/vault.yml`.
-4. Передеплоить backend + postgrest:
-   ```bash
-   ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags backend,postgrest
-   ```
-   Старые JWT мгновенно становятся невалидными (401 от PostgREST), MCP-клиент сам получит новый при первом 401.
-
-## Бэкап + восстановление
-
-Knowledge данные бэкапятся cron'ом каждую ночь в `knowledge_YYYY-MM-DD.dump.gz` вместе с homepage (см. `infra/docker/cron/backup.sh`). Ротация 14 дней.
-
-Восстановление knowledge:
-
-```bash
-docker exec postgres psql -U postgres -c "DROP DATABASE knowledge"
-docker exec postgres psql -U postgres -c "CREATE DATABASE knowledge"
-cat knowledge_YYYY-MM-DD.dump.gz | gunzip \
-  | docker exec -i postgres pg_restore -U postgres -d knowledge
-```
-
-## Откат миграции Obsidian
-
-```bash
-TOKEN=$(...)  # см. выше
-curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-  "https://knowledge.telnor.ru/notebooks"  # truncate всех ноутбуков (CASCADE)
-```
-
-Затем повторно `python -m migrate_obsidian ...`.
+Данные бэкапятся средствами Supabase (Dashboard → Database → Backups). Отдельный
+`pg_dump` в cron, который раньше дампил `knowledge` вместе с `homepage`, удалён —
+теперь cron бэкапит только `homepage` на Я.Диск.
