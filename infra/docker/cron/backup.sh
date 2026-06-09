@@ -7,7 +7,7 @@ DATE=$(date +%Y-%m-%d)
 BACKUP_DIR="/tmp/backups"
 YADISK_DIR="backups"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
-DATABASES="homepage knowledge"
+DATABASES="homepage"
 
 mkdir -p "$BACKUP_DIR"
 
@@ -45,7 +45,7 @@ rotate_old() {
     fi
 
     echo "$listing" \
-      | grep -oE "(homepage|knowledge)_[0-9]{4}-[0-9]{2}-[0-9]{2}\.dump\.gz" \
+      | grep -oE "homepage_[0-9]{4}-[0-9]{2}-[0-9]{2}\.dump\.gz" \
       | sort -u \
       | while IFS= read -r f; do
           file_date=$(printf "%s" "$f" \

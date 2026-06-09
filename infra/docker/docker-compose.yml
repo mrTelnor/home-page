@@ -69,7 +69,6 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       BOT_SECRET: ${BOT_SECRET}
-      KNOWLEDGE_JWT_SECRET: ${KNOWLEDGE_JWT_SECRET}
     networks:
       - web
       - internal
@@ -95,33 +94,6 @@ services:
       - traefik.http.routers.backend-docs.priority=30
       # Service
       - traefik.http.services.backend.loadbalancer.server.port=8000
-      - traefik.docker.network=web
-
-  postgrest:
-    image: postgrest/postgrest:v12.2.3
-    container_name: postgrest
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      PGRST_DB_URI: ${KNOWLEDGE_DB_URI}
-      PGRST_DB_SCHEMAS: public
-      PGRST_DB_ANON_ROLE: ""
-      PGRST_JWT_SECRET: ${KNOWLEDGE_JWT_SECRET}
-      PGRST_JWT_AUD: knowledge
-      PGRST_SERVER_HOST: "0.0.0.0"
-      PGRST_SERVER_PORT: "3000"
-      PGRST_OPENAPI_MODE: "follow-privileges"
-    networks:
-      - web
-      - internal
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.postgrest.rule=Host(`knowledge.${DOMAIN}`)
-      - traefik.http.routers.postgrest.entrypoints=websecure
-      - traefik.http.routers.postgrest.tls.certresolver=letsencrypt
-      - traefik.http.services.postgrest.loadbalancer.server.port=3000
       - traefik.docker.network=web
 
   cron:

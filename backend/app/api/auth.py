@@ -4,11 +4,9 @@ from fastapi import APIRouter, Header, HTTPException, Response, status
 
 from app.core.config import settings
 from app.core.dependencies import NOT_ALLOWED, CurrentUser, DbSession
-from app.core.security import create_jwt, create_knowledge_jwt, verify_password
+from app.core.security import create_jwt, verify_password
 from app.schemas.auth import (
     ChangePasswordRequest,
-    KnowledgeTokenRequest,
-    KnowledgeTokenResponse,
     LoginRequest,
     NotifiableUserResponse,
     RegisterRequest,
@@ -168,20 +166,4 @@ async def admin_users(
 
     users = await get_admin_users(session)
     return users
-
-
-@router.post("/knowledge-token", response_model=KnowledgeTokenResponse)
-async def knowledge_token(data: KnowledgeTokenRequest, session: DbSession):
-    if not settings.knowledge_jwt_secret:
-        raise HTTPException(status_code=503, detail="knowledge auth not configured")
-    user = await authenticate_user(session, data.username, data.password)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=INVALID_CREDENTIALS)
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin role required")
-    ttl = 86400  # 1 day
-    return KnowledgeTokenResponse(
-        access_token=create_knowledge_jwt(user.id, ttl_seconds=ttl),
-        expires_in=ttl,
-    )
 

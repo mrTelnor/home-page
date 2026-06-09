@@ -5,7 +5,6 @@ class Settings(BaseSettings):
     database_url: str
     jwt_secret: str
     jwt_expire_hours: int = 168
-    knowledge_jwt_secret: str = ""  # пустая default → endpoint вернёт 503 пока не настроено
     invite_code: str
     cron_secret: str
     domain: str = "telnor.ru"

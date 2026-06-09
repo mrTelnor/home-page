@@ -32,9 +32,3 @@
   args:
     chdir: /opt/home-page
   become_user: "{{ ansible_user }}"
-
-- name: Recreate postgrest
-  shell: docker compose up -d --force-recreate postgrest
-  args:
-    chdir: /opt/home-page
-  become_user: "{{ ansible_user }}"
