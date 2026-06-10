@@ -5,14 +5,7 @@ import { RecipeForm } from "./RecipeForm";
 
 function renderForm(overrides: Partial<Parameters<typeof RecipeForm>[0]> = {}) {
   const onSubmit = vi.fn();
-  render(
-    <RecipeForm
-      onSubmit={onSubmit}
-      isPending={false}
-      submitLabel="Создать"
-      {...overrides}
-    />
-  );
+  render(<RecipeForm onSubmit={onSubmit} isPending={false} submitLabel="Создать" {...overrides} />);
   return { onSubmit };
 }
 
@@ -101,10 +94,7 @@ describe("RecipeForm: успешный сабмит", () => {
 
     await user.type(screen.getByPlaceholderText("Введите название блюда"), "Борщ");
     await user.type(screen.getByPlaceholderText("Сколько порций получится"), "4");
-    await user.type(
-      screen.getByPlaceholderText("Опишите процесс приготовления..."),
-      "Варить час."
-    );
+    await user.type(screen.getByPlaceholderText("Опишите процесс приготовления..."), "Варить час.");
 
     const row = ingredientInputs(ingredientCards()[0]);
     await user.type(row.name, "Свёкла");
