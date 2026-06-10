@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 type Theme = "light" | "dark";
 
 const STORAGE_KEY = "theme";
 
-function getInitialTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
+function getDefaultTheme(): Theme {
   return globalThis.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
@@ -17,11 +16,14 @@ function applyTheme(theme: Theme) {
 }
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  // Значение хранится сырой строкой ("light"/"dark") — совместимо со старым форматом
+  const [theme, setTheme] = useLocalStorage<Theme>(STORAGE_KEY, getDefaultTheme, {
+    serialize: (v) => v,
+    deserialize: (raw) => (raw === "light" || raw === "dark" ? raw : undefined),
+  });
 
   useEffect(() => {
     applyTheme(theme);
-    localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
