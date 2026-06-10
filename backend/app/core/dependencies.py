@@ -51,6 +51,12 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+async def verify_bot_secret(x_bot_secret: Annotated[str | None, Header()] = None) -> None:
+    """Авторизация запросов Telegram-бота по общему секрету."""
+    if x_bot_secret != settings.bot_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+
 async def verify_cron_or_admin(
     session: DbSession,
     x_cron_secret: Annotated[str | None, Header()] = None,

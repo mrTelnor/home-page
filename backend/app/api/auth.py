@@ -1,9 +1,7 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.core.config import settings
-from app.core.dependencies import NOT_ALLOWED, CurrentUser, DbSession
+from app.core.dependencies import CurrentUser, DbSession, verify_bot_secret
 from app.core.security import create_jwt, verify_password
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -124,15 +122,12 @@ async def change_password(
     return {"message": "ok"}
 
 
-@router.post("/telegram-login", response_model=TokenResponse)
-async def telegram_login(
-    data: TelegramLoginRequest,
-    session: DbSession,
-    x_bot_secret: Annotated[str | None, Header()] = None,
-):
-    if x_bot_secret != settings.bot_secret:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
-
+@router.post(
+    "/telegram-login",
+    response_model=TokenResponse,
+    dependencies=[Depends(verify_bot_secret)],
+)
+async def telegram_login(data: TelegramLoginRequest, session: DbSession):
     user = await get_user_by_tg_id(session, data.tg_id)
     if user is None:
         raise HTTPException(
@@ -144,26 +139,20 @@ async def telegram_login(
     return TokenResponse(access_token=token)
 
 
-@router.get("/users/notifiable", response_model=list[NotifiableUserResponse])
-async def notifiable_users(
-    session: DbSession,
-    x_bot_secret: Annotated[str | None, Header()] = None,
-):
-    if x_bot_secret != settings.bot_secret:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
-
-    users = await get_notifiable_users(session)
-    return users
+@router.get(
+    "/users/notifiable",
+    response_model=list[NotifiableUserResponse],
+    dependencies=[Depends(verify_bot_secret)],
+)
+async def notifiable_users(session: DbSession):
+    return await get_notifiable_users(session)
 
 
-@router.get("/users/admins", response_model=list[NotifiableUserResponse])
-async def admin_users(
-    session: DbSession,
-    x_bot_secret: Annotated[str | None, Header()] = None,
-):
-    if x_bot_secret != settings.bot_secret:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
-
-    users = await get_admin_users(session)
-    return users
+@router.get(
+    "/users/admins",
+    response_model=list[NotifiableUserResponse],
+    dependencies=[Depends(verify_bot_secret)],
+)
+async def admin_users(session: DbSession):
+    return await get_admin_users(session)
 
