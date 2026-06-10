@@ -3,6 +3,8 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.api_client import NOT_LINKED_MSG, api
+from app.callbacks import CANCEL_VOTE, VOTE_PREFIX, pack, unpack
+from app.helpers import check_linked
 
 router = Router()
 
@@ -14,12 +16,12 @@ def build_vote_keyboard(menu: dict) -> InlineKeyboardMarkup:
         mark = " ✓" if r["recipe_id"] == user_voted else ""
         buttons.append([InlineKeyboardButton(
             text=f"{r['title']}{mark}",
-            callback_data=f"v:{r['recipe_id']}",
+            callback_data=pack(VOTE_PREFIX, r["recipe_id"]),
         )])
     if user_voted:
         buttons.append([InlineKeyboardButton(
             text="❌ Отменить голос",
-            callback_data="cancel_vote",
+            callback_data=CANCEL_VOTE,
         )])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -27,17 +29,16 @@ def build_vote_keyboard(menu: dict) -> InlineKeyboardMarkup:
 @router.message(Command("vote"))
 async def cmd_vote(message: Message) -> None:
     tg_id = message.from_user.id
-    resp = await api.get("/api/menus/today", tg_id)
+    menu, error = await api.get_today_menu(tg_id)
 
-    if resp is None:
+    if error == "not_linked":
         await message.answer(NOT_LINKED_MSG)
         return
 
-    if resp.status_code == 404:
+    if menu is None:
         await message.answer("Меню ещё не создано.")
         return
 
-    menu = resp.json()
     if menu["status"] != "voting":
         label = "ещё не открыто" if menu["status"] == "collecting" else "уже завершено"
         await message.answer(f"Голосование {label}.")
@@ -53,21 +54,19 @@ async def cmd_vote(message: Message) -> None:
     await message.answer(text, reply_markup=build_vote_keyboard(menu))
 
 
-@router.callback_query(F.data.startswith("v:"))
+@router.callback_query(F.data.startswith(VOTE_PREFIX))
 async def cb_vote(callback: CallbackQuery) -> None:
-    recipe_id = callback.data[2:]
+    recipe_id = unpack(callback.data, VOTE_PREFIX)
     tg_id = callback.from_user.id
 
-    # Get today's menu for menu_id
-    today = await api.get("/api/menus/today", tg_id)
-    if today is None or today.status_code != 200:
+    today_menu, _ = await api.get_today_menu(tg_id)
+    if today_menu is None:
         await callback.answer("Меню не найдено.")
         return
 
-    menu_id = today.json()["id"]
+    menu_id = today_menu["id"]
     resp = await api.post(f"/api/menus/{menu_id}/vote", tg_id, json={"recipe_id": recipe_id})
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     if resp.status_code == 409:
@@ -87,19 +86,18 @@ async def cb_vote(callback: CallbackQuery) -> None:
     await callback.answer("Голос принят!")
 
 
-@router.callback_query(F.data == "cancel_vote")
+@router.callback_query(F.data == CANCEL_VOTE)
 async def cb_cancel_vote(callback: CallbackQuery) -> None:
     tg_id = callback.from_user.id
 
-    today = await api.get("/api/menus/today", tg_id)
-    if today is None or today.status_code != 200:
+    today_menu, _ = await api.get_today_menu(tg_id)
+    if today_menu is None:
         await callback.answer("Меню не найдено.")
         return
 
-    menu_id = today.json()["id"]
+    menu_id = today_menu["id"]
     resp = await api.delete(f"/api/menus/{menu_id}/vote", tg_id)
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     menu = resp.json()

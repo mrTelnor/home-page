@@ -16,17 +16,16 @@ STATUS_LABELS = {
 @router.message(Command("menu"))
 async def cmd_menu(message: Message) -> None:
     tg_id = message.from_user.id
-    resp = await api.get("/api/menus/today", tg_id)
+    menu, error = await api.get_today_menu(tg_id)
 
-    if resp is None:
+    if error == "not_linked":
         await message.answer(NOT_LINKED_MSG)
         return
 
-    if resp.status_code == 404:
+    if menu is None:
         await message.answer("Меню ещё не создано.")
         return
 
-    menu = resp.json()
     status_label = STATUS_LABELS.get(menu["status"], menu["status"])
     recipes = "\n".join(f"  • {r['title']}" for r in menu["recipes"])
 

@@ -5,6 +5,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.api_client import NOT_LINKED_MSG, api
+from app.callbacks import SUGGEST_CANCEL, SUGGEST_PREFIX, pack, unpack
+from app.helpers import check_linked
 from app.notify import notify_recipe_suggested
 
 router = Router()
@@ -17,17 +19,16 @@ class SuggestStates(StatesGroup):
 @router.message(Command("suggest"))
 async def cmd_suggest(message: Message, state: FSMContext) -> None:
     tg_id = message.from_user.id
-    resp = await api.get("/api/menus/today", tg_id)
+    menu, error = await api.get_today_menu(tg_id)
 
-    if resp is None:
+    if error == "not_linked":
         await message.answer(NOT_LINKED_MSG)
         return
 
-    if resp.status_code == 404:
+    if menu is None:
         await message.answer("Меню ещё не создано.")
         return
 
-    menu = resp.json()
     if menu["status"] != "collecting":
         await message.answer("Сбор предложений закрыт.")
         return
@@ -42,9 +43,8 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     query = message.text.strip()
 
     resp = await api.get(f"/api/recipes/search?q={query}", tg_id)
-    if resp is None:
+    if not await check_linked(resp, message):
         await state.clear()
-        await message.answer(NOT_LINKED_MSG)
         return
 
     recipes = resp.json()
@@ -58,11 +58,11 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     buttons = [
         [InlineKeyboardButton(
             text=r["title"],
-            callback_data=f"sug:{r['id']}",
+            callback_data=pack(SUGGEST_PREFIX, r["id"]),
         )]
         for r in recipes[:10]
     ]
-    buttons.append([InlineKeyboardButton(text="Отмена", callback_data="suggest_cancel")])
+    buttons.append([InlineKeyboardButton(text="Отмена", callback_data=SUGGEST_CANCEL)])
 
     await state.clear()
     await message.answer(
@@ -71,21 +71,19 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.callback_query(F.data.startswith("sug:"))
+@router.callback_query(F.data.startswith(SUGGEST_PREFIX))
 async def cb_suggest(callback: CallbackQuery) -> None:
-    recipe_id = callback.data[4:]
+    recipe_id = unpack(callback.data, SUGGEST_PREFIX)
     tg_id = callback.from_user.id
 
-    # Get today's menu for menu_id
-    today = await api.get("/api/menus/today", tg_id)
-    if today is None or today.status_code != 200:
+    today_menu, _ = await api.get_today_menu(tg_id)
+    if today_menu is None:
         await callback.answer("Меню не найдено.")
         return
 
-    menu_id = today.json()["id"]
+    menu_id = today_menu["id"]
     resp = await api.post(f"/api/menus/{menu_id}/suggest", tg_id, json={"recipe_id": recipe_id})
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     if resp.status_code == 409:
@@ -116,7 +114,7 @@ async def cb_suggest(callback: CallbackQuery) -> None:
         await notify_recipe_suggested(callback.bot, name, title, tg_id)
 
 
-@router.callback_query(F.data == "suggest_cancel")
+@router.callback_query(F.data == SUGGEST_CANCEL)
 async def cb_suggest_cancel(callback: CallbackQuery) -> None:
     await callback.message.delete()
     await callback.answer("Отменено.")
