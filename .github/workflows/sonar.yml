@@ -11,6 +11,9 @@ env:
 
 jobs:
   sonar:
+    # PR от dependabot не получают Actions-секреты (SONAR_TOKEN) — скан
+    # бессмысленен и падает; bump версии зависимости Sonar-анализа не требует
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
 
     services:
@@ -29,12 +32,12 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Для Sonar нужна полная история
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: "pip"
@@ -71,7 +74,7 @@ jobs:
           coverage xml -o coverage.xml
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -86,7 +89,7 @@ jobs:
         run: npm run test:coverage
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
