@@ -4,6 +4,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.api_client import NOT_LINKED_MSG, api
 from app.callbacks import CANCEL_VOTE, VOTE_PREFIX, pack, unpack
+from app.helpers import check_linked
 
 router = Router()
 
@@ -65,8 +66,7 @@ async def cb_vote(callback: CallbackQuery) -> None:
 
     menu_id = today_menu["id"]
     resp = await api.post(f"/api/menus/{menu_id}/vote", tg_id, json={"recipe_id": recipe_id})
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     if resp.status_code == 409:
@@ -97,8 +97,7 @@ async def cb_cancel_vote(callback: CallbackQuery) -> None:
 
     menu_id = today_menu["id"]
     resp = await api.delete(f"/api/menus/{menu_id}/vote", tg_id)
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     menu = resp.json()

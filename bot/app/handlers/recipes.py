@@ -2,8 +2,9 @@ from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from app.api_client import NOT_LINKED_MSG, api
+from app.api_client import api
 from app.callbacks import RECIPE_PREFIX, RECIPES_PAGE_PREFIX, pack, unpack
+from app.helpers import check_linked
 
 router = Router()
 
@@ -50,9 +51,7 @@ def format_recipe(recipe: dict) -> str:
 async def cmd_recipes(message: Message) -> None:
     tg_id = message.from_user.id
     resp = await api.get("/api/recipes", tg_id)
-
-    if resp is None:
-        await message.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, message):
         return
 
     recipes = resp.json()
@@ -73,8 +72,7 @@ async def cb_recipe_detail(callback: CallbackQuery) -> None:
     tg_id = callback.from_user.id
 
     resp = await api.get(f"/api/recipes/{recipe_id}", tg_id)
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     if resp.status_code != 200:
@@ -94,8 +92,7 @@ async def cb_recipes_page(callback: CallbackQuery) -> None:
     tg_id = callback.from_user.id
 
     resp = await api.get("/api/recipes", tg_id)
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     recipes = resp.json()

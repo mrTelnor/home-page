@@ -6,6 +6,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.api_client import NOT_LINKED_MSG, api
 from app.callbacks import SUGGEST_CANCEL, SUGGEST_PREFIX, pack, unpack
+from app.helpers import check_linked
 from app.notify import notify_recipe_suggested
 
 router = Router()
@@ -42,9 +43,8 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     query = message.text.strip()
 
     resp = await api.get(f"/api/recipes/search?q={query}", tg_id)
-    if resp is None:
+    if not await check_linked(resp, message):
         await state.clear()
-        await message.answer(NOT_LINKED_MSG)
         return
 
     recipes = resp.json()
@@ -83,8 +83,7 @@ async def cb_suggest(callback: CallbackQuery) -> None:
 
     menu_id = today_menu["id"]
     resp = await api.post(f"/api/menus/{menu_id}/suggest", tg_id, json={"recipe_id": recipe_id})
-    if resp is None:
-        await callback.answer(NOT_LINKED_MSG)
+    if not await check_linked(resp, callback):
         return
 
     if resp.status_code == 409:
