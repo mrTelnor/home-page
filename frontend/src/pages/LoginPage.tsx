@@ -23,9 +23,7 @@ export function LoginPage() {
 
   let error: string | null = null;
   if (login.error instanceof ApiError) {
-    error = login.error.status === 401
-      ? "Неверный логин или пароль"
-      : login.error.message;
+    error = login.error.status === 401 ? "Неверный логин или пароль" : login.error.message;
   }
 
   return (

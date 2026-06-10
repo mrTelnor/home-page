@@ -5,7 +5,12 @@ interface Props {
   className?: string;
 }
 
-export function WolfMark({ size = 28, color = "currentColor", stroke = 1.6, className }: Readonly<Props>) {
+export function WolfMark({
+  size = 28,
+  color = "currentColor",
+  stroke = 1.6,
+  className,
+}: Readonly<Props>) {
   return (
     <svg
       width={size}

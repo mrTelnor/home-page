@@ -7,7 +7,10 @@ export function NotFoundPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] gap-4">
       <h1 className="text-6xl font-bold">404</h1>
-      <p className="text-muted-foreground text-lg">Данная страница не существует. Если она очень нужна, свяжитесь с нами, расскажите что вы хотите видеть на странице, а мы её обязательно запишем в план!</p>
+      <p className="text-muted-foreground text-lg">
+        Данная страница не существует. Если она очень нужна, свяжитесь с нами, расскажите что вы
+        хотите видеть на странице, а мы её обязательно запишем в план!
+      </p>
       <Button asChild>
         <Link to="/">На главную</Link>
       </Button>

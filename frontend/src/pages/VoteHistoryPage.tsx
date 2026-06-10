@@ -69,8 +69,13 @@ export function VoteHistoryPage() {
                       {menu.recipes
                         .sort((a, b) => b.votes_count - a.votes_count)
                         .map((r) => (
-                          <div key={r.id} className="flex items-center justify-between text-sm py-1">
-                            <span className={r.recipe_id === menu.winner_recipe_id ? "font-bold" : ""}>
+                          <div
+                            key={r.id}
+                            className="flex items-center justify-between text-sm py-1"
+                          >
+                            <span
+                              className={r.recipe_id === menu.winner_recipe_id ? "font-bold" : ""}
+                            >
                               {r.title}
                             </span>
                             <span className="text-muted-foreground">{r.votes_count} гол.</span>

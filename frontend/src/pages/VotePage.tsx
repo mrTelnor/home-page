@@ -29,12 +29,11 @@ export function VotePage() {
     );
   }
 
-  const userSuggested = menu.recipes.some(
-    (r) => r.source === "user" && r.added_by === user?.id
-  );
-  const canSuggest = user?.role === "admin"
-    ? menu.recipes.filter((r) => r.added_by === user?.id && r.source === "user").length < 3
-    : !userSuggested;
+  const userSuggested = menu.recipes.some((r) => r.source === "user" && r.added_by === user?.id);
+  const canSuggest =
+    user?.role === "admin"
+      ? menu.recipes.filter((r) => r.added_by === user?.id && r.source === "user").length < 3
+      : !userSuggested;
 
   return (
     <div className="space-y-6">
@@ -47,7 +46,11 @@ export function VotePage() {
 
       {menu.status === "collecting" && (
         <>
-          <MenuCollecting menu={menu} onSuggest={() => setSuggestOpen(true)} canSuggest={canSuggest} />
+          <MenuCollecting
+            menu={menu}
+            onSuggest={() => setSuggestOpen(true)}
+            canSuggest={canSuggest}
+          />
           <SuggestRecipeDialog menu={menu} open={suggestOpen} onOpenChange={setSuggestOpen} />
         </>
       )}

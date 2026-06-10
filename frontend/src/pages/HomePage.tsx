@@ -34,9 +34,7 @@ export function HomePage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">
-          Привет, {user.first_name || user.username}!
-        </h1>
+        <h1 className="text-3xl font-bold">Привет, {user.first_name || user.username}!</h1>
         <WolfMark size={48} className="text-foreground opacity-30 hidden sm:block" stroke={1.4} />
       </div>
 
