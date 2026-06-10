@@ -5,6 +5,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.api_client import NOT_LINKED_MSG, api
+from app.callbacks import SUGGEST_CANCEL, SUGGEST_PREFIX, pack, unpack
 from app.notify import notify_recipe_suggested
 
 router = Router()
@@ -58,11 +59,11 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     buttons = [
         [InlineKeyboardButton(
             text=r["title"],
-            callback_data=f"sug:{r['id']}",
+            callback_data=pack(SUGGEST_PREFIX, r["id"]),
         )]
         for r in recipes[:10]
     ]
-    buttons.append([InlineKeyboardButton(text="Отмена", callback_data="suggest_cancel")])
+    buttons.append([InlineKeyboardButton(text="Отмена", callback_data=SUGGEST_CANCEL)])
 
     await state.clear()
     await message.answer(
@@ -71,9 +72,9 @@ async def on_recipe_name(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.callback_query(F.data.startswith("sug:"))
+@router.callback_query(F.data.startswith(SUGGEST_PREFIX))
 async def cb_suggest(callback: CallbackQuery) -> None:
-    recipe_id = callback.data[4:]
+    recipe_id = unpack(callback.data, SUGGEST_PREFIX)
     tg_id = callback.from_user.id
 
     # Get today's menu for menu_id
@@ -116,7 +117,7 @@ async def cb_suggest(callback: CallbackQuery) -> None:
         await notify_recipe_suggested(callback.bot, name, title, tg_id)
 
 
-@router.callback_query(F.data == "suggest_cancel")
+@router.callback_query(F.data == SUGGEST_CANCEL)
 async def cb_suggest_cancel(callback: CallbackQuery) -> None:
     await callback.message.delete()
     await callback.answer("Отменено.")
