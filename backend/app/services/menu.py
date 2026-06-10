@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.menu import DailyMenu, DailyMenuRecipe, Vote
 from app.db.models.recipe import Recipe
+from app.schemas.menu import MenuRecipeResponse, MenuResponse
 
 
 async def get_menu_by_date(session: AsyncSession, menu_date: date) -> DailyMenu | None:
@@ -177,6 +178,57 @@ async def get_voters_for_menu(session: AsyncSession, menu_id: uuid.UUID) -> dict
     for recipe_id, user in result.all():
         voters.setdefault(recipe_id, []).append(user)
     return voters
+
+
+async def build_menu_response(
+    session: AsyncSession, menu: DailyMenu, user_id: uuid.UUID | None = None
+) -> MenuResponse:
+    is_collecting = menu.status == "collecting"
+    vote_counts = await get_votes_for_menu(session, menu.id) if not is_collecting else {}
+    voters_by_recipe = await get_voters_for_menu(session, menu.id) if not is_collecting else {}
+
+    # Один запрос на все рецепты меню вместо запроса на каждый
+    recipe_ids = [mr.recipe_id for mr in menu.menu_recipes]
+    recipes_by_id: dict[uuid.UUID, Recipe] = {}
+    if recipe_ids:
+        result = await session.execute(select(Recipe).where(Recipe.id.in_(recipe_ids)))
+        recipes_by_id = {r.id: r for r in result.scalars().all()}
+
+    recipes = []
+    for mr in menu.menu_recipes:
+        recipe = recipes_by_id.get(mr.recipe_id)
+        recipe_voters = voters_by_recipe.get(mr.recipe_id, [])
+        recipes.append(
+            MenuRecipeResponse(
+                id=mr.id,
+                recipe_id=mr.recipe_id,
+                title=recipe.title if recipe else "Deleted recipe",
+                source=mr.source,
+                added_by=mr.added_by,
+                votes_count=vote_counts.get(mr.recipe_id, 0),
+                voters=[
+                    {"id": v.id, "first_name": v.first_name, "username": v.username}
+                    for v in recipe_voters
+                ],
+            )
+        )
+
+    user_voted_recipe_id = None
+    if user_id is not None and not is_collecting:
+        user_vote = await get_user_vote(session, menu.id, user_id)
+        if user_vote:
+            user_voted_recipe_id = user_vote.recipe_id
+
+    return MenuResponse(
+        id=menu.id,
+        date=menu.date,
+        status=menu.status,
+        winner_recipe_id=menu.winner_recipe_id,
+        recipes=recipes,
+        created_at=menu.created_at,
+        user_voted_recipe_id=user_voted_recipe_id,
+        total_votes=sum(vote_counts.values()),
+    )
 
 
 async def delete_menu(session: AsyncSession, menu: DailyMenu) -> None:
