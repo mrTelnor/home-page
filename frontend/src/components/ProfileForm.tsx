@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { useUpdateProfile } from "@/hooks/useProfile";
-import { type User } from "@/store/auth";
+import { type User } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

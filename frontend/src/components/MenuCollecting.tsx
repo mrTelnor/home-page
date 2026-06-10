@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { type Menu } from "@/hooks/useMenu";
+import { type Menu } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";

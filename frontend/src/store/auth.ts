@@ -1,16 +1,5 @@
 import { create } from "zustand";
-
-export interface User {
-  id: string;
-  username: string;
-  role: string;
-  created_at: string;
-  tg_id: number | null;
-  first_name: string | null;
-  birthday: string | null;
-  is_volkov: boolean;
-  gender: "male" | "female" | null;
-}
+import { type User } from "@/api/types";
 
 interface AuthState {
   user: User | null;

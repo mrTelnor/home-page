@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { type User } from "@/store/auth";
+import { endpoints } from "@/api/endpoints";
+import { type User } from "@/api/types";
 
 export interface TelegramAuthData {
   id: number;
@@ -16,8 +17,7 @@ export function useTelegramVerify() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: TelegramAuthData) =>
-      api.post<User>("/api/auth/telegram-verify", data),
+    mutationFn: (data: TelegramAuthData) => api.post<User>(endpoints.auth.telegramVerify, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
@@ -28,7 +28,7 @@ export function useTelegramUnlink() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => api.post<User>("/api/auth/telegram-unlink"),
+    mutationFn: () => api.post<User>(endpoints.auth.telegramUnlink),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
@@ -38,7 +38,7 @@ export function useTelegramUnlink() {
 export function useChangePassword() {
   return useMutation({
     mutationFn: (data: { old_password: string; new_password: string }) =>
-      api.post("/api/auth/change-password", data),
+      api.post(endpoints.auth.changePassword, data),
   });
 }
 
@@ -53,8 +53,7 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: UpdateProfileData) =>
-      api.patch<User>("/api/auth/me", data),
+    mutationFn: (data: UpdateProfileData) => api.patch<User>(endpoints.auth.me, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { type Menu } from "@/hooks/useMenu";
+import { type Menu } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -21,7 +21,9 @@ export function MenuResults({ menu }: Readonly<Props>) {
           const isWinner = r.recipe_id === menu.winner_recipe_id;
           return (
             <Link key={r.id} to={`/recipes/${r.recipe_id}`}>
-              <Card className={`hover:shadow-md transition-shadow cursor-pointer ${isWinner ? "border-primary border-2 bg-primary/5" : ""}`}>
+              <Card
+                className={`hover:shadow-md transition-shadow cursor-pointer ${isWinner ? "border-primary border-2 bg-primary/5" : ""}`}
+              >
                 <CardHeader className="py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">

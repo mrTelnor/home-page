@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { type Menu } from "@/hooks/useMenu";
+import { type Menu } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +22,8 @@ export function MenuVoting({ menu, onVote, onCancelVote, isPending }: Readonly<P
         <h2 className="text-2xl font-bold">
           Голосование{" "}
           <span className="text-base font-normal text-muted-foreground">
-            (проголосовало: {menu.total_votes} чел., вы {userVoted ? "проголосовали" : "не проголосовали"})
+            (проголосовало: {menu.total_votes} чел., вы{" "}
+            {userVoted ? "проголосовали" : "не проголосовали"})
           </span>
         </h2>
       </div>
@@ -33,22 +34,13 @@ export function MenuVoting({ menu, onVote, onCancelVote, isPending }: Readonly<P
           let actionButton = null;
           if (isUserVote) {
             actionButton = (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onCancelVote}
-                disabled={isPending}
-              >
+              <Button variant="outline" size="sm" onClick={onCancelVote} disabled={isPending}>
                 Отменить голос
               </Button>
             );
           } else if (userVoted === false) {
             actionButton = (
-              <Button
-                size="sm"
-                onClick={() => onVote(r.recipe_id)}
-                disabled={isPending}
-              >
+              <Button size="sm" onClick={() => onVote(r.recipe_id)} disabled={isPending}>
                 Голосовать
               </Button>
             );
