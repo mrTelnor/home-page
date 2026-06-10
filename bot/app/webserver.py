@@ -29,6 +29,36 @@ from app.notify import EVENT_HANDLERS, notify_voting_closed, notify_voting_opene
 logger = logging.getLogger(__name__)
 
 
+async def handle_healthz(request: web.Request) -> web.Response:
+    """Проверка реальной связности с Telegram (а не только HTTP-сервера).
+
+    Ловит сценарий «polling мёртв, контейнер рестартится»: get_me ходит
+    в Telegram API через тот же транспорт, что и polling.
+    """
+    bot: Bot = request.app["bot"]
+    try:
+        await bot.get_me()
+    except Exception:
+        logger.exception("healthz: Telegram unreachable")
+        return web.json_response({"status": "error", "detail": "telegram unreachable"}, status=503)
+    return web.json_response({"status": "ok"})
+
+
+async def handle_alert(request: web.Request) -> web.Response:
+    """Общий канал алертов для cron: текст рассылается админам."""
+    if request.headers.get("X-Cron-Secret") != settings.cron_secret:
+        return web.json_response({"error": "forbidden"}, status=403)
+
+    data = await request.json()
+    text = (data.get("text") or "").strip()
+    if not text:
+        return web.json_response({"error": "text is required"}, status=400)
+
+    bot: Bot = request.app["bot"]
+    await _send_to_admins(bot, f"⚠️ {text}")
+    return web.json_response({"ok": True})
+
+
 async def handle_notify(request: web.Request) -> web.Response:
     cron_secret = request.headers.get("X-Cron-Secret")
     if cron_secret != settings.cron_secret:
@@ -155,6 +185,8 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
 def create_app(bot: Bot) -> web.Application:
     app = web.Application()
     app["bot"] = bot
+    app.router.add_get("/healthz", handle_healthz)
+    app.router.add_post("/alert", handle_alert)
     app.router.add_post("/notify", handle_notify)
     app.router.add_post("/uptime-alert", handle_uptime_alert)
     app.router.add_post("/check-calendar", handle_check_calendar)
