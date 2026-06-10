@@ -35,7 +35,6 @@ from app.db.models import (  # noqa: F401 — imports trigger model registration
     DailyMenuRecipe,
     Ingredient,
     Recipe,
-    Session,
     Vote,
 )
 from app.db.models.user import User
@@ -69,7 +68,7 @@ async def clean_tables():
     async with admin_engine.begin() as conn:
         await conn.execute(text(
             "TRUNCATE TABLE dinner.votes, dinner.daily_menu_recipes, dinner.daily_menus, "
-            "dinner.ingredients, dinner.recipes, auth.sessions, auth.users "
+            "dinner.ingredients, dinner.recipes, auth.users "
             "RESTART IDENTITY CASCADE"
         ))
     yield
