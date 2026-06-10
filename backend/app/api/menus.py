@@ -2,6 +2,7 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 
 from app.core.dependencies import CronOrAdmin, CurrentUser, DbSession, ensure_admin
 from app.schemas.menu import (
@@ -120,7 +121,7 @@ async def vote(
 
     try:
         await cast_vote(session, menu.id, data.recipe_id, user.id)
-    except Exception as exc:
+    except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Already voted for this menu"
         ) from exc

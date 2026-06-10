@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.dependencies import CurrentUser, DbSession, verify_bot_secret
@@ -39,7 +40,7 @@ async def register(data: RegisterRequest, session: DbSession):
 
     try:
         user = await create_user(session, data.username, data.password)
-    except Exception as exc:
+    except IntegrityError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken") from exc
 
     return user
