@@ -1,9 +1,10 @@
-from typing import Annotated
+import logging
 
-from fastapi import APIRouter, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
-from app.core.dependencies import NOT_ALLOWED, CurrentUser, DbSession
+from app.core.dependencies import CurrentUser, DbSession, verify_bot_secret
 from app.core.security import create_jwt, verify_password
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -28,6 +29,8 @@ from app.services.auth import (
 )
 from app.services.telegram import verify_telegram_auth
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 COOKIE_MAX_AGE = settings.jwt_expire_hours * 3600
@@ -41,9 +44,10 @@ async def register(data: RegisterRequest, session: DbSession):
 
     try:
         user = await create_user(session, data.username, data.password)
-    except Exception as exc:
+    except IntegrityError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken") from exc
 
+    logger.info("User registered: %s", user.username)
     return user
 
 
@@ -51,6 +55,7 @@ async def register(data: RegisterRequest, session: DbSession):
 async def login(data: LoginRequest, response: Response, session: DbSession):
     user = await authenticate_user(session, data.username, data.password)
     if user is None:
+        logger.warning("Failed login attempt for username: %s", data.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=INVALID_CREDENTIALS)
 
     token = create_jwt(str(user.id))
@@ -94,7 +99,11 @@ async def telegram_verify(
     session: DbSession,
     user: CurrentUser,
 ):
-    if not verify_telegram_auth(data.model_dump(), settings.telegram_bot_token):
+    if not verify_telegram_auth(
+        data.model_dump(),
+        settings.telegram_bot_token,
+        max_age_seconds=settings.telegram_auth_max_age_seconds,
+    ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram signature")
 
     existing = await get_user_by_tg_id(session, data.id)
@@ -124,15 +133,12 @@ async def change_password(
     return {"message": "ok"}
 
 
-@router.post("/telegram-login", response_model=TokenResponse)
-async def telegram_login(
-    data: TelegramLoginRequest,
-    session: DbSession,
-    x_bot_secret: Annotated[str | None, Header()] = None,
-):
-    if x_bot_secret != settings.bot_secret:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
-
+@router.post(
+    "/telegram-login",
+    response_model=TokenResponse,
+    dependencies=[Depends(verify_bot_secret)],
+)
+async def telegram_login(data: TelegramLoginRequest, session: DbSession):
     user = await get_user_by_tg_id(session, data.tg_id)
     if user is None:
         raise HTTPException(
@@ -144,26 +150,20 @@ async def telegram_login(
     return TokenResponse(access_token=token)
 
 
-@router.get("/users/notifiable", response_model=list[NotifiableUserResponse])
-async def notifiable_users(
-    session: DbSession,
-    x_bot_secret: Annotated[str | None, Header()] = None,
-):
-    if x_bot_secret != settings.bot_secret:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
-
-    users = await get_notifiable_users(session)
-    return users
+@router.get(
+    "/users/notifiable",
+    response_model=list[NotifiableUserResponse],
+    dependencies=[Depends(verify_bot_secret)],
+)
+async def notifiable_users(session: DbSession):
+    return await get_notifiable_users(session)
 
 
-@router.get("/users/admins", response_model=list[NotifiableUserResponse])
-async def admin_users(
-    session: DbSession,
-    x_bot_secret: Annotated[str | None, Header()] = None,
-):
-    if x_bot_secret != settings.bot_secret:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
-
-    users = await get_admin_users(session)
-    return users
+@router.get(
+    "/users/admins",
+    response_model=list[NotifiableUserResponse],
+    dependencies=[Depends(verify_bot_secret)],
+)
+async def admin_users(session: DbSession):
+    return await get_admin_users(session)
 

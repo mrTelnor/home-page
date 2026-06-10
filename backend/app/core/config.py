@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     telegram_bot_username: str
     bot_secret: str
     cookie_secure: bool = True
+    log_level: str = "INFO"
+    # None → ["https://{domain}"]; для разработки можно задать
+    # CORS_ORIGINS='["https://telnor.ru","http://localhost:5173"]'
+    cors_origins: list[str] | None = None
+    telegram_auth_max_age_seconds: int = 3600
 
     model_config = {"env_file": ".env"}
 

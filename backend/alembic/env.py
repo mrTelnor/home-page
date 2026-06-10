@@ -16,7 +16,6 @@ from app.db.models import (  # noqa: F401 — imports trigger model registration
     DailyMenuRecipe,
     Ingredient,
     Recipe,
-    Session,
     User,
     Vote,
 )

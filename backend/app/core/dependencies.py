@@ -51,6 +51,24 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+def ensure_admin(user: User) -> None:
+    """403, если пользователь не админ."""
+    if user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+
+def ensure_owner_or_admin(user: User, owner_id: uuid.UUID | None) -> None:
+    """403, если пользователь не владелец ресурса и не админ."""
+    if user.id != owner_id and user.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+
+async def verify_bot_secret(x_bot_secret: Annotated[str | None, Header()] = None) -> None:
+    """Авторизация запросов Telegram-бота по общему секрету."""
+    if x_bot_secret != settings.bot_secret:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+
+
 async def verify_cron_or_admin(
     session: DbSession,
     x_cron_secret: Annotated[str | None, Header()] = None,

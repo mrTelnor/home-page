@@ -1,3 +1,4 @@
+import logging
 import secrets
 import uuid
 from datetime import date
@@ -8,6 +9,9 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.menu import DailyMenu, DailyMenuRecipe, Vote
 from app.db.models.recipe import Recipe
+from app.schemas.menu import MenuRecipeResponse, MenuResponse
+
+logger = logging.getLogger(__name__)
 
 
 async def get_menu_by_date(session: AsyncSession, menu_date: date) -> DailyMenu | None:
@@ -52,6 +56,7 @@ async def create_daily_menu(session: AsyncSession, menu_date: date) -> DailyMenu
     session.add(menu)
     await session.commit()
     await session.refresh(menu, ["menu_recipes"])
+    logger.info("Daily menu created for %s with %d recipes", menu_date, len(menu.menu_recipes))
     return menu
 
 
@@ -95,6 +100,7 @@ async def finalize_menu(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
     menu.status = "voting"
     await session.commit()
     await session.refresh(menu, ["menu_recipes"])
+    logger.info("Menu %s finalized, voting opened", menu.date)
     return menu
 
 
@@ -141,6 +147,7 @@ async def close_voting(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
         menu.status = "closed"
         await session.commit()
         await session.refresh(menu, ["menu_recipes"])
+        logger.info("Voting closed for %s: menu is empty, no winner", menu.date)
         return menu
 
     max_votes = max((vote_counts.get(rid, 0) for rid in menu_recipe_ids), default=0)
@@ -151,6 +158,10 @@ async def close_voting(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
     menu.status = "closed"
     await session.commit()
     await session.refresh(menu, ["menu_recipes"])
+    logger.info(
+        "Voting closed for %s: winner %s with %d votes (%d candidates)",
+        menu.date, winner, max_votes, len(candidates),
+    )
     return menu
 
 
@@ -177,6 +188,57 @@ async def get_voters_for_menu(session: AsyncSession, menu_id: uuid.UUID) -> dict
     for recipe_id, user in result.all():
         voters.setdefault(recipe_id, []).append(user)
     return voters
+
+
+async def build_menu_response(
+    session: AsyncSession, menu: DailyMenu, user_id: uuid.UUID | None = None
+) -> MenuResponse:
+    is_collecting = menu.status == "collecting"
+    vote_counts = await get_votes_for_menu(session, menu.id) if not is_collecting else {}
+    voters_by_recipe = await get_voters_for_menu(session, menu.id) if not is_collecting else {}
+
+    # Один запрос на все рецепты меню вместо запроса на каждый
+    recipe_ids = [mr.recipe_id for mr in menu.menu_recipes]
+    recipes_by_id: dict[uuid.UUID, Recipe] = {}
+    if recipe_ids:
+        result = await session.execute(select(Recipe).where(Recipe.id.in_(recipe_ids)))
+        recipes_by_id = {r.id: r for r in result.scalars().all()}
+
+    recipes = []
+    for mr in menu.menu_recipes:
+        recipe = recipes_by_id.get(mr.recipe_id)
+        recipe_voters = voters_by_recipe.get(mr.recipe_id, [])
+        recipes.append(
+            MenuRecipeResponse(
+                id=mr.id,
+                recipe_id=mr.recipe_id,
+                title=recipe.title if recipe else "Deleted recipe",
+                source=mr.source,
+                added_by=mr.added_by,
+                votes_count=vote_counts.get(mr.recipe_id, 0),
+                voters=[
+                    {"id": v.id, "first_name": v.first_name, "username": v.username}
+                    for v in recipe_voters
+                ],
+            )
+        )
+
+    user_voted_recipe_id = None
+    if user_id is not None and not is_collecting:
+        user_vote = await get_user_vote(session, menu.id, user_id)
+        if user_vote:
+            user_voted_recipe_id = user_vote.recipe_id
+
+    return MenuResponse(
+        id=menu.id,
+        date=menu.date,
+        status=menu.status,
+        winner_recipe_id=menu.winner_recipe_id,
+        recipes=recipes,
+        created_at=menu.created_at,
+        user_voted_recipe_id=user_voted_recipe_id,
+        total_votes=sum(vote_counts.values()),
+    )
 
 
 async def delete_menu(session: AsyncSession, menu: DailyMenu) -> None:
