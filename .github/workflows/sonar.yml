@@ -60,6 +60,31 @@ jobs:
           coverage run --source=app -m pytest
           coverage xml -o coverage.xml
 
+      - name: Install bot dependencies
+        working-directory: bot
+        run: pip install -r requirements.txt -r requirements-dev.txt coverage
+
+      - name: Run bot tests with coverage
+        working-directory: bot
+        run: |
+          coverage run --source=app -m pytest tests
+          coverage xml -o coverage.xml
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend tests with coverage
+        working-directory: frontend
+        run: npm run test:coverage
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
