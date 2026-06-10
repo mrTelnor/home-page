@@ -133,7 +133,7 @@
 - HetrixTools использует общий секрет (`?secret=...` в URL webhook'а) для вызова `/uptime-alert` бота
 
 ### Фронтенд
-- **React 18** + **Vite** + **TypeScript**
+- **React 19** + **Vite** + **TypeScript**
 - **React Router v7** — навигация (ProtectedRoute для защищённых маршрутов, AuthAwareRoute для гостевых)
 - **TanStack Query v5** — работа с API, кэширование, polling
 - **Zustand** — хранение текущего пользователя

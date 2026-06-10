@@ -4,4 +4,3 @@ httpx>=0.28
 pydantic-settings>=2.0
 google-api-python-client>=2.180
 google-auth>=2.40
-beautifulsoup4>=4.12

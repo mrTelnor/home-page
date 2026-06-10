@@ -31,7 +31,7 @@
 |---|---|
 | Бэкенд | Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Alembic, Pydantic v2 |
 | База данных | PostgreSQL 16 (схемы `auth`, `dinner`) |
-| Фронтенд | React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, Zustand |
+| Фронтенд | React 19, Vite, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, Zustand |
 | Telegram-бот | Python 3.12, Aiogram 3 (polling), aiohttp, httpx, google-api-python-client |
 | Автоматизация | Cron-контейнер (Alpine + curl + postgresql-client): расписание голосования, уведомления, бэкапы, проверка календаря |
 | Инфраструктура | Docker, Docker Compose, Traefik v3 (Let's Encrypt), Ansible, Cloudflare DNS, WireGuard (VPN для бота) |
