@@ -63,6 +63,21 @@ class ApiClient:
     async def delete(self, path: str, tg_id: int, **kwargs) -> httpx.Response | None:
         return await self.request("DELETE", path, tg_id, **kwargs)
 
+    async def get_today_menu(self, tg_id: int) -> tuple[dict | None, str | None]:
+        """Меню дня одним вызовом.
+
+        Возвращает (menu, error), где error ∈ {"not_linked", "not_found", "error"}
+        либо None при успехе.
+        """
+        resp = await self.get("/api/menus/today", tg_id)
+        if resp is None:
+            return None, "not_linked"
+        if resp.status_code == 404:
+            return None, "not_found"
+        if resp.status_code != 200:
+            return None, "error"
+        return resp.json(), None
+
     async def get_notifiable_users(self) -> list[dict]:
         resp = await self._http.get(
             "/api/auth/users/notifiable",

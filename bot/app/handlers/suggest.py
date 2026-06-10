@@ -18,17 +18,16 @@ class SuggestStates(StatesGroup):
 @router.message(Command("suggest"))
 async def cmd_suggest(message: Message, state: FSMContext) -> None:
     tg_id = message.from_user.id
-    resp = await api.get("/api/menus/today", tg_id)
+    menu, error = await api.get_today_menu(tg_id)
 
-    if resp is None:
+    if error == "not_linked":
         await message.answer(NOT_LINKED_MSG)
         return
 
-    if resp.status_code == 404:
+    if menu is None:
         await message.answer("Меню ещё не создано.")
         return
 
-    menu = resp.json()
     if menu["status"] != "collecting":
         await message.answer("Сбор предложений закрыт.")
         return
@@ -77,13 +76,12 @@ async def cb_suggest(callback: CallbackQuery) -> None:
     recipe_id = unpack(callback.data, SUGGEST_PREFIX)
     tg_id = callback.from_user.id
 
-    # Get today's menu for menu_id
-    today = await api.get("/api/menus/today", tg_id)
-    if today is None or today.status_code != 200:
+    today_menu, _ = await api.get_today_menu(tg_id)
+    if today_menu is None:
         await callback.answer("Меню не найдено.")
         return
 
-    menu_id = today.json()["id"]
+    menu_id = today_menu["id"]
     resp = await api.post(f"/api/menus/{menu_id}/suggest", tg_id, json={"recipe_id": recipe_id})
     if resp is None:
         await callback.answer(NOT_LINKED_MSG)

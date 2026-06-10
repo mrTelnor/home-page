@@ -44,12 +44,10 @@ async def notify_menu_created(bot: Bot) -> None:
     if not users:
         return
 
-    first_tg_id = users[0]["tg_id"]
-    resp = await api.get("/api/menus/today", first_tg_id)
-    if resp is None or resp.status_code != 200:
+    menu, _ = await api.get_today_menu(users[0]["tg_id"])
+    if menu is None:
         return
 
-    menu = resp.json()
     recipes = "\n".join(f"  • {r['title']}" for r in menu["recipes"])
     text = f"🍽 Меню дня готово! Предлагайте свои варианты.\n\nРецепты:\n{recipes}\n\nИспользуйте /suggest"
     await broadcast(bot, text, exclude_admins=True)
@@ -60,10 +58,9 @@ async def notify_voting_opened(bot: Bot) -> None:
     users = await api.get_notifiable_users()
     if not users:
         return
-    resp = await api.get("/api/menus/today", users[0]["tg_id"])
-    if resp is None or resp.status_code != 200:
+    menu, _ = await api.get_today_menu(users[0]["tg_id"])
+    if menu is None:
         return
-    menu = resp.json()
     if menu.get("status") != "voting":
         return
     if not mark_event_sent(f"voting_opened:{menu['id']}"):
@@ -84,12 +81,9 @@ async def notify_voting_closed(bot: Bot) -> None:
     if not users:
         return
 
-    first_tg_id = users[0]["tg_id"]
-    resp = await api.get("/api/menus/today", first_tg_id)
-    if resp is None or resp.status_code != 200:
+    menu, _ = await api.get_today_menu(users[0]["tg_id"])
+    if menu is None:
         return
-
-    menu = resp.json()
     if menu.get("status") != "closed":
         return
     if not mark_event_sent(f"voting_closed:{menu['id']}"):

@@ -111,10 +111,8 @@ async def _fetch_today_menu() -> dict | None:
     admins = await api.get_admin_users()
     if not admins:
         return None
-    resp = await api.get("/api/menus/today", admins[0]["tg_id"])
-    if resp is None or resp.status_code != 200:
-        return None
-    return resp.json()
+    menu, _ = await api.get_today_menu(admins[0]["tg_id"])
+    return menu
 
 
 async def handle_check_calendar(request: web.Request) -> web.Response:
