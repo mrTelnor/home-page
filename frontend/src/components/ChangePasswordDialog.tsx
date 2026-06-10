@@ -4,12 +4,7 @@ import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
   open: boolean;
@@ -45,9 +40,10 @@ export function ChangePasswordDialog({ open, onOpenChange }: Readonly<Props>) {
 
   let apiError: string | null = null;
   if (changePassword.error instanceof ApiError) {
-    apiError = changePassword.error.status === 401
-      ? "Неверный текущий пароль"
-      : changePassword.error.message;
+    apiError =
+      changePassword.error.status === 401
+        ? "Неверный текущий пароль"
+        : changePassword.error.message;
   }
 
   const error = localError ?? apiError;

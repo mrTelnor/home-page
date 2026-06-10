@@ -36,9 +36,7 @@ export function TelegramLoginButton() {
     <div>
       <div ref={containerRef} />
       {verify.isError && (
-        <p className="text-sm text-destructive mt-2">
-          Ошибка привязки. Попробуйте ещё раз.
-        </p>
+        <p className="text-sm text-destructive mt-2">Ошибка привязки. Попробуйте ещё раз.</p>
       )}
     </div>
   );

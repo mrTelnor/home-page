@@ -5,8 +5,14 @@ interface User {
 }
 
 const PALETTE = [
-  "#B8442A", "#6B7A4B", "#C48A2A", "#7A5AA0",
-  "#3F7268", "#3F5E86", "#A8495F", "#7A5A32",
+  "#B8442A",
+  "#6B7A4B",
+  "#C48A2A",
+  "#7A5AA0",
+  "#3F7268",
+  "#3F5E86",
+  "#A8495F",
+  "#7A5A32",
 ];
 
 function colorForId(id: string): string {

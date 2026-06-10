@@ -24,19 +24,12 @@ export function Layout() {
       <nav className="border-b border-border">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              disabled={isHome}
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} disabled={isHome}>
               &larr; Назад
             </Button>
             <Link to="/" className="flex items-center gap-2 group">
               <WolfMark size={24} className="text-foreground" />
-              <span className="text-xl font-bold hidden sm:inline">
-                Волковы
-              </span>
+              <span className="text-xl font-bold hidden sm:inline">Волковы</span>
             </Link>
           </div>
 

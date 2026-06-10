@@ -1,10 +1,6 @@
-import { type Menu, useAllRecipes, useSuggestRecipe } from "@/hooks/useMenu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { type Menu } from "@/api/types";
+import { useAllRecipes, useSuggestRecipe } from "@/hooks/useMenu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Props {
@@ -21,10 +17,7 @@ export function SuggestRecipeDialog({ menu, open, onOpenChange }: Readonly<Props
   const available = recipes?.filter((r) => !menuRecipeIds.has(r.id)) ?? [];
 
   const handleSuggest = (recipeId: string) => {
-    suggest.mutate(
-      { menuId: menu.id, recipeId },
-      { onSuccess: () => onOpenChange(false) }
-    );
+    suggest.mutate({ menuId: menu.id, recipeId }, { onSuccess: () => onOpenChange(false) });
   };
 
   return (
@@ -34,9 +27,7 @@ export function SuggestRecipeDialog({ menu, open, onOpenChange }: Readonly<Props
           <DialogTitle>Предложить рецепт</DialogTitle>
         </DialogHeader>
         {available.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">
-            Все рецепты уже в меню
-          </p>
+          <p className="text-muted-foreground text-center py-4">Все рецепты уже в меню</p>
         ) : (
           <div className="grid gap-2">
             {available.map((r) => (

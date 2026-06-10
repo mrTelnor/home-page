@@ -22,9 +22,7 @@ function mockResponse({
     ok,
     status,
     statusText,
-    json: jsonFails
-      ? () => Promise.reject(new Error("invalid json"))
-      : () => Promise.resolve(body),
+    json: jsonFails ? () => Promise.reject(new Error("invalid json")) : () => Promise.resolve(body),
   };
 }
 

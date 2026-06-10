@@ -63,7 +63,8 @@ export function ProfilePage() {
           {user.tg_id ? (
             <div className="space-y-3">
               <p className="text-sm">
-                <Badge>Привязан</Badge> <span className="text-muted-foreground ml-2">ID: {user.tg_id}</span>
+                <Badge>Привязан</Badge>{" "}
+                <span className="text-muted-foreground ml-2">ID: {user.tg_id}</span>
               </p>
               <Button variant="outline" onClick={handleUnlink} disabled={unlink.isPending}>
                 Отвязать Telegram

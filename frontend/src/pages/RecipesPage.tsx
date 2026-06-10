@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useRecipesList } from "@/hooks/useRecipes";
 import { useAuthStore } from "@/store/auth";
@@ -20,35 +21,29 @@ const SORT_LABELS: Record<SortField, string> = {
 const SORT_FIELD_KEY = "recipes:sortField";
 const SORT_DIR_KEY = "recipes:sortDir";
 
-function getInitialSortField(): SortField {
-  const stored = localStorage.getItem(SORT_FIELD_KEY);
-  if (stored === "title" || stored === "created_at" || stored === "updated_at") {
-    return stored;
-  }
-  return "title";
-}
-
-function getInitialSortDir(): SortDir {
-  const stored = localStorage.getItem(SORT_DIR_KEY);
-  return stored === "desc" ? "desc" : "asc";
-}
+// Значения хранятся сырыми строками — совместимо со старым форматом
+const rawString = { serialize: (v: string) => v };
 
 export function RecipesPage() {
   usePageTitle("Рецепты");
   const user = useAuthStore((s) => s.user);
   const { data: recipes, isLoading } = useRecipesList();
-  const [sortField, setSortField] = useState<SortField>(getInitialSortField);
-  const [sortDir, setSortDir] = useState<SortDir>(getInitialSortDir);
+  const [sortField, setSortField] = useLocalStorage<SortField>(SORT_FIELD_KEY, "title", {
+    ...rawString,
+    deserialize: (raw) =>
+      raw === "title" || raw === "created_at" || raw === "updated_at" ? raw : undefined,
+  });
+  const [sortDir, setSortDir] = useLocalStorage<SortDir>(SORT_DIR_KEY, "asc", {
+    ...rawString,
+    deserialize: (raw) => (raw === "desc" ? "desc" : "asc"),
+  });
 
   const handleSortFieldChange = (value: SortField) => {
     setSortField(value);
-    localStorage.setItem(SORT_FIELD_KEY, value);
   };
 
   const toggleSortDir = () => {
-    const next: SortDir = sortDir === "asc" ? "desc" : "asc";
-    setSortDir(next);
-    localStorage.setItem(SORT_DIR_KEY, next);
+    setSortDir((d) => (d === "asc" ? "desc" : "asc"));
   };
 
   const sorted = useMemo(() => {
@@ -83,9 +78,10 @@ export function RecipesPage() {
 
       {recipes?.length ? (
         <>
-
           <div className="flex flex-wrap items-center gap-3">
-            <Label htmlFor="sort-field" className="text-sm">Сортировка:</Label>
+            <Label htmlFor="sort-field" className="text-sm">
+              Сортировка:
+            </Label>
             <select
               id="sort-field"
               value={sortField}
@@ -93,14 +89,12 @@ export function RecipesPage() {
               className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {(Object.keys(SORT_LABELS) as SortField[]).map((f) => (
-                <option key={f} value={f}>{SORT_LABELS[f]}</option>
+                <option key={f} value={f}>
+                  {SORT_LABELS[f]}
+                </option>
               ))}
             </select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleSortDir}
-            >
+            <Button variant="outline" size="sm" onClick={toggleSortDir}>
               {sortDir === "asc" ? "↑ По возрастанию" : "↓ По убыванию"}
             </Button>
           </div>

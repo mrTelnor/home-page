@@ -57,11 +57,7 @@ export function RecipeDetailPage() {
         ← К списку рецептов
       </Link>
       <div className="overflow-hidden rounded-lg border border-border">
-        <FoodGlyph
-          title={recipe.title}
-          kind={recipe.glyph_kind}
-          color={recipe.glyph_color}
-        />
+        <FoodGlyph title={recipe.title} kind={recipe.glyph_kind} color={recipe.glyph_color} />
       </div>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{recipe.title}</h1>
@@ -70,11 +66,7 @@ export function RecipeDetailPage() {
             <Button variant="outline" asChild>
               <Link to={`/recipes/${recipe.id}/edit`}>Редактировать</Link>
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteRecipe.isPending}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteRecipe.isPending}>
               Удалить
             </Button>
           </div>

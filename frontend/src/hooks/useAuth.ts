@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/client";
-import { type User, useAuthStore } from "@/store/auth";
+import { endpoints } from "@/api/endpoints";
+import { type User } from "@/api/types";
+import { useAuthStore } from "@/store/auth";
 
 export function useMe() {
   const setUser = useAuthStore((s) => s.setUser);
@@ -11,7 +13,7 @@ export function useMe() {
     queryKey: ["me"],
     queryFn: async () => {
       try {
-        const user = await api.get<User>("/api/auth/me");
+        const user = await api.get<User>(endpoints.auth.me);
         setUser(user);
         return user;
       } catch {
@@ -30,7 +32,7 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: (data: { username: string; password: string }) =>
-      api.post("/api/auth/login", data),
+      api.post(endpoints.auth.login, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["me"] });
       navigate("/");
@@ -43,7 +45,7 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: (data: { username: string; password: string; invite_code: string }) =>
-      api.post("/api/auth/register", data),
+      api.post(endpoints.auth.register, data),
     onSuccess: () => {
       navigate("/login");
     },
@@ -56,7 +58,7 @@ export function useLogout() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: () => api.post("/api/auth/logout"),
+    mutationFn: () => api.post(endpoints.auth.logout),
     onSuccess: () => {
       clearUser();
       queryClient.clear();

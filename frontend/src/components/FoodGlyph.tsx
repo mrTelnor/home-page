@@ -1,4 +1,9 @@
-import { FOOD_COLORS, type FoodColor, type FoodKind, pickPaletteByTitle } from "@/components/food-kinds";
+import {
+  FOOD_COLORS,
+  type FoodColor,
+  type FoodKind,
+  pickPaletteByTitle,
+} from "@/components/food-kinds";
 
 interface Props {
   title?: string;
@@ -9,9 +14,8 @@ interface Props {
 
 export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props>) {
   const resolvedKind = (kind || "soup") as FoodKind;
-  const pal = color && color in FOOD_COLORS
-    ? FOOD_COLORS[color as FoodColor]
-    : pickPaletteByTitle(title);
+  const pal =
+    color && color in FOOD_COLORS ? FOOD_COLORS[color as FoodColor] : pickPaletteByTitle(title);
   const { bg, fg, dk } = pal;
 
   return (
@@ -36,7 +40,14 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
             <ellipse cx="60" cy="50" rx="38" ry="9" fill={dk} />
             <circle cx="52" cy="46" r="4" fill={bg} opacity=".6" />
             <circle cx="66" cy="44" r="3" fill={bg} opacity=".5" />
-            <path d="M45 36 Q50 28 55 36 M70 32 Q75 24 80 32" stroke={fg} strokeWidth="1.5" fill="none" opacity=".7" strokeLinecap="round" />
+            <path
+              d="M45 36 Q50 28 55 36 M70 32 Q75 24 80 32"
+              stroke={fg}
+              strokeWidth="1.5"
+              fill="none"
+              opacity=".7"
+              strokeLinecap="round"
+            />
           </g>
         )}
         {resolvedKind === "noodles" && (
@@ -44,7 +55,14 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
             <ellipse cx="60" cy="62" rx="40" ry="6" fill={fg} opacity=".22" />
             <circle cx="60" cy="50" r="34" fill={fg} />
             <circle cx="60" cy="50" r="30" fill={dk} />
-            <path d="M34 50 Q45 42 56 50 M42 55 Q55 45 68 55 M50 48 Q62 40 74 48 M40 45 Q55 52 70 42 M48 58 Q60 50 72 58" stroke={bg} strokeWidth="1.4" fill="none" opacity=".8" strokeLinecap="round" />
+            <path
+              d="M34 50 Q45 42 56 50 M42 55 Q55 45 68 55 M50 48 Q62 40 74 48 M40 45 Q55 52 70 42 M48 58 Q60 50 72 58"
+              stroke={bg}
+              strokeWidth="1.4"
+              fill="none"
+              opacity=".8"
+              strokeLinecap="round"
+            />
             <circle cx="72" cy="44" r="3" fill={bg} />
             <circle cx="48" cy="54" r="2" fill={bg} />
           </g>
@@ -52,7 +70,11 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
         {resolvedKind === "eggs" && (
           <g>
             <ellipse cx="60" cy="62" rx="42" ry="6" fill={fg} opacity=".22" />
-            <path d="M26 54 Q20 42 32 36 Q28 26 42 30 Q48 20 62 28 Q74 22 82 34 Q96 34 96 48 Q100 56 88 60 Q82 68 70 62 Q60 70 48 62 Q36 66 30 58 Z" fill="#FFFBF2" opacity=".95" />
+            <path
+              d="M26 54 Q20 42 32 36 Q28 26 42 30 Q48 20 62 28 Q74 22 82 34 Q96 34 96 48 Q100 56 88 60 Q82 68 70 62 Q60 70 48 62 Q36 66 30 58 Z"
+              fill="#FFFBF2"
+              opacity=".95"
+            />
             <circle cx="50" cy="44" r="7" fill={dk} />
             <circle cx="50" cy="44" r="5" fill="#F6C948" />
             <circle cx="72" cy="48" r="6" fill={dk} />
@@ -66,7 +88,11 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
             <ellipse cx="60" cy="54" rx="33" ry="5" fill={dk} />
             <ellipse cx="60" cy="48" rx="31" ry="5" fill={fg} />
             <ellipse cx="60" cy="42" rx="29" ry="5" fill={dk} />
-            <path d="M38 40 Q45 34 58 38 Q72 34 82 40 Q76 46 58 43 Q42 45 38 40 Z" fill="#F6C948" opacity=".9" />
+            <path
+              d="M38 40 Q45 34 58 38 Q72 34 82 40 Q76 46 58 43 Q42 45 38 40 Z"
+              fill="#F6C948"
+              opacity=".9"
+            />
             <circle cx="60" cy="38" r="3" fill="#B84C2A" />
           </g>
         )}
@@ -91,7 +117,12 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
             <ellipse cx="60" cy="55" rx="40" ry="10" fill={fg} />
             <ellipse cx="60" cy="50" rx="36" ry="8" fill={dk} />
             <ellipse cx="60" cy="48" rx="30" ry="6" fill={fg} />
-            <path d="M36 48 L84 48 M40 44 L80 52 M40 52 L80 44" stroke={dk} strokeWidth="1.4" opacity=".7" />
+            <path
+              d="M36 48 L84 48 M40 44 L80 52 M40 52 L80 44"
+              stroke={dk}
+              strokeWidth="1.4"
+              opacity=".7"
+            />
           </g>
         )}
         {resolvedKind === "pizza" && (
@@ -125,16 +156,38 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
             <ellipse cx="60" cy="64" rx="40" ry="5" fill={fg} opacity=".22" />
             <ellipse cx="60" cy="54" rx="42" ry="9" fill={fg} />
             <ellipse cx="60" cy="51" rx="38" ry="7" fill={dk} />
-            <path d="M34 48 Q42 36 58 38 Q76 34 84 44 Q88 54 72 56 Q54 58 42 54 Q32 52 34 48Z" fill="#7A2416" />
-            <path d="M42 46 Q55 42 70 44 M46 50 Q60 48 74 50" stroke="#3A110A" strokeWidth="1.2" fill="none" opacity=".8" />
-            <path d="M62 38 L64 34 M70 40 L72 36" stroke={fg} strokeWidth="1.4" opacity=".5" strokeLinecap="round" />
+            <path
+              d="M34 48 Q42 36 58 38 Q76 34 84 44 Q88 54 72 56 Q54 58 42 54 Q32 52 34 48Z"
+              fill="#7A2416"
+            />
+            <path
+              d="M42 46 Q55 42 70 44 M46 50 Q60 48 74 50"
+              stroke="#3A110A"
+              strokeWidth="1.2"
+              fill="none"
+              opacity=".8"
+            />
+            <path
+              d="M62 38 L64 34 M70 40 L72 36"
+              stroke={fg}
+              strokeWidth="1.4"
+              opacity=".5"
+              strokeLinecap="round"
+            />
           </g>
         )}
         {resolvedKind === "chicken" && (
           <g>
             <ellipse cx="60" cy="64" rx="36" ry="4" fill={fg} opacity=".22" />
-            <path d="M38 42 Q34 30 46 28 Q58 28 58 40 L74 56 Q78 64 70 68 Q60 72 56 64 L40 48 Q36 46 38 42Z" fill="#B8863A" />
-            <path d="M38 42 Q34 30 46 28 Q58 28 58 40 L56 42 Q50 34 44 36 Q38 38 38 42Z" fill="#FFFBF2" opacity=".85" />
+            <path
+              d="M38 42 Q34 30 46 28 Q58 28 58 40 L74 56 Q78 64 70 68 Q60 72 56 64 L40 48 Q36 46 38 42Z"
+              fill="#B8863A"
+            />
+            <path
+              d="M38 42 Q34 30 46 28 Q58 28 58 40 L56 42 Q50 34 44 36 Q38 38 38 42Z"
+              fill="#FFFBF2"
+              opacity=".85"
+            />
             <circle cx="44" cy="36" r="1.2" fill="#7A4E12" />
             <circle cx="50" cy="34" r="1.2" fill="#7A4E12" />
             <path d="M66 60 Q70 58 72 62" stroke="#7A4E12" strokeWidth="1.2" fill="none" />
@@ -143,8 +196,14 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
         {resolvedKind === "toast" && (
           <g>
             <ellipse cx="60" cy="68" rx="34" ry="4" fill={fg} opacity=".22" />
-            <path d="M36 34 Q36 24 46 22 Q56 18 68 22 Q80 22 84 32 L84 58 Q84 64 78 64 L42 64 Q36 64 36 58 Z" fill="#E8B060" />
-            <path d="M40 36 Q40 28 48 26 Q58 22 68 26 Q78 26 80 34 L80 56 Q80 60 76 60 L44 60 Q40 60 40 56 Z" fill="#F6D088" />
+            <path
+              d="M36 34 Q36 24 46 22 Q56 18 68 22 Q80 22 84 32 L84 58 Q84 64 78 64 L42 64 Q36 64 36 58 Z"
+              fill="#E8B060"
+            />
+            <path
+              d="M40 36 Q40 28 48 26 Q58 22 68 26 Q78 26 80 34 L80 56 Q80 60 76 60 L44 60 Q40 60 40 56 Z"
+              fill="#F6D088"
+            />
             <rect x="52" y="32" width="16" height="10" rx="2" fill="#F6E9B8" />
             <path d="M52 36 L68 36" stroke="#B89028" strokeWidth="1" opacity=".5" />
           </g>
@@ -154,10 +213,19 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
             <ellipse cx="60" cy="66" rx="40" ry="4" fill={fg} opacity=".22" />
             <ellipse cx="60" cy="56" rx="42" ry="9" fill={fg} />
             <ellipse cx="60" cy="53" rx="38" ry="7" fill={dk} />
-            <path d="M30 50 Q34 36 52 34 Q70 30 86 40 Q92 52 78 56 Q62 60 46 56 Q30 54 30 50Z" fill="#8C3A20" />
+            <path
+              d="M30 50 Q34 36 52 34 Q70 30 86 40 Q92 52 78 56 Q62 60 46 56 Q30 54 30 50Z"
+              fill="#8C3A20"
+            />
             <circle cx="30" cy="48" r="4" fill="#F6E9B8" />
             <circle cx="28" cy="50" r="3" fill="#F6E9B8" />
-            <path d="M48 44 Q60 42 72 46" stroke="#3A110A" strokeWidth="1.2" fill="none" opacity=".6" />
+            <path
+              d="M48 44 Q60 42 72 46"
+              stroke="#3A110A"
+              strokeWidth="1.2"
+              fill="none"
+              opacity=".6"
+            />
           </g>
         )}
         {resolvedKind === "shashlik" && (
@@ -181,15 +249,33 @@ export function FoodGlyph({ title = "", kind, color, className }: Readonly<Props
           <g>
             <rect x="28" y="40" width="64" height="32" rx="4" fill={fg} />
             <rect x="22" y="36" width="76" height="6" rx="3" fill={dk} />
-            <path d="M20 38 L14 38 M100 38 L106 38" stroke={dk} strokeWidth="3" strokeLinecap="round" />
-            <path d="M45 26 Q48 18 45 12 M55 22 Q58 14 55 8 M65 26 Q68 18 65 12" stroke={fg} strokeWidth="1.5" fill="none" opacity=".5" strokeLinecap="round" />
+            <path
+              d="M20 38 L14 38 M100 38 L106 38"
+              stroke={dk}
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            <path
+              d="M45 26 Q48 18 45 12 M55 22 Q58 14 55 8 M65 26 Q68 18 65 12"
+              stroke={fg}
+              strokeWidth="1.5"
+              fill="none"
+              opacity=".5"
+              strokeLinecap="round"
+            />
           </g>
         )}
         {resolvedKind === "bread" && (
           <g>
             <ellipse cx="60" cy="66" rx="42" ry="5" fill={fg} opacity=".22" />
             <path d="M25 58 Q30 30 60 30 Q90 30 95 58 Z" fill={fg} />
-            <path d="M38 40 L42 55 M50 35 L52 55 M62 33 L62 55 M74 35 L72 55 M84 40 L80 55" stroke={dk} strokeWidth="1.4" opacity=".6" strokeLinecap="round" />
+            <path
+              d="M38 40 L42 55 M50 35 L52 55 M62 33 L62 55 M74 35 L72 55 M84 40 L80 55"
+              stroke={dk}
+              strokeWidth="1.4"
+              opacity=".6"
+              strokeLinecap="round"
+            />
           </g>
         )}
       </svg>
