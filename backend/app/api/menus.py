@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.core.dependencies import NOT_ALLOWED, CronOrAdmin, CurrentUser, DbSession
+from app.core.dependencies import CronOrAdmin, CurrentUser, DbSession, ensure_admin
 from app.schemas.menu import (
     CreateDailyRequest,
     FinalizeDateRequest,
@@ -166,8 +166,7 @@ async def get_one(menu_id: uuid.UUID, session: DbSession, user: CurrentUser):
 
 @router.delete("/{menu_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete(menu_id: uuid.UUID, session: DbSession, user: CurrentUser):
-    if user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+    ensure_admin(user)
     menu = await get_menu_by_id(session, menu_id)
     if menu is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=MENU_NOT_FOUND)

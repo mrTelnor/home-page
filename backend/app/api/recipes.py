@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.core.dependencies import NOT_ALLOWED, CurrentUser, DbSession
+from app.core.dependencies import CurrentUser, DbSession, ensure_owner_or_admin
 from app.schemas.recipe import RecipeCreateRequest, RecipeResponse, RecipeUpdateRequest
 from app.services.recipe import (
     create_recipe,
@@ -62,8 +62,7 @@ async def update(
     recipe = await get_recipe_by_id(session, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECIPE_NOT_FOUND)
-    if recipe.author_id != user.id and user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+    ensure_owner_or_admin(user, recipe.author_id)
 
     fields_set = data.model_fields_set
     recipe = await update_recipe(
@@ -85,8 +84,7 @@ async def delete(recipe_id: uuid.UUID, session: DbSession, user: CurrentUser):
     recipe = await get_recipe_by_id(session, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECIPE_NOT_FOUND)
-    if recipe.author_id != user.id and user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
+    ensure_owner_or_admin(user, recipe.author_id)
     if await is_recipe_in_active_voting(session, recipe_id):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recipe is in active voting")
 
