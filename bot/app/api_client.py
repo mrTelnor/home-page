@@ -1,8 +1,16 @@
+import asyncio
+import logging
+
 import httpx
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 NOT_LINKED_MSG = "Привяжите Telegram-аккаунт на telnor.ru/profile, затем попробуйте снова."
+
+RETRY_ATTEMPTS = 3
+RETRY_BASE_DELAY = 0.5  # секунд; экспоненциально: 0.5, 1.0
 
 
 class ApiClient:
@@ -13,9 +21,30 @@ class ApiClient:
     async def close(self) -> None:
         await self._http.aclose()
 
+    async def _request_with_retry(self, method: str, path: str, **kwargs) -> httpx.Response:
+        """HTTP-запрос с retry на сетевых сбоях (TransportError).
+
+        HTTP-статусы не ретраятся — обработка статусов остаётся вызывающему.
+        """
+        last_exc: httpx.TransportError | None = None
+        for attempt in range(RETRY_ATTEMPTS):
+            try:
+                return await self._http.request(method, path, **kwargs)
+            except httpx.TransportError as exc:
+                last_exc = exc
+                if attempt < RETRY_ATTEMPTS - 1:
+                    delay = RETRY_BASE_DELAY * 2**attempt
+                    logger.warning(
+                        "API %s %s failed (%s), retry %d/%d in %.1fs",
+                        method, path, type(exc).__name__, attempt + 1, RETRY_ATTEMPTS - 1, delay,
+                    )
+                    await asyncio.sleep(delay)
+        raise last_exc
+
     async def login(self, tg_id: int) -> str | None:
         """Get JWT for a Telegram user. Returns None if user not linked."""
-        resp = await self._http.post(
+        resp = await self._request_with_retry(
+            "POST",
             "/api/auth/telegram-login",
             json={"tg_id": tg_id},
             headers={"X-Bot-Secret": settings.bot_secret},
@@ -40,14 +69,14 @@ class ApiClient:
             return None
 
         headers = {"Authorization": f"Bearer {token}"}
-        resp = await self._http.request(method, path, headers=headers, **kwargs)
+        resp = await self._request_with_retry(method, path, headers=headers, **kwargs)
 
         if resp.status_code == 401:
             token = await self.login(tg_id)
             if token is None:
                 return None
             headers = {"Authorization": f"Bearer {token}"}
-            resp = await self._http.request(method, path, headers=headers, **kwargs)
+            resp = await self._request_with_retry(method, path, headers=headers, **kwargs)
 
         return resp
 
@@ -79,7 +108,8 @@ class ApiClient:
         return resp.json(), None
 
     async def get_notifiable_users(self) -> list[dict]:
-        resp = await self._http.get(
+        resp = await self._request_with_retry(
+            "GET",
             "/api/auth/users/notifiable",
             headers={"X-Bot-Secret": settings.bot_secret},
         )
@@ -87,7 +117,8 @@ class ApiClient:
         return resp.json()
 
     async def get_admin_users(self) -> list[dict]:
-        resp = await self._http.get(
+        resp = await self._request_with_retry(
+            "GET",
             "/api/auth/users/admins",
             headers={"X-Bot-Secret": settings.bot_secret},
         )

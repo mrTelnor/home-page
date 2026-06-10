@@ -1,6 +1,7 @@
 import logging
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 
 from app.api_client import api
 from app.calendar_service import mark_event_sent
@@ -30,7 +31,7 @@ async def broadcast(bot: Bot, text: str, *, exclude_admins: bool = False) -> Non
             continue
         try:
             await bot.send_message(chat_id=user["tg_id"], text=text)
-        except Exception:
+        except TelegramAPIError:
             logger.warning("Failed to send to tg_id=%s", user["tg_id"])
 
 
@@ -110,7 +111,7 @@ async def notify_recipe_suggested(bot: Bot, suggester_name: str, recipe_title: s
             continue
         try:
             await bot.send_message(chat_id=user["tg_id"], text=text)
-        except Exception:
+        except TelegramAPIError:
             logger.warning("Failed to send to tg_id=%s", user["tg_id"])
 
 
