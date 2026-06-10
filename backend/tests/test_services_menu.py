@@ -27,7 +27,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.menu import DailyMenu, DailyMenuRecipe, Vote
 from app.db.models.recipe import Ingredient, Recipe
 from app.db.models.user import User
-from app.services.menu import cast_vote, close_voting, create_daily_menu, get_votes_for_menu
+from app.services.menu import (
+    cast_vote,
+    close_voting,
+    create_daily_menu,
+    get_menu_by_id,
+    get_votes_for_menu,
+)
 from app.services.recipe import delete_recipe, get_recipe_by_id
 from tests.conftest import TestSessionMaker, _create_user_standalone
 
@@ -134,10 +140,17 @@ async def test_close_voting_empty_menu_no_winner(session: AsyncSession):
     """Меню вообще без рецептов: ранний выход (menu.py:140-144) —
     статус closed, winner_recipe_id остаётся None."""
     menu = DailyMenu(id=uuid4(), date=MENU_DATE, status="voting")
-    # Инициализировать пустую коллекцию ДО commit: async lazy-load после commit запрещён
-    assert menu.menu_recipes == []
     session.add(menu)
     await session.commit()
+    menu_id = menu.id
+
+    # Как в продакшене: роутер берёт меню из get_menu_by_id (selectinload
+    # menu_recipes). У свежесозданного объекта пустая коллекция после commit
+    # не считается загруженной, и close_voting упёрся бы в async lazy-load
+    # (MissingGreenlet).
+    menu = await get_menu_by_id(session, menu_id)
+    assert menu is not None
+    assert menu.menu_recipes == []
 
     closed = await close_voting(session, menu)
 
