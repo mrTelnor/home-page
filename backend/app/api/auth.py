@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError
 
@@ -27,6 +29,8 @@ from app.services.auth import (
 )
 from app.services.telegram import verify_telegram_auth
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 COOKIE_MAX_AGE = settings.jwt_expire_hours * 3600
@@ -43,6 +47,7 @@ async def register(data: RegisterRequest, session: DbSession):
     except IntegrityError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken") from exc
 
+    logger.info("User registered: %s", user.username)
     return user
 
 
@@ -50,6 +55,7 @@ async def register(data: RegisterRequest, session: DbSession):
 async def login(data: LoginRequest, response: Response, session: DbSession):
     user = await authenticate_user(session, data.username, data.password)
     if user is None:
+        logger.warning("Failed login attempt for username: %s", data.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=INVALID_CREDENTIALS)
 
     token = create_jwt(str(user.id))

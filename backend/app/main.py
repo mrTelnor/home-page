@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,9 +11,16 @@ from app.api.recipes import router as recipes_router
 from app.core.config import settings
 from app.core.db import dispose_engine
 
+logging.basicConfig(
+    level=settings.log_level.upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Home Page API started")
     yield
     await dispose_engine()
 

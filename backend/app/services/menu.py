@@ -1,3 +1,4 @@
+import logging
 import secrets
 import uuid
 from datetime import date
@@ -9,6 +10,8 @@ from sqlalchemy.orm import selectinload
 from app.db.models.menu import DailyMenu, DailyMenuRecipe, Vote
 from app.db.models.recipe import Recipe
 from app.schemas.menu import MenuRecipeResponse, MenuResponse
+
+logger = logging.getLogger(__name__)
 
 
 async def get_menu_by_date(session: AsyncSession, menu_date: date) -> DailyMenu | None:
@@ -53,6 +56,7 @@ async def create_daily_menu(session: AsyncSession, menu_date: date) -> DailyMenu
     session.add(menu)
     await session.commit()
     await session.refresh(menu, ["menu_recipes"])
+    logger.info("Daily menu created for %s with %d recipes", menu_date, len(menu.menu_recipes))
     return menu
 
 
@@ -96,6 +100,7 @@ async def finalize_menu(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
     menu.status = "voting"
     await session.commit()
     await session.refresh(menu, ["menu_recipes"])
+    logger.info("Menu %s finalized, voting opened", menu.date)
     return menu
 
 
@@ -142,6 +147,7 @@ async def close_voting(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
         menu.status = "closed"
         await session.commit()
         await session.refresh(menu, ["menu_recipes"])
+        logger.info("Voting closed for %s: menu is empty, no winner", menu.date)
         return menu
 
     max_votes = max((vote_counts.get(rid, 0) for rid in menu_recipe_ids), default=0)
@@ -152,6 +158,10 @@ async def close_voting(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
     menu.status = "closed"
     await session.commit()
     await session.refresh(menu, ["menu_recipes"])
+    logger.info(
+        "Voting closed for %s: winner %s with %d votes (%d candidates)",
+        menu.date, winner, max_votes, len(candidates),
+    )
     return menu
 
 
