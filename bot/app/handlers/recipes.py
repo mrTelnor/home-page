@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.api_client import NOT_LINKED_MSG, api
+from app.callbacks import RECIPE_PREFIX, RECIPES_PAGE_PREFIX, pack, unpack
 
 router = Router()
 
@@ -15,15 +16,15 @@ def build_recipes_keyboard(recipes: list[dict], page: int) -> InlineKeyboardMark
     page_recipes = recipes[start:end]
 
     buttons = [
-        [InlineKeyboardButton(text=r["title"], callback_data=f"recipe:{r['id']}")]
+        [InlineKeyboardButton(text=r["title"], callback_data=pack(RECIPE_PREFIX, r["id"]))]
         for r in page_recipes
     ]
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton(text="⬅️", callback_data=f"recipes_page:{page - 1}"))
+        nav.append(InlineKeyboardButton(text="⬅️", callback_data=pack(RECIPES_PAGE_PREFIX, page - 1)))
     if end < len(recipes):
-        nav.append(InlineKeyboardButton(text="➡️", callback_data=f"recipes_page:{page + 1}"))
+        nav.append(InlineKeyboardButton(text="➡️", callback_data=pack(RECIPES_PAGE_PREFIX, page + 1)))
     if nav:
         buttons.append(nav)
 
@@ -66,9 +67,9 @@ async def cmd_recipes(message: Message) -> None:
     )
 
 
-@router.callback_query(F.data.startswith("recipe:"))
+@router.callback_query(F.data.startswith(RECIPE_PREFIX))
 async def cb_recipe_detail(callback: CallbackQuery) -> None:
-    recipe_id = callback.data.split(":")[1]
+    recipe_id = unpack(callback.data, RECIPE_PREFIX)
     tg_id = callback.from_user.id
 
     resp = await api.get(f"/api/recipes/{recipe_id}", tg_id)
@@ -87,9 +88,9 @@ async def cb_recipe_detail(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("recipes_page:"))
+@router.callback_query(F.data.startswith(RECIPES_PAGE_PREFIX))
 async def cb_recipes_page(callback: CallbackQuery) -> None:
-    page = int(callback.data.split(":")[1])
+    page = int(unpack(callback.data, RECIPES_PAGE_PREFIX))
     tg_id = callback.from_user.id
 
     resp = await api.get("/api/recipes", tg_id)
