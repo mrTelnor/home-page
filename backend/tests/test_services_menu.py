@@ -164,6 +164,9 @@ async def test_create_daily_menu_duplicate_date_raises(session: AsyncSession, au
     await _create_recipe(session, "Dup", author.id)
     first = await create_daily_menu(session, MENU_DATE)
     assert first.date == MENU_DATE
+    # rollback() экспайрит ВСЕ объекты сессии, а lazy-load в async-сессии
+    # вне greenlet-контекста падает MissingGreenlet — id снимаем заранее
+    first_id = first.id
 
     with pytest.raises(IntegrityError):
         await create_daily_menu(session, MENU_DATE)
@@ -173,7 +176,7 @@ async def test_create_daily_menu_duplicate_date_raises(session: AsyncSession, au
     result = await session.execute(select(DailyMenu).where(DailyMenu.date == MENU_DATE))
     menus = result.scalars().all()
     assert len(menus) == 1
-    assert menus[0].id == first.id
+    assert menus[0].id == first_id
 
 
 async def test_create_daily_menu_picks_at_most_three(session: AsyncSession, author: User):
@@ -198,15 +201,18 @@ async def test_cast_vote_twice_same_user_raises(session: AsyncSession, author: U
     recipes = [await _create_recipe(session, f"V{i}", author.id) for i in range(2)]
     menu = await _create_menu_with_recipes(session, recipes)
     voter = await _create_user_standalone("svc_double_voter")
+    # id снимаем до rollback: после него объекты протухают, а async lazy-load
+    # вне greenlet-контекста падает MissingGreenlet
+    menu_id = menu.id
 
-    await cast_vote(session, menu.id, recipes[0].id, voter.id)
+    await cast_vote(session, menu_id, recipes[0].id, voter.id)
 
     # Даже за ДРУГОЙ рецепт — constraint по (user_id, menu_id)
     with pytest.raises(IntegrityError):
-        await cast_vote(session, menu.id, recipes[1].id, voter.id)
+        await cast_vote(session, menu_id, recipes[1].id, voter.id)
     await session.rollback()
 
-    result = await session.execute(select(Vote).where(Vote.menu_id == menu.id))
+    result = await session.execute(select(Vote).where(Vote.menu_id == menu_id))
     assert len(result.scalars().all()) == 1
 
 
@@ -220,14 +226,18 @@ async def test_delete_recipe_in_menu_blocked_by_fk(session: AsyncSession, author
     """
     recipe = await _create_recipe(session, "InMenu", author.id)
     menu = await _create_menu_with_recipes(session, [recipe])
+    # id снимаем до rollback: после него объекты протухают, а async lazy-load
+    # вне greenlet-контекста падает MissingGreenlet
+    recipe_id = recipe.id
+    menu_id = menu.id
 
     with pytest.raises(IntegrityError):
         await delete_recipe(session, recipe)
     await session.rollback()
 
     # Рецепт и связь с меню на месте
-    assert await get_recipe_by_id(session, recipe.id) is not None
-    result = await session.execute(select(DailyMenuRecipe).where(DailyMenuRecipe.menu_id == menu.id))
+    assert await get_recipe_by_id(session, recipe_id) is not None
+    result = await session.execute(select(DailyMenuRecipe).where(DailyMenuRecipe.menu_id == menu_id))
     assert len(result.scalars().all()) == 1
 
 
