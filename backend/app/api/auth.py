@@ -99,7 +99,11 @@ async def telegram_verify(
     session: DbSession,
     user: CurrentUser,
 ):
-    if not verify_telegram_auth(data.model_dump(), settings.telegram_bot_token):
+    if not verify_telegram_auth(
+        data.model_dump(),
+        settings.telegram_bot_token,
+        max_age_seconds=settings.telegram_auth_max_age_seconds,
+    ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram signature")
 
     existing = await get_user_by_tg_id(session, data.id)

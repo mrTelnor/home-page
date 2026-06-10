@@ -29,7 +29,7 @@ app = FastAPI(title="Home Page API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"https://{settings.domain}"],
+    allow_origins=settings.cors_origins or [f"https://{settings.domain}"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
