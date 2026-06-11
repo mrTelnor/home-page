@@ -547,6 +547,30 @@ docker exec cron sh -c 'curl -s -X POST http://bot:8080/notify \
 - `voting_opened` — голосование открыто (13:00). Идемпотентно: дедуп по `menu_id`, повторно не отправляется.
 - `voting_closed` — голосование завершено, победитель определён (17:00). Идемпотентно: дедуп по `menu_id`.
 
+### GET https://bot.telnor.ru/healthz
+
+Проверка реальной связности бота с Telegram API (внутри выполняется `get_me`). Без авторизации.
+
+```json
+200 {"status": "ok"}
+503 {"status": "error", "detail": "telegram unreachable"}
+```
+
+Используется внешним uptime-монитором: ловит сценарий «HTTP-сервер жив, а polling мёртв» (например, упал WireGuard-туннель).
+
+### POST /alert (X-Cron-Secret, внутренний)
+
+Рассылка произвольного текста всем admin-пользователям. Используется cron-контейнером для алертов о провале бэкапа.
+
+```bash
+docker exec cron sh -c 'curl -s -X POST http://bot:8080/alert \
+  -H "X-Cron-Secret: $CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d "{\"text\":\"тестовый алерт\"}"'
+```
+
+Ответы: `200 {"ok": true}`, `400` без `text`, `403` без секрета. К тексту добавляется префикс ⚠️.
+
 ### POST https://bot.telnor.ru/uptime-alert?secret=...
 
 Webhook для HetrixTools. Секрет передаётся в query-параметре `?secret=...`. Бот парсит payload и рассылает алерт всем admin-пользователям в Telegram.

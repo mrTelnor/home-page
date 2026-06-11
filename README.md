@@ -46,13 +46,15 @@ home-page/
 ├── backend/              # FastAPI приложение
 │   ├── app/              # Код приложения (api, core, db, schemas, services)
 │   ├── alembic/          # Миграции БД
+│   ├── tests/            # 120 тестов (pytest, реальный Postgres)
 │   └── Dockerfile
 ├── frontend/             # React приложение
-│   ├── src/              # Код (api, components, hooks, pages, store)
+│   ├── src/              # Код (api, components, hooks, pages, store); тесты *.test.ts(x) рядом с кодом (210, Vitest)
 │   ├── Dockerfile        # multi-stage build (Node + Nginx)
 │   └── nginx.conf
 ├── bot/                  # Telegram-бот (Aiogram 3)
-│   ├── app/              # Код (handlers, api_client, notify, config)
+│   ├── app/              # Код (handlers, webserver, api_client, notify, calendar_service, callbacks, helpers, config)
+│   ├── tests/            # 163 теста (pytest + respx + aiohttp TestClient)
 │   └── Dockerfile
 ├── infra/
 │   ├── ansible/          # Playbooks, roles (docker, vpn, app, firewalld), inventory
@@ -63,9 +65,13 @@ home-page/
 │   ├── prepare-vm.sh     # Первичная подготовка ВМ
 │   ├── reset-vm.sh       # Сброс настроек ВМ
 │   └── setup-wsl-ssh.sh  # Подготовка WSL для Ansible
+├── .github/
+│   ├── workflows/        # CI: backend, frontend, bot, sonar
+│   └── dependabot.yml    # Еженедельные обновления зависимостей
 └── docs/
-    ├── architecture.md   # Архитектурные решения
-    └── api.md            # Документация API
+    ├── architecture.md   # Архитектурные решения (ADR)
+    ├── api.md            # Документация API
+    └── testing.md        # Гайд ручного тестирования
 ```
 
 ## Поддомены
@@ -295,7 +301,17 @@ Swagger UI: [https://api.telnor.ru/docs](https://api.telnor.ru/docs) (досту
 
 ## Тестирование
 
-Гайд для тестировщика с тест-кейсами и ручными триггерами: [testing.md](./docs/testing.md).
+**Автотесты** — 493 теста, гоняются в CI на каждом PR; покрытие отслеживает SonarCloud:
+
+| Сервис | Тестов | Покрытие | Запуск локально |
+|---|---|---|---|
+| backend | 120 | 100% | `cd backend && pytest` — нужен PostgreSQL (`DATABASE_URL`, по умолчанию `localhost:5432/homepage_test`) |
+| bot | 163 | 99% | `cd bot && pytest tests` — БД не нужна, сеть мокается |
+| frontend | 210 | ~97% | `cd frontend && npm test` (`npm run test:coverage` — с отчётом покрытия) |
+
+CI-проверки на PR: ruff (backend, bot), pytest, tsc + ESLint + Prettier + Vitest + build (frontend), SonarCloud-скан с покрытием всех трёх сервисов. Зависимости еженедельно обновляет Dependabot (Sonar для его PR пропускается). 
+
+**Ручное тестирование** — гайд для тестировщика с тест-кейсами и ручными триггерами: [testing.md](./docs/testing.md).
 
 ## Лицензия
 

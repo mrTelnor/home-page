@@ -43,13 +43,16 @@
 ### VPN для бота
 - **WireGuard** на ВМ (роль `vpn` в Ansible) — обходит блокировки Telegram API из РФ
 - `AllowedIPs` ограничены только подсетями Telegram (149.154.160.0/20, 91.108.4.0/22 и др.) — остальной трафик идёт напрямую
-- Endpoint — платный VPN-сервис в Германии
+- Endpoint — узел VPN-сервиса (с 2026-06 — Казахстан, `kz-2`; ключи и endpoint в Vault: `vault_wg_*`)
+- ⚠️ При замене конфига от провайдера переносить только ключи и Endpoint: строка `DNS=` переключает системный DNS всей ВМ на резолверы провайдера и ломает резолвинг (инцидент 2026-06-10, бот лежал 2 суток). Смерть пира ловится монитором `GET /healthz` бота
 
 ### Telegram-бот
 - **Aiogram 3** (async) — polling mode, отдельный Docker-сервис
 - Общается с backend API через httpx (`http://backend:8000`) с JWT авторизацией
 - Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/schedule`, `/mute`, `/unmute`, `/start`, `/help`
-- Aiohttp-сервер на `:8080`:
+- Aiohttp-сервер на `:8080` (модуль `webserver.py`, отделён от polling-логики):
+  - `GET /healthz` — реальная связность с Telegram (`get_me`): 200/503; цель для внешнего uptime-монитора — ловит «HTTP жив, polling мёртв»
+  - `POST /alert` (X-Cron-Secret) — рассылка произвольного текста админам; канал алертов cron (провал бэкапа)
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
   - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
@@ -86,19 +89,20 @@
 - **ORM:** SQLAlchemy 2.0 (async, asyncpg)
 - **Миграции:** Alembic (async, запускаются при старте контейнера)
 - **Валидация:** Pydantic v2, pydantic-settings
+- **Логирование:** stdlib logging, уровень из env `LOG_LEVEL` (default INFO); ключевые события — старт, регистрация, жизненный цикл меню, неуспешные логины
 
 ### База данных
 - **PostgreSQL 16** — основная БД для всех данных
-- Разделение по схемам: `auth` (пользователи, сессии) и `dinner` (рецепты, голосования)
+- Разделение по схемам: `auth` (пользователи) и `dinner` (рецепты, голосования)
+- Неиспользуемая таблица `auth.sessions` удалена миграцией 008 (сессии живут в JWT)
 
 ### Схема БД
 
 ```
 Схема: auth
-├── users          (id, tg_id, username, email, password_hash, role,
-│                   first_name, birthday, is_volkov, gender,
-│                   notifications_enabled, created_at)
-└── sessions       (id, user_id, token, expires_at)
+└── users          (id, tg_id, username, email, password_hash, role,
+                    first_name, birthday, is_volkov, gender,
+                    notifications_enabled, created_at)
 
 Схема: dinner
 ├── recipes            (id, title, description, servings, author_id,
@@ -142,6 +146,19 @@
 - **FoodGlyph** — компонент иконок блюд (15 SVG × 10 палитр) с пикером в форме рецепта
 - **Nginx** (alpine) — раздача собранного бандла с SPA fallback
 
+### Тестирование и CI
+
+| Сервис | Тестов | Покрытие | Стек | Запуск локально |
+|---|---|---|---|---|
+| backend | 120 | 100% | pytest + httpx ASGI-клиент, реальный PostgreSQL | `cd backend && pytest` (нужен Postgres, `DATABASE_URL`) |
+| bot | 163 | 99% | pytest + respx, AsyncMock, aiohttp TestClient | `cd bot && pytest tests` |
+| frontend | 210 | ~97% | Vitest + React Testing Library, jsdom | `npm test` (в `frontend/`) |
+
+- **CI (GitHub Actions):** на каждый PR — backend (ruff + pytest с Postgres-сервисом), bot (ruff + pytest), frontend (tsc + eslint + prettier-check + vitest + build); sonar.yml собирает покрытие всех трёх и шлёт в SonarCloud
+- **SonarCloud:** quality gate по new code (coverage, рейтинги, дублирование); для PR от dependabot скан пропускается (нет Actions-секретов)
+- **Dependabot:** weekly-PR на обновления pip/npm/actions; тестовая сетка — страховка для их merge
+- Тесты не ходят в сеть: Telegram/Google/backend мокаются (respx, AsyncMock, fetch-моки)
+
 ---
 
 ## Структура монорепо
@@ -154,31 +171,37 @@ home-page/
 │   │   ├── core/             # Конфиг, безопасность (JWT, bcrypt), dependencies, db
 │   │   ├── db/
 │   │   │   ├── base.py       # DeclarativeBase + mixins
-│   │   │   └── models/       # User, Session, Recipe, Ingredient, DailyMenu, DailyMenuRecipe, Vote
+│   │   │   └── models/       # User, Recipe, Ingredient, DailyMenu, DailyMenuRecipe, Vote
 │   │   ├── schemas/          # Pydantic-схемы
-│   │   └── services/         # Бизнес-логика (auth, recipe, menu)
+│   │   └── services/         # Бизнес-логика (auth, recipe, menu, telegram)
 │   ├── alembic/              # Миграции
-│   ├── tests/
+│   ├── tests/                # 120 integration/unit-тестов (pytest, реальный Postgres)
 │   ├── entrypoint.sh         # Alembic upgrade + uvicorn
 │   ├── Dockerfile
 │   └── pyproject.toml
 ├── frontend/
-│   ├── src/
-│   │   ├── api/              # fetch-клиент
-│   │   ├── components/       # Layout, ProtectedRoute, AuthAwareRoute (guest-friendly), VoteWidget, MenuCollecting/Voting/Results, RecipeForm, SuggestRecipeDialog, TelegramLoginButton, ChangePasswordDialog, ProfileForm, ui/ (shadcn)
-│   │   ├── hooks/            # useAuth, useMenu, useRecipes, useProfile, usePageTitle
+│   ├── src/                  # *.test.ts(x) лежат рядом с кодом (210 тестов, Vitest + RTL)
+│   │   ├── api/              # fetch-клиент, types.ts (общие API-типы), endpoints.ts (пути)
+│   │   ├── components/       # Layout, ErrorBoundary, ProtectedRoute, AuthAwareRoute, VoteWidget, MenuCollecting/Voting/Results, RecipeForm (+IngredientsEditor, GlyphPicker), SuggestRecipeDialog, TelegramLoginButton, ChangePasswordDialog, ProfileForm, FoodGlyph, ui/ (shadcn)
+│   │   ├── hooks/            # useAuth, useMenu, useRecipes, useProfile, useTheme, useLocalStorage, usePageTitle
 │   │   ├── pages/            # Login, Register, Home, Vote, VoteHistory, Recipes, RecipeNew/Detail/Edit, Profile, NotFound
-│   │   └── store/            # auth (Zustand)
+│   │   ├── store/            # auth (Zustand)
+│   │   └── test/             # setup + утилиты рендера с провайдерами
 │   ├── nginx.conf
 │   ├── Dockerfile
-│   └── package.json
+│   └── package.json          # + Prettier, Vitest, ESLint
 ├── bot/
-│   └── app/
-│       ├── main.py           # Точка входа (polling + /notify + /uptime-alert сервер)
-│       ├── config.py          # Настройки из env
-│       ├── api_client.py      # HTTP-клиент к backend с JWT кэшем
-│       ├── notify.py          # Логика рассылки уведомлений
-│       └── handlers/          # start, menu, vote, suggest, recipes, notifications
+│   ├── app/
+│   │   ├── main.py           # Wiring: Bot, Dispatcher, запуск polling + webserver
+│   │   ├── webserver.py      # aiohttp-endpoints: /healthz, /alert, /notify, /uptime-alert, /check-calendar
+│   │   ├── config.py         # Настройки из env
+│   │   ├── api_client.py     # HTTP-клиент к backend: JWT-кэш, retry с backoff, get_today_menu
+│   │   ├── notify.py         # Логика рассылки уведомлений
+│   │   ├── calendar_service.py # Google Calendar: события, напоминания, дедуп, форматтеры
+│   │   ├── callbacks.py      # Константы callback_data inline-кнопок
+│   │   ├── helpers.py        # check_linked и пр.
+│   │   └── handlers/         # start, menu, vote, suggest, recipes, notifications, schedule
+│   └── tests/                # 163 теста (pytest: respx, AsyncMock, aiohttp TestClient)
 ├── infra/
 │   ├── ansible/              # Provisioning ВМ, деплой
 │   │   ├── playbooks/        # initial-setup.yml, setup.yml
@@ -188,9 +211,15 @@ home-page/
 │       ├── docker-compose.yml
 │       ├── cron/             # Cron-контейнер (Dockerfile, crontab, backup.sh)
 │       └── traefik/
+├── .github/
+│   ├── workflows/            # backend.yml, frontend.yml, bot.yml, sonar.yml
+│   └── dependabot.yml        # weekly: pip (backend, bot), npm, actions
 └── docs/
-    ├── architecture.md
-    └── api.md
+    ├── architecture.md       # этот документ
+    ├── api.md                # справочник REST API с примерами
+    ├── testing.md            # гайд ручного тестирования
+    ├── eschool_decommission.md
+    └── knowledge_base.md
 ```
 
 ---
@@ -277,3 +306,6 @@ home-page/
 | Catch-up voting-уведомлений | Идемпотентный poll в `/check-calendar` | Retry в curl, очередь, webhook | Self-healing при пропуске разового cron-вызова, дедуп по menu_id предотвращает дубли |
 | Дефолтные напоминания календаря | Env `CALENDAR_DEFAULT_REMINDERS_MIN` для событий с `useDefault=true` | Per-user calendarList.defaultReminders, domain-wide delegation | Service account видит чужие default reminders как пустые; domain-delegation требует Google Workspace; глобальный дефолт «30» покрывает 95% семейных кейсов |
 | Регенерация `.env` | Task с `tags: [always]` | Тег для каждого сервиса; рукотворный hook | `.env` влияет на все контейнеры; при `--tags bot/cron` обновление vault-переменных должно подхватываться автоматически. Handler срабатывает только при реальном изменении содержимого |
+| Тесты backend | Integration на реальном Postgres | Моки сессий, SQLite | FK/unique/каскады — часть поведения; SQLite не знает схем auth/dinner |
+| Обновление зависимостей | Dependabot (weekly, groups) | Renovate, вручную | Нативная интеграция GitHub; тестовая сетка делает merge безопасным |
+| Алерты об отказах | Бот как канал (`/alert`, `/uptime-alert`, `/healthz`) | Отдельный alertmanager | Бот уже умеет рассылать админам; ноль новой инфраструктуры |
