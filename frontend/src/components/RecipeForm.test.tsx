@@ -149,3 +149,98 @@ describe("RecipeForm: состояние isPending", () => {
     expect(button).toBeDisabled();
   });
 });
+
+describe("RecipeForm: нечисловое количество при указанной единице", () => {
+  async function fillBaseFields(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByPlaceholderText("Введите название блюда"), "Борщ");
+    await user.type(screen.getByPlaceholderText("Сколько порций получится"), "4");
+    await user.type(screen.getByPlaceholderText("Опишите процесс приготовления..."), "Варить.");
+  }
+
+  it("показывает ошибку, подсвечивает поле и не сабмитит", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm();
+
+    await fillBaseFields(user);
+    const row = ingredientInputs(ingredientCards()[0]);
+    await user.type(row.name, "Соль");
+    await user.type(row.amount, "по вкусу");
+    await user.type(row.unit, "г");
+
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+
+    expect(screen.getByText(/в поле «Кол-во» должно быть число/)).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(row.amount).toHaveClass("border-destructive");
+
+    // фокус на поле количества снимает подсветку ошибки строки
+    await user.click(row.amount);
+    expect(row.amount).not.toHaveClass("border-destructive");
+  });
+
+  it("фокус на полях с ошибками снимает подсветку", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+
+    const title = screen.getByPlaceholderText("Введите название блюда");
+    expect(title).toHaveClass("border-destructive");
+
+    await user.click(title);
+    expect(title).not.toHaveClass("border-destructive");
+
+    // фокус на названии ингредиента снимает ошибку списка ингредиентов
+    const row = ingredientInputs(ingredientCards()[0]);
+    await user.click(row.name);
+  });
+
+  it("удаление строки с ошибкой чистит её ошибки", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { onSubmit } = renderForm();
+
+    await fillBaseFields(user);
+
+    // первая строка валидная, вторая — с нечисловым количеством при единице
+    const firstRow = ingredientInputs(ingredientCards()[0]);
+    await user.type(firstRow.name, "Свёкла");
+    await user.type(firstRow.amount, "2");
+
+    await user.click(screen.getByRole("button", { name: "+ Добавить ингредиент" }));
+    const secondRow = ingredientInputs(ingredientCards()[1]);
+    await user.type(secondRow.name, "Соль");
+    await user.type(secondRow.amount, "щепотка");
+    await user.type(secondRow.unit, "г");
+
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    // удаляем проблемную строку и сабмитим успешно
+    await user.click(screen.getAllByRole("button", { name: "✕" })[1]);
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RecipeForm: initialData", () => {
+  it("префиллит поля из initialData", () => {
+    renderForm({
+      initialData: {
+        title: "Окрошка",
+        description: "Смешать.",
+        servings: 2,
+        ingredients: [{ name: "Квас", amount: "1", unit: null }],
+        glyph_kind: "soup",
+        glyph_color: "green",
+      },
+    });
+
+    expect(screen.getByDisplayValue("Окрошка")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Смешать.")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Квас")).toBeInTheDocument();
+    expect(screen.getByLabelText("Тип")).toHaveValue("soup");
+  });
+});
