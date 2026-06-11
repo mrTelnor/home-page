@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ErrorBoundary } from "./ErrorBoundary";
 
 function Bomb(): never {
@@ -35,5 +36,30 @@ describe("ErrorBoundary", () => {
 
     expect(screen.getByText("Что-то пошло не так")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Перезагрузить" })).toBeInTheDocument();
+  });
+
+  it("кнопка перезагружает страницу", async () => {
+    const user = userEvent.setup();
+    const reload = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, reload },
+    });
+
+    render(
+      <ErrorBoundary>
+        <Bomb />
+      </ErrorBoundary>
+    );
+
+    await user.click(screen.getByRole("button", { name: "Перезагрузить" }));
+
+    expect(reload).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: originalLocation,
+    });
   });
 });

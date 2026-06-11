@@ -114,3 +114,35 @@ describe("api.del", () => {
     expect(options.method).toBe("DELETE");
   });
 });
+
+describe("api.put и api.patch", () => {
+  it("put шлёт JSON-тело методом PUT", async () => {
+    fetchMock.mockResolvedValueOnce(mockResponse({ body: { id: 1 } }));
+
+    await api.put("/recipes/1", { title: "Борщ" });
+
+    const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`${API_URL}/recipes/1`);
+    expect(options.method).toBe("PUT");
+    expect(options.body).toBe(JSON.stringify({ title: "Борщ" }));
+  });
+
+  it("patch шлёт тело при наличии данных", async () => {
+    fetchMock.mockResolvedValueOnce(mockResponse({ body: {} }));
+
+    await api.patch("/auth/me", { first_name: "Ник" });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(options.method).toBe("PATCH");
+    expect(options.body).toBe(JSON.stringify({ first_name: "Ник" }));
+  });
+
+  it("patch без данных не шлёт body", async () => {
+    fetchMock.mockResolvedValueOnce(mockResponse({ body: {} }));
+
+    await api.patch("/auth/me");
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(options.body).toBeUndefined();
+  });
+});

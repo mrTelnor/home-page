@@ -1,5 +1,6 @@
 """Тесты ApiClient: логин по X-Bot-Secret, кеш токена, retry на 401, служебные ручки."""
 import json
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -108,6 +109,45 @@ async def test_get_notifiable_users(mock_api, client):
 
     assert result == users
     assert route.calls[0].request.headers["X-Bot-Secret"] == settings.bot_secret
+
+
+async def test_retry_on_transport_error_then_success(mock_api, client, monkeypatch):
+    sleep_mock = AsyncMock()
+    monkeypatch.setattr("app.api_client.asyncio.sleep", sleep_mock)
+    route = mock_api.get("/api/auth/users/notifiable").mock(
+        side_effect=[httpx.ConnectError("down"), httpx.Response(200, json=[])]
+    )
+
+    result = await client.get_notifiable_users()
+
+    assert result == []
+    assert route.call_count == 2
+    sleep_mock.assert_awaited_once_with(0.5)
+
+
+async def test_retry_exhausted_raises_last_error(mock_api, client, monkeypatch):
+    sleep_mock = AsyncMock()
+    monkeypatch.setattr("app.api_client.asyncio.sleep", sleep_mock)
+    route = mock_api.get("/api/auth/users/notifiable").mock(
+        side_effect=httpx.ConnectError("down")
+    )
+
+    with pytest.raises(httpx.ConnectError):
+        await client.get_notifiable_users()
+
+    assert route.call_count == 3
+    # экспоненциальная пауза: 0.5, затем 1.0
+    assert [c.args[0] for c in sleep_mock.await_args_list] == [0.5, 1.0]
+
+
+async def test_get_today_menu_server_error(mock_api, client):
+    mock_api.post(LOGIN_PATH).respond(200, json={"access_token": "tok-1"})
+    mock_api.get("/api/menus/today").respond(500)
+
+    menu, error = await client.get_today_menu(7)
+
+    assert menu is None
+    assert error == "error"
 
 
 async def test_get_admin_users(mock_api, client):
