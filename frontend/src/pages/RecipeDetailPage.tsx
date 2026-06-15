@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FoodGlyph } from "@/components/FoodGlyph";
+import { RecipeImage } from "@/components/RecipeImage";
 
 function scaleAmount(amount: string, factor: number): string {
   const normalized = amount.replace(",", ".").trim();
@@ -57,7 +57,7 @@ export function RecipeDetailPage() {
         ← К списку рецептов
       </Link>
       <div className="overflow-hidden rounded-lg border border-border">
-        <FoodGlyph title={recipe.title} kind={recipe.glyph_kind} color={recipe.glyph_color} />
+        <RecipeImage title={recipe.title} kind={recipe.glyph_kind} color={recipe.glyph_color} imageUrl={recipe.image_url} />
       </div>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{recipe.title}</h1>

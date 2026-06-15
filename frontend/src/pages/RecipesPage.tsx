@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { FoodGlyph } from "@/components/FoodGlyph";
+import { RecipeImage } from "@/components/RecipeImage";
 
 type SortField = "title" | "created_at" | "updated_at";
 type SortDir = "asc" | "desc";
@@ -102,10 +102,11 @@ export function RecipesPage() {
             {sorted.map((recipe) => (
               <Link key={recipe.id} to={`/recipes/${recipe.id}`}>
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer overflow-hidden pt-0">
-                  <FoodGlyph
+                  <RecipeImage
                     title={recipe.title}
                     kind={recipe.glyph_kind}
                     color={recipe.glyph_color}
+                    imageUrl={recipe.image_url}
                   />
                   <CardHeader>
                     <CardTitle className="text-lg">{recipe.title}</CardTitle>
