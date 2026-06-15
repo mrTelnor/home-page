@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -6,6 +7,9 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models.menu import DailyMenu, DailyMenuRecipe
 from app.db.models.recipe import Ingredient, Recipe
+from app.services.recipe_image import delete_recipe_image, download_recipe_image
+
+logger = logging.getLogger(__name__)
 
 
 async def create_recipe(
@@ -17,6 +21,7 @@ async def create_recipe(
     ingredients: list[dict],
     glyph_kind: str | None = None,
     glyph_color: str | None = None,
+    photo_url: str | None = None,
 ) -> Recipe:
     recipe = Recipe(
         id=uuid.uuid4(),
@@ -31,6 +36,13 @@ async def create_recipe(
         recipe.ingredients.append(
             Ingredient(id=uuid.uuid4(), name=ing["name"], amount=ing["amount"], unit=ing.get("unit"))
         )
+    # recipe.id уже сгенерирован в конструкторе — качаем фото ДО вставки,
+    # чтобы image_url попал в один INSERT (без второго UPDATE и протухания updated_at).
+    if photo_url:
+        try:
+            recipe.image_url = await download_recipe_image(photo_url, recipe.id)
+        except Exception:
+            logger.warning("Failed to download recipe image from %s", photo_url, exc_info=True)
     session.add(recipe)
     await session.commit()
     await session.refresh(recipe, ["ingredients"])
@@ -61,6 +73,7 @@ async def update_recipe(
     glyph_kind: str | None = None,
     glyph_color: str | None = None,
     glyph_provided: bool = False,
+    photo_url: str | None = None,
 ) -> Recipe:
     if title is not None:
         recipe.title = title
@@ -77,6 +90,17 @@ async def update_recipe(
             recipe.ingredients.append(
                 Ingredient(id=uuid.uuid4(), name=ing["name"], amount=ing["amount"], unit=ing.get("unit"))
             )
+    if photo_url is not None:
+        if photo_url == "":
+            delete_recipe_image(recipe.image_url)
+            recipe.image_url = None
+        else:
+            try:
+                new_url = await download_recipe_image(photo_url, recipe.id)
+                delete_recipe_image(recipe.image_url)
+                recipe.image_url = new_url
+            except Exception:
+                logger.warning("Failed to download recipe image from %s", photo_url, exc_info=True)
     await session.commit()
     await session.refresh(recipe, ["ingredients", "updated_at"])
     return recipe
@@ -92,6 +116,7 @@ async def is_recipe_in_active_voting(session: AsyncSession, recipe_id: uuid.UUID
 
 
 async def delete_recipe(session: AsyncSession, recipe: Recipe) -> None:
+    delete_recipe_image(recipe.image_url)
     await session.delete(recipe)
     await session.commit()
 

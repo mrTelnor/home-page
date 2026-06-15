@@ -30,6 +30,7 @@ async def create(data: RecipeCreateRequest, session: DbSession, user: CurrentUse
         ingredients=[ing.model_dump() for ing in data.ingredients],
         glyph_kind=data.glyph_kind,
         glyph_color=data.glyph_color,
+        photo_url=data.photo_url,
     )
     return recipe
 
@@ -75,6 +76,7 @@ async def update(
         glyph_kind=data.glyph_kind,
         glyph_color=data.glyph_color,
         glyph_provided="glyph_kind" in fields_set or "glyph_color" in fields_set,
+        photo_url=data.photo_url if "photo_url" in fields_set else None,
     )
     return recipe
 
