@@ -6,6 +6,7 @@ Pytest fixtures для тестирования backend.
 """
 
 import os
+import tempfile
 
 # Задаём переменные окружения ДО импорта приложения (pydantic-settings их читает при инициализации)
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://homepage:homepage@localhost:5432/homepage_test")
@@ -16,6 +17,9 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-bot-token")
 os.environ.setdefault("TELEGRAM_BOT_USERNAME", "test_bot")
 os.environ.setdefault("BOT_SECRET", "test-bot-secret")
 os.environ.setdefault("COOKIE_SECURE", "false")
+# Дефолт /app/recipe_images недоступен в CI/локально (нет прав на /app);
+# app.main делает makedirs на импорте — направляем в временную папку.
+os.environ.setdefault("RECIPE_IMAGES_DIR", os.path.join(tempfile.gettempdir(), "test_recipe_images"))
 
 from collections.abc import AsyncGenerator
 from uuid import uuid4
