@@ -17,6 +17,7 @@ class RecipeCreateRequest(BaseModel):
     ingredients: list[IngredientRequest] = []
     glyph_kind: str | None = Field(default=None, max_length=20)
     glyph_color: str | None = Field(default=None, max_length=20)
+    photo_url: str | None = None
 
 
 class RecipeUpdateRequest(BaseModel):
@@ -26,6 +27,7 @@ class RecipeUpdateRequest(BaseModel):
     ingredients: list[IngredientRequest] | None = None
     glyph_kind: str | None = Field(default=None, max_length=20)
     glyph_color: str | None = Field(default=None, max_length=20)
+    photo_url: str | None = None
 
 
 class IngredientResponse(BaseModel):
@@ -46,6 +48,7 @@ class RecipeResponse(BaseModel):
     ingredients: list[IngredientResponse]
     glyph_kind: str | None = None
     glyph_color: str | None = None
+    image_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

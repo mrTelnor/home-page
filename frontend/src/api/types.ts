@@ -32,6 +32,7 @@ export interface Recipe {
   ingredients: Ingredient[];
   glyph_kind: string | null;
   glyph_color: string | null;
+  image_url?: string | null;
   created_at: string;
   updated_at: string;
 }

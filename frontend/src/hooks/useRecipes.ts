@@ -31,6 +31,7 @@ export function useCreateRecipe() {
       ingredients: Omit<Ingredient, "id">[];
       glyph_kind?: string | null;
       glyph_color?: string | null;
+      photo_url?: string;
     }) => api.post<Recipe>(endpoints.recipes.list, data),
     onSuccess: (recipe) => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
@@ -51,6 +52,7 @@ export function useUpdateRecipe(id: string) {
       ingredients?: Omit<Ingredient, "id">[];
       glyph_kind?: string | null;
       glyph_color?: string | null;
+      photo_url?: string;
     }) => api.put<Recipe>(endpoints.recipes.detail(id), data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["recipes"] });

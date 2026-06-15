@@ -3,6 +3,10 @@ from httpx import AsyncClient
 from app.db.models.user import User
 
 
+async def _async_return(value):
+    return value
+
+
 def _sample_recipe_payload(title: str = "Борщ") -> dict:
     return {
         "title": title,
@@ -284,3 +288,56 @@ async def test_update_recipe_preserves_glyph_when_not_passed(authed_client: Asyn
     assert data["title"] == "Пицца обновлённая"
     assert data["glyph_kind"] == "pizza"
     assert data["glyph_color"] == "red"
+
+
+# ---------- PHOTO ----------
+
+async def test_create_recipe_with_photo_url(authed_client: AsyncClient, monkeypatch):
+    from app.services import recipe as recipe_service
+
+    async def fake_download(url, recipe_id):
+        return f"/api/recipe-images/{recipe_id}.jpg"
+    monkeypatch.setattr(recipe_service, "download_recipe_image", fake_download)
+
+    resp = await authed_client.post("/api/recipes", json={
+        "title": "Фото-рецепт", "servings": 2, "ingredients": [],
+        "photo_url": "https://example.com/x.jpg",
+    })
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["image_url"].endswith(".jpg")
+
+
+async def test_create_recipe_photo_download_failure_is_non_fatal(authed_client: AsyncClient, monkeypatch):
+    from app.services import recipe as recipe_service
+
+    async def boom(url, recipe_id):
+        raise ValueError("bad image")
+    monkeypatch.setattr(recipe_service, "download_recipe_image", boom)
+
+    resp = await authed_client.post("/api/recipes", json={
+        "title": "Без фото после ошибки", "servings": 2, "ingredients": [],
+        "photo_url": "https://example.com/broken",
+    })
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["image_url"] is None
+
+
+async def test_update_recipe_clears_photo(authed_client: AsyncClient, monkeypatch):
+    from app.services import recipe as recipe_service
+    monkeypatch.setattr(recipe_service, "download_recipe_image",
+                        lambda url, rid: _async_return(f"/api/recipe-images/{rid}.jpg"))
+    deleted = {}
+    monkeypatch.setattr(recipe_service, "delete_recipe_image",
+                        lambda image_url: deleted.update(url=image_url))
+
+    create = await authed_client.post("/api/recipes", json={
+        "title": "Очистка фото", "servings": 2, "ingredients": [],
+        "photo_url": "https://example.com/x.jpg",
+    })
+    rid = create.json()["id"]
+    assert create.json()["image_url"].endswith(".jpg")
+
+    upd = await authed_client.put(f"/api/recipes/{rid}", json={"photo_url": ""})
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["image_url"] is None
+    assert deleted["url"].endswith(".jpg")
