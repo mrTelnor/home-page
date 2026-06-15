@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     bot_secret: str
     cookie_secure: bool = True
     log_level: str = "INFO"
+    recipe_images_dir: str = "/app/recipe_images"
     # None → ["https://{domain}"]; для разработки можно задать
     # CORS_ORIGINS='["https://telnor.ru","http://localhost:5173"]'
     cors_origins: list[str] | None = None

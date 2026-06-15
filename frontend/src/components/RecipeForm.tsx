@@ -29,6 +29,7 @@ interface Props {
     ingredients: Ingredient[];
     glyph_kind?: string | null;
     glyph_color?: string | null;
+    image_url?: string | null;
   };
   onSubmit: (data: {
     title: string;
@@ -37,6 +38,7 @@ interface Props {
     ingredients: { name: string; amount: string; unit: string | null }[];
     glyph_kind: string | null;
     glyph_color: string | null;
+    photo_url?: string;
   }) => void;
   isPending: boolean;
   submitLabel: string;
@@ -60,6 +62,11 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
   );
   const [glyphKind, setGlyphKind] = useState<string>(initialData?.glyph_kind ?? "");
   const [glyphColor, setGlyphColor] = useState<string>(initialData?.glyph_color ?? "");
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [hasExistingPhoto, setHasExistingPhoto] = useState<boolean>(
+    Boolean(initialData?.image_url)
+  );
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
 
@@ -135,6 +142,12 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
       messages.push("Добавьте хотя бы один ингредиент с названием и количеством");
     }
 
+    const photoTrimmed = photoUrl.trim();
+    const photoInvalid = photoTrimmed !== "" && !/^https?:\/\//.test(photoTrimmed);
+    if (photoInvalid) {
+      messages.push("URL фото должен начинаться с http:// или https://");
+    }
+
     if (Object.values(newErrors.rows ?? {}).some((r) => r.amountNotNumeric)) {
       messages.push("Если указана единица измерения, в поле «Кол-во» должно быть число");
     }
@@ -147,6 +160,7 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
       newErrors.description ||
       newErrors.servings ||
       newErrors.ingredients ||
+      photoInvalid ||
       Object.values(newErrors.rows ?? {}).some((r) => r.amountNotNumeric)
     ) {
       return;
@@ -155,6 +169,15 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
     const validIngredients = ingredients
       .filter((i) => i.name.trim() && i.amount.trim())
       .map((i) => ({ name: i.name, amount: i.amount, unit: i.unit || null }));
+
+    // photo_url: новый URL → ставим; «Убрать фото» → пустая строка; иначе не трогаем
+    let photo: string | undefined;
+    if (photoTrimmed !== "") {
+      photo = photoTrimmed;
+    } else if (removePhoto) {
+      photo = "";
+    }
+
     onSubmit({
       title,
       description,
@@ -162,6 +185,7 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
       ingredients: validIngredients,
       glyph_kind: glyphKind || null,
       glyph_color: glyphColor || null,
+      ...(photo !== undefined ? { photo_url: photo } : {}),
     });
   };
 
@@ -203,6 +227,31 @@ export function RecipeForm({ initialData, onSubmit, isPending, submitLabel }: Re
           onKindChange={setGlyphKind}
           onColorChange={setGlyphColor}
         />
+        <div className="space-y-2">
+          <Label htmlFor="photo_url">URL фото (необязательно)</Label>
+          {hasExistingPhoto && !removePhoto ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Фото загружено</span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setHasExistingPhoto(false);
+                  setRemovePhoto(true);
+                }}
+              >
+                Убрать фото
+              </Button>
+            </div>
+          ) : (
+            <Input
+              id="photo_url"
+              value={photoUrl}
+              onChange={(e) => setPhotoUrl(e.target.value)}
+              placeholder="https://…"
+            />
+          )}
+        </div>
       </div>
 
       <Separator />

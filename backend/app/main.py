@@ -1,8 +1,10 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
@@ -33,6 +35,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+os.makedirs(settings.recipe_images_dir, exist_ok=True)
+app.mount(
+    "/api/recipe-images",
+    StaticFiles(directory=settings.recipe_images_dir),
+    name="recipe-images",
 )
 
 app.include_router(health_router, prefix="/api")

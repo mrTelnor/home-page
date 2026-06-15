@@ -114,6 +114,62 @@ describe("RecipeForm: успешный сабмит", () => {
     });
   });
 
+  it("включает photo_url в payload при заполнении поля URL фото", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm();
+
+    await user.type(screen.getByPlaceholderText("Введите название блюда"), "Фото");
+    await user.type(screen.getByPlaceholderText("Сколько порций получится"), "2");
+    await user.type(screen.getByPlaceholderText("Опишите процесс приготовления..."), "Готовить.");
+    const row = ingredientInputs(ingredientCards()[0]);
+    await user.type(row.name, "Соль");
+    await user.type(row.amount, "по вкусу");
+    await user.type(screen.getByPlaceholderText("https://…"), "https://example.com/p.jpg");
+
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ photo_url: "https://example.com/p.jpg" })
+    );
+  });
+
+  it("невалидный URL фото блокирует сабмит", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm();
+
+    await user.type(screen.getByPlaceholderText("Введите название блюда"), "Фото");
+    await user.type(screen.getByPlaceholderText("Сколько порций получится"), "2");
+    await user.type(screen.getByPlaceholderText("Опишите процесс приготовления..."), "Готовить.");
+    const row = ingredientInputs(ingredientCards()[0]);
+    await user.type(row.name, "Соль");
+    await user.type(row.amount, "по вкусу");
+    await user.type(screen.getByPlaceholderText("https://…"), "ftp://bad");
+
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+
+    expect(screen.getByText(/URL фото должен начинаться с http/)).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("кнопка «Убрать фото» в режиме редактирования шлёт photo_url пустой строкой", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderForm({
+      initialData: {
+        title: "Старый",
+        description: "Описание",
+        servings: 3,
+        ingredients: [{ name: "Соль", amount: "по вкусу", unit: null }],
+        image_url: "/api/recipe-images/x.jpg",
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: /Убрать фото/ }));
+    await user.click(screen.getByRole("button", { name: "Создать" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ photo_url: "" }));
+  });
+
   it("отбрасывает незаполненные строки ингредиентов и шлёт unit: null без единицы", async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderForm();

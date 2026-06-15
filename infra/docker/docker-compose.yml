@@ -9,6 +9,7 @@ volumes:
   pg_data:
   portainer_data:
   bot_data:
+  recipe_images:
 
 services:
   traefik:
@@ -69,6 +70,9 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       BOT_SECRET: ${BOT_SECRET}
+      RECIPE_IMAGES_DIR: /app/recipe_images
+    volumes:
+      - recipe_images:/app/recipe_images
     networks:
       - web
       - internal
