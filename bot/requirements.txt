@@ -1,6 +1,6 @@
 aiogram>=3.28.2
 aiohttp>=3.11
 httpx>=0.28.1
-pydantic-settings>=2.0
+pydantic-settings>=2.14.1
 google-api-python-client>=2.197.0
 google-auth>=2.53.0
