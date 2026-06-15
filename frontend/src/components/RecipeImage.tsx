@@ -17,7 +17,10 @@ export function RecipeImage({ title = "", kind, color, imageUrl, className }: Re
   if (imageUrl && !failed) {
     const src = imageUrl.startsWith("http") ? imageUrl : `${API_URL}${imageUrl}`;
     return (
-      <div className={className} style={{ width: "100%", aspectRatio: "4 / 3", overflow: "hidden" }}>
+      <div
+        className={className}
+        style={{ width: "100%", aspectRatio: "4 / 3", overflow: "hidden" }}
+      >
         <img
           src={src}
           alt={title}

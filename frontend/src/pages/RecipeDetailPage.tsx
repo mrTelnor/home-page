@@ -57,7 +57,12 @@ export function RecipeDetailPage() {
         ← К списку рецептов
       </Link>
       <div className="overflow-hidden rounded-lg border border-border">
-        <RecipeImage title={recipe.title} kind={recipe.glyph_kind} color={recipe.glyph_color} imageUrl={recipe.image_url} />
+        <RecipeImage
+          title={recipe.title}
+          kind={recipe.glyph_kind}
+          color={recipe.glyph_color}
+          imageUrl={recipe.image_url}
+        />
       </div>
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">{recipe.title}</h1>
