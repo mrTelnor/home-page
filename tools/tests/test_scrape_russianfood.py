@@ -38,3 +38,12 @@ def test_parse_ingredients_skips_separator():
     assert all(i["name"] != "*" for i in items)
     # вспомогательные (после *) тоже попадают
     assert any(i["name"].startswith("Масло подсолнечное") for i in items)
+
+
+def test_parse_steps_basic():
+    steps = parse_steps(FIXTURE)
+    assert len(steps) >= 10
+    assert steps[0].startswith("Подготовьте необходимые ингредиенты")
+    # подписи-картинки не попадают в текст шагов
+    assert all("Фото приготовления рецепта" not in s for s in steps)
+    assert any("духовку" in s for s in steps)
