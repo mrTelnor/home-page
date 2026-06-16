@@ -102,7 +102,7 @@
 
 Схема: dinner
 ├── recipes            (id, title, description, servings, author_id,
-│                       glyph_kind, glyph_color, created_at, updated_at)
+│                       glyph_kind, glyph_color, image_url, created_at, updated_at)
 ├── ingredients        (id, recipe_id, name, amount, unit)
 ├── daily_menus        (id, date, status, winner_recipe_id, created_at)
 ├── daily_menu_recipes (id, menu_id, recipe_id, source, added_by)
@@ -117,6 +117,7 @@
 - `users.notifications_enabled`: управление уведомлениями через бота (default: true)
 - `recipes.glyph_kind` ∈ {`soup`, `noodles`, `eggs`, `pancakes`, `pelmeni`, `pie`, `pizza`, `salad`, `steak`, `chicken`, `toast`, `roast`, `shashlik`, `pot`, `bread`} — тип SVG-иконки. NULL → авто-выбор по хешу названия
 - `recipes.glyph_color` ∈ {`red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `cream`} — палитра иконки. NULL → авто-выбор
+- `recipes.image_url` — локальный путь фото (`/api/recipe-images/<id>.<ext>`). Backend скачивает фото по URL из формы (`photo_url`), хостит в Docker volume `recipe_images`, раздаёт через StaticFiles. NULL → показывается SVG-глиф (фолбэк также при ошибке загрузки `<img>`)
 - Username нормализуется в lowercase (регистронезависимость)
 
 ### Авторизация
@@ -188,6 +189,10 @@ home-page/
 │       ├── docker-compose.yml
 │       ├── cron/             # Cron-контейнер (Dockerfile, crontab, backup.sh)
 │       └── traefik/
+├── tools/                   # Одноразовые скрипты (не часть рантайма)
+│   ├── scrape_russianfood.py  # Парсинг рецептов с russianfood (ингредиенты+шаги) → рецепты_full.json
+│   ├── import_recipes.py      # Импорт рецептов в API (фото, ингредиенты, шаги)
+│   └── tests/                 # Тесты парсера на HTML-фикстуре (без сети)
 └── docs/
     ├── architecture.md
     └── api.md
