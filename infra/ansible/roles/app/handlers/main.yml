@@ -1,34 +1,6 @@
 ---
-# Используем shell вместо community.docker.docker_compose_v2 из-за бага
-# в post-action `compose images --format json`, которая падает на ссылке
-# на orphan-образы после --build --force-recreate.
-
-- name: Recreate all containers
-  shell: docker compose up -d --build --force-recreate --remove-orphans
-  args:
-    chdir: /opt/home-page
-  become_user: "{{ ansible_user }}"
-
-- name: Recreate backend
-  shell: docker compose up -d --build --force-recreate backend
-  args:
-    chdir: /opt/home-page
-  become_user: "{{ ansible_user }}"
-
-- name: Recreate frontend
-  shell: docker compose up -d --build --force-recreate frontend
-  args:
-    chdir: /opt/home-page
-  become_user: "{{ ansible_user }}"
-
-- name: Recreate bot
-  shell: docker compose up -d --build --force-recreate bot
-  args:
-    chdir: /opt/home-page
-  become_user: "{{ ansible_user }}"
-
-- name: Recreate cron
-  shell: docker compose up -d --build --force-recreate cron
-  args:
-    chdir: /opt/home-page
-  become_user: "{{ ansible_user }}"
+# Хендлеров нет: развёртывание выполняет идемпотентный шаг
+# "Build and start services" (docker compose up -d --build --remove-orphans)
+# в tasks/main.yml. Он пересобирает только изменившиеся образы (Docker-кэш)
+# и самовосстанавливается при сломанном образе — отдельные per-service
+# хендлеры с --force-recreate больше не нужны.

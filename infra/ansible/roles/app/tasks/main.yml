@@ -27,7 +27,6 @@
     dest: /opt/home-page/docker-compose.yml
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  notify: Recreate all containers
 
 - name: Copy traefik.yml
   copy:
@@ -35,7 +34,6 @@
     dest: /opt/home-page/traefik/traefik.yml
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
-  notify: Recreate all containers
 
 - name: Sync backend source
   ansible.posix.synchronize:
@@ -47,7 +45,6 @@
       - "--exclude=__pycache__"
       - "--exclude=.pytest_cache"
       - "--exclude=*.egg-info"
-  notify: Recreate backend
   tags: [backend]
 
 - name: Sync cron config
@@ -56,7 +53,6 @@
     dest: /opt/home-page/cron/
     dest_port: "{{ ansible_port | int }}"
     delete: true
-  notify: Recreate cron
   tags: [cron]
 
 - name: Sync frontend source
@@ -68,7 +64,6 @@
     rsync_opts:
       - "--exclude=node_modules"
       - "--exclude=dist"
-  notify: Recreate frontend
   tags: [frontend]
 
 - name: Sync bot source
@@ -80,7 +75,6 @@
     rsync_opts:
       - "--exclude=__pycache__"
       - "--exclude=.pytest_cache"
-  notify: Recreate bot
   tags: [bot]
 
 - name: Generate .env from vault variables
@@ -90,14 +84,19 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0600"
-  notify: Recreate all containers
-  # always — чтобы --tags bot/cron/etc тоже регенерировали .env. Handler
-  # сработает только при реальном изменении содержимого.
   tags: [always]
 
-- name: Start services
-  shell: docker compose up -d
+# Единый шаг развёртывания: --build пересобирает изменившиеся образы
+# (код вшивается в образ, поэтому без сборки изменения не применяются),
+# Docker-кэш делает несменившиеся сервисы near-instant, --remove-orphans
+# чистит контейнеры удалённых сервисов. Самовосстанавливается при сломанном
+# образе. Используем shell (не docker_compose_v2): у модуля баг в post-action
+# `compose images --format json` после --build.
+- name: Build and start services
+  shell: docker compose up -d --build --remove-orphans
   args:
     chdir: /opt/home-page
   become_user: "{{ ansible_user }}"
-  changed_when: false
+  register: compose_up
+  changed_when: "'Recreated' in compose_up.stderr or 'Started' in compose_up.stderr or 'Built' in compose_up.stderr"
+  tags: [always]
