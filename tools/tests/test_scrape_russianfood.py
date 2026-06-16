@@ -40,6 +40,19 @@ def test_parse_ingredients_skips_separator():
     assert any(i["name"].startswith("Масло подсолнечное") for i in items)
 
 
+def test_parse_ingredients_en_dash_separator():
+    # russianfood на части страниц использует длинное тире «–» вместо дефиса «-»
+    html = (
+        '<table><tr class="ingr_tr_0"><td><span>Крупа гречневая – 150 г</span></td></tr>'
+        '<tr class="ingr_tr_1"><td><span>Морковь – 100 г (1 шт.)</span></td></tr>'
+        '<tr class="ingr_tr_0"><td><span>Соль – по вкусу</span></td></tr></table>'
+    )
+    items = parse_ingredients(html)
+    assert {"name": "Крупа гречневая", "amount": "150", "unit": "г"} in items
+    assert {"name": "Морковь", "amount": "1", "unit": "шт."} in items
+    assert {"name": "Соль", "amount": "по вкусу", "unit": None} in items
+
+
 def test_parse_steps_basic():
     steps = parse_steps(FIXTURE)
     assert len(steps) >= 10

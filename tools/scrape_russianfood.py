@@ -20,6 +20,9 @@ DEFAULT_OUTPUT = ROOT / "docs" / "рецепты_full.json"
 
 _SHT_RE = re.compile(r"\((\d+)\s*шт\.?\)")
 _LEAD_NUM_RE = re.compile(r"^(\d+(?:[.,]\d+)?)\s+(.+)$")
+# Разделитель «название — количество»: дефис, en-dash или em-dash в пробелах.
+# russianfood на разных страницах использует разные виды тире.
+_SEP_RE = re.compile(r"\s[-–—]\s")
 
 
 def parse_ingredients(html: str) -> list[dict]:
@@ -27,10 +30,10 @@ def parse_ingredients(html: str) -> list[dict]:
     items: list[dict] = []
     for row in soup.select("tr.ingr_tr_0, tr.ingr_tr_1"):
         text = row.get_text(" ", strip=True)
-        if " - " not in text:  # строка-разделитель "*" и прочее
+        parts = _SEP_RE.split(text, maxsplit=1)
+        if len(parts) < 2:  # строка-разделитель "*" и прочее без количества
             continue
-        name, qty = text.split(" - ", 1)
-        name, qty = name.strip(), qty.strip()
+        name, qty = parts[0].strip(), parts[1].strip()
         sht = _SHT_RE.search(qty)
         if sht:
             items.append({"name": name, "amount": sht.group(1), "unit": "шт."})
