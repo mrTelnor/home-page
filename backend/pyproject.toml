@@ -9,7 +9,6 @@ dependencies = [
     "asyncpg>=0.30",
     "pydantic-settings>=2.14.1",
     "alembic>=1.18.4",
-    "passlib[bcrypt]>=1.7.4",
     "bcrypt>=5.0.0,<5.1",
     "python-jose[cryptography]>=3.5.0",
 ]
