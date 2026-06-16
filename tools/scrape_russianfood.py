@@ -51,3 +51,50 @@ def parse_steps(html: str) -> list[str]:
         if text:
             steps.append(text)
     return steps
+
+
+def fetch_html(url: str) -> str:
+    headers = {"User-Agent": "Mozilla/5.0 (recipe importer)"}
+    with httpx.Client(timeout=15, follow_redirects=True, headers=headers) as client:
+        resp = client.get(url)
+    resp.raise_for_status()
+    return resp.text
+
+
+def enrich(recipes: list[dict], limit: int | None = None) -> list[dict]:
+    todo = recipes[:limit] if limit else recipes
+    for r in todo:
+        url = r.get("url")
+        if not url:
+            r["ingredients_parsed"], r["steps"] = [], []
+            continue
+        try:
+            html = fetch_html(url)
+            r["ingredients_parsed"] = parse_ingredients(html)
+            r["steps"] = parse_steps(html)
+            print(f"OK: {r['title']} — {len(r['ingredients_parsed'])} ингр., {len(r['steps'])} шагов")
+        except Exception as exc:  # noqa: BLE001 — одна страница не должна валить прогон
+            r["ingredients_parsed"], r["steps"] = [], []
+            print(f"WARN: {r['title']} — не распарсено: {exc}")
+        time.sleep(1)  # вежливость к серверу
+    return todo
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--input", default=str(DEFAULT_INPUT))
+    ap.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    ap.add_argument("--limit", type=int, default=None)
+    args = ap.parse_args()
+
+    recipes = json.loads(Path(args.input).read_text(encoding="utf-8"))
+    enriched = enrich(recipes, args.limit)
+    Path(args.output).write_text(
+        json.dumps(enriched, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"\nЗаписано {len(enriched)} рецептов в {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
