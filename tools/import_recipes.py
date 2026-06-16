@@ -11,7 +11,7 @@ from pathlib import Path
 
 import httpx
 
-JSON_PATH = Path(__file__).resolve().parents[1] / "docs" / "рецепты.json"
+JSON_PATH = Path(__file__).resolve().parents[1] / "docs" / "рецепты_full.json"
 
 
 def parse_ingredients(raw: str) -> list[dict]:
@@ -21,6 +21,50 @@ def parse_ingredients(raw: str) -> list[dict]:
         if name:
             items.append({"name": name, "amount": "по вкусу", "unit": None})
     return items
+
+
+# Лимиты колонок backend (backend/app/db/models/recipe.py :: Ingredient)
+_NAME_MAX, _AMOUNT_MAX, _UNIT_MAX = 100, 50, 30
+
+
+def _clamp(value: str | None, limit: int) -> str | None:
+    """Обрезать строку под лимит колонки, по возможности по границе слова."""
+    if value is None or len(value) <= limit:
+        return value
+    cut = value[:limit].rstrip()
+    space = cut.rfind(" ")
+    if space > limit // 2:
+        cut = cut[:space].rstrip()
+    return cut
+
+
+def build_payload(recipe: dict) -> dict:
+    parsed = recipe.get("ingredients_parsed")
+    if parsed:
+        ingredients = [
+            {
+                "name": _clamp(i["name"], _NAME_MAX),
+                "amount": _clamp(i["amount"], _AMOUNT_MAX),
+                "unit": _clamp(i.get("unit"), _UNIT_MAX),
+            }
+            for i in parsed
+        ]
+    else:
+        ingredients = parse_ingredients(recipe.get("ingredients", ""))
+
+    description = (recipe.get("description") or "").strip()
+    steps = recipe.get("steps") or []
+    if steps:
+        numbered = "\n".join(f"{n}. {s}" for n, s in enumerate(steps, 1))
+        description = (description + "\n\nПриготовление:\n" + numbered).strip()
+
+    return {
+        "title": recipe["title"],
+        "description": description or None,
+        "servings": 4,
+        "ingredients": ingredients,
+        "photo_url": recipe.get("image_url") or None,
+    }
 
 
 def main() -> int:
@@ -52,13 +96,7 @@ def main() -> int:
                 print(f"SKIP (дубль): {title}")
                 skipped += 1
                 continue
-            payload = {
-                "title": title,
-                "description": r.get("description") or None,
-                "servings": 4,
-                "ingredients": parse_ingredients(r.get("ingredients", "")),
-                "photo_url": r.get("image_url") or None,
-            }
+            payload = build_payload(r)
             if args.dry_run:
                 photo = "да" if payload["photo_url"] else "нет"
                 print(f"DRY: {title} ({len(payload['ingredients'])} ингр., photo={photo})")
