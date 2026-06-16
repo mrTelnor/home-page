@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/auth";
 import { useLogout } from "@/hooks/useAuth";
@@ -14,10 +15,17 @@ export function Layout() {
   const { theme, toggleTheme } = useTheme();
   const { data: menu } = useTodayMenu();
   const isHome = location.pathname === "/";
+  const [menuOpen, setMenuOpen] = useState(false);
 
   let voteLabel = "Меню дня";
   if (menu?.status === "voting") voteLabel = "Проголосовать";
   else if (menu?.status === "collecting") voteLabel = "Предложить рецепт";
+
+  const navLinks = [
+    { to: "/vote", label: voteLabel },
+    { to: "/recipes/new", label: "Добавить рецепт" },
+    { to: "/recipes", label: "Открыть книгу" },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -35,24 +43,15 @@ export function Layout() {
 
           {user && (
             <div className="hidden md:flex items-center gap-1">
-              <Link
-                to="/vote"
-                className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
-              >
-                {voteLabel}
-              </Link>
-              <Link
-                to="/recipes/new"
-                className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
-              >
-                Добавить рецепт
-              </Link>
-              <Link
-                to="/recipes"
-                className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
-              >
-                Открыть книгу
-              </Link>
+              {navLinks.map((l) => (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
+                >
+                  {l.label}
+                </Link>
+              ))}
             </div>
           )}
 
@@ -77,6 +76,16 @@ export function Layout() {
                 <Button variant="outline" size="sm" onClick={() => logout.mutate()}>
                   Выйти
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="md:hidden"
+                  aria-label="Меню"
+                  aria-expanded={menuOpen}
+                  onClick={() => setMenuOpen((o) => !o)}
+                >
+                  ☰
+                </Button>
               </>
             ) : (
               <Button variant="outline" size="sm" asChild>
@@ -85,6 +94,24 @@ export function Layout() {
             )}
           </div>
         </div>
+
+        {user && menuOpen && (
+          <div
+            data-testid="mobile-nav"
+            className="md:hidden container mx-auto px-4 pb-3 flex flex-col gap-1 border-t border-border pt-2"
+          >
+            {navLinks.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                onClick={() => setMenuOpen(false)}
+                className="px-3 py-2 text-lg text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </nav>
       <main className="container mx-auto px-4 py-8">
         <Outlet />
