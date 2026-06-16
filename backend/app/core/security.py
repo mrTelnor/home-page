@@ -1,21 +1,28 @@
 from datetime import UTC, datetime, timedelta
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 ALGORITHM = "HS256"
+
+# bcrypt хеширует не более 72 байт пароля; обрезаем заранее (раньше это делал passlib).
+# bcrypt 5.x бросает ValueError на >72 байт, passlib заброшен и несовместим с ним.
+BCRYPT_MAX_BYTES = 72
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    pw = password.encode("utf-8")[:BCRYPT_MAX_BYTES]
+    return bcrypt.hashpw(pw, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    pw = plain_password.encode("utf-8")[:BCRYPT_MAX_BYTES]
+    try:
+        return bcrypt.checkpw(pw, hashed_password.encode("utf-8"))
+    except ValueError:
+        return False
 
 
 def create_jwt(user_id: str) -> str:
