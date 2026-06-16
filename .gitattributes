@@ -1,0 +1,9 @@
+# Файлы, исполняемые/читаемые на Linux-ВМ, обязаны иметь LF.
+# Ansible (synchronize/rsync) копирует рабочую копию как есть, а правки с Windows
+# (autocrlf) приносят CRLF — busybox sh/crond и парсеры env/yaml ломаются на \r.
+*.sh                        text eol=lf
+*.yml                       text eol=lf
+*.yaml                      text eol=lf
+*.j2                        text eol=lf
+infra/docker/cron/crontab   text eol=lf
+backend/entrypoint.sh       text eol=lf
