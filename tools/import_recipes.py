@@ -23,11 +23,30 @@ def parse_ingredients(raw: str) -> list[dict]:
     return items
 
 
+# Лимиты колонок backend (backend/app/db/models/recipe.py :: Ingredient)
+_NAME_MAX, _AMOUNT_MAX, _UNIT_MAX = 100, 50, 30
+
+
+def _clamp(value: str | None, limit: int) -> str | None:
+    """Обрезать строку под лимит колонки, по возможности по границе слова."""
+    if value is None or len(value) <= limit:
+        return value
+    cut = value[:limit].rstrip()
+    space = cut.rfind(" ")
+    if space > limit // 2:
+        cut = cut[:space].rstrip()
+    return cut
+
+
 def build_payload(recipe: dict) -> dict:
     parsed = recipe.get("ingredients_parsed")
     if parsed:
         ingredients = [
-            {"name": i["name"], "amount": i["amount"], "unit": i.get("unit")}
+            {
+                "name": _clamp(i["name"], _NAME_MAX),
+                "amount": _clamp(i["amount"], _AMOUNT_MAX),
+                "unit": _clamp(i.get("unit"), _UNIT_MAX),
+            }
             for i in parsed
         ]
     else:

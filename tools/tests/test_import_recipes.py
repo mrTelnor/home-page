@@ -26,6 +26,23 @@ def test_build_payload_uses_parsed_ingredients_and_steps():
     assert p["servings"] == 4
 
 
+def test_build_payload_clamps_overlong_unit():
+    # backend: Ingredient.unit String(30), amount String(50), name String(100).
+    # Слишком длинный unit (как у «Ленивых суши») должен обрезаться, а не ронять импорт 500.
+    recipe = {
+        "title": "Длинные единицы",
+        "description": "Опис.",
+        "ingredients_parsed": [
+            {"name": "Соль", "amount": "0,4", "unit": "ч. ложки с гор (+ к воде по вкусу)"},
+        ],
+        "image_url": None,
+    }
+    p = build_payload(recipe)
+    unit = p["ingredients"][0]["unit"]
+    assert len(unit) <= 30
+    assert unit.startswith("ч. ложки")
+
+
 def test_build_payload_fallback_without_enrichment():
     recipe = {
         "title": "Старый формат",
