@@ -37,7 +37,13 @@ export function VoteDetailPage() {
     );
   }
 
-  const sorted = [...menu.recipes].sort((a, b) => b.votes_count - a.votes_count);
+  // Победитель всегда первым, остальные — по алфавиту названия.
+  const sorted = [...menu.recipes].sort((a, b) => {
+    const aWin = a.recipe_id === menu.winner_recipe_id ? 1 : 0;
+    const bWin = b.recipe_id === menu.winner_recipe_id ? 1 : 0;
+    if (aWin !== bWin) return bWin - aWin;
+    return a.title.localeCompare(b.title, "ru");
+  });
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

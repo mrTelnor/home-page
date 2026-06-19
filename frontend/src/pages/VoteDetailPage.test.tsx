@@ -24,7 +24,7 @@ function renderAt(route: string) {
   );
 }
 
-it("показывает голоса по убыванию, имена — ссылки на рецепты, победитель помечен", async () => {
+it("победитель первым, имена — ссылки на рецепты, голоса показаны", async () => {
   fetchMock.mockResolvedValue(
     mockResponse({
       body: [
@@ -46,8 +46,35 @@ it("показывает голоса по убыванию, имена — сс
   const winnerLink = await screen.findByRole("link", { name: "Плов" });
   expect(winnerLink.getAttribute("href")).toBe("/recipes/r-win");
   const rows = screen.getAllByTestId("vote-row");
-  expect(within(rows[0]).getByText("Плов")).toBeInTheDocument(); // 3 голоса сверху
+  expect(within(rows[0]).getByText("Плов")).toBeInTheDocument(); // победитель сверху
   expect(within(rows[0]).getByText(/3/)).toBeInTheDocument();
+});
+
+it("победитель первым, остальные по алфавиту названия", async () => {
+  fetchMock.mockResolvedValue(
+    mockResponse({
+      body: [
+        makeMenu({
+          id: "m0",
+          date: "2026-06-19",
+          status: "closed",
+          winner_recipe_id: "r-win",
+          recipes: [
+            makeMenuRecipe({ id: "1", recipe_id: "r-a", title: "Шампиньоны", votes_count: 0 }),
+            makeMenuRecipe({ id: "2", recipe_id: "r-win", title: "Запеканка", votes_count: 0 }),
+            makeMenuRecipe({ id: "3", recipe_id: "r-c", title: "Котлетки", votes_count: 0 }),
+          ],
+        }),
+      ],
+    })
+  );
+  renderAt("/vote/history/2026-06-19");
+
+  await screen.findByText("Запеканка");
+  const rows = screen.getAllByTestId("vote-row");
+  expect(within(rows[0]).getByText("Запеканка")).toBeInTheDocument(); // победитель
+  expect(within(rows[1]).getByText("Котлетки")).toBeInTheDocument(); // далее алфавит
+  expect(within(rows[2]).getByText("Шампиньоны")).toBeInTheDocument();
 });
 
 it("несуществующая дата — не найдено", async () => {
