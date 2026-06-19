@@ -9,6 +9,7 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { HomePage } from "@/pages/HomePage";
 import { VotePage } from "@/pages/VotePage";
 import { VoteHistoryPage } from "@/pages/VoteHistoryPage";
+import { VoteDetailPage } from "@/pages/VoteDetailPage";
 import { RecipesPage } from "@/pages/RecipesPage";
 import { RecipeNewPage } from "@/pages/RecipeNewPage";
 import { RecipeDetailPage } from "@/pages/RecipeDetailPage";
@@ -41,6 +42,7 @@ export default function App() {
               <Route element={<Layout />}>
                 <Route path="/vote" element={<VotePage />} />
                 <Route path="/vote/history" element={<VoteHistoryPage />} />
+                <Route path="/vote/history/:date" element={<VoteDetailPage />} />
                 <Route path="/recipes/new" element={<RecipeNewPage />} />
                 <Route path="/recipes/:id/edit" element={<RecipeEditPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
