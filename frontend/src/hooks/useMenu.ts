@@ -24,6 +24,12 @@ export function useMenuHistory() {
   });
 }
 
+export function useMenuByDate(date: string | undefined) {
+  const { data: menus, isLoading } = useMenuHistory();
+  const menu = menus?.find((m) => m.date === date) ?? null;
+  return { menu, isLoading };
+}
+
 export function useAllRecipes() {
   return useQuery({
     queryKey: ["recipes"],
