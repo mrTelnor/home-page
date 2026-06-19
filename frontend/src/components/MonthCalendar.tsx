@@ -71,7 +71,9 @@ export function MonthCalendar({ year, month, byDay }: Readonly<Props>) {
                     </div>
                   </>
                 ) : (
-                  <span className="truncate text-xs text-muted-foreground">{statusLabel(menu)}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {statusLabel(menu)}
+                  </span>
                 )}
               </div>
             </Link>
