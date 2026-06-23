@@ -30,6 +30,9 @@ concurrency = ["greenlet"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "no_db: mark test as not requiring a database connection",
+]
 
 [tool.ruff]
 line-length = 120
