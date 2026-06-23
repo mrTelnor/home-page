@@ -34,6 +34,16 @@ async def get_user_by_id(session: AsyncSession, user_id: uuid.UUID) -> User | No
     return result.scalar_one_or_none()
 
 
+async def get_user_by_username(session: AsyncSession, username: str) -> User | None:
+    result = await session.execute(select(User).where(User.username == username.lower()))
+    return result.scalar_one_or_none()
+
+
+async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
+    result = await session.execute(select(User).where(User.email == email.lower()))
+    return result.scalar_one_or_none()
+
+
 async def set_telegram_id(session: AsyncSession, user: User, tg_id: int | None) -> User:
     user.tg_id = tg_id
     await session.commit()

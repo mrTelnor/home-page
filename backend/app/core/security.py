@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -6,6 +8,14 @@ from jose import JWTError, jwt
 from app.core.config import settings
 
 ALGORITHM = "HS256"
+
+
+def generate_reset_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(raw: str) -> str:
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 # bcrypt хеширует не более 72 байт пароля; обрезаем заранее (раньше это делал passlib).
 # bcrypt 5.x бросает ValueError на >72 байт, passlib заброшен и несовместим с ним.
