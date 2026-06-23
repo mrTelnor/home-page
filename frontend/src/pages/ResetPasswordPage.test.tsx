@@ -32,6 +32,12 @@ it("битый токен → сообщение об ошибке", async () =>
   await waitFor(() => expect(screen.getByText(/недействительна|устарела/i)).toBeInTheDocument());
 });
 
+it("отсутствующий токен → сообщение об ошибке без сетевого запроса", async () => {
+  renderAt("/reset-password");
+  expect(await screen.findByText(/недействительна|устарела/i)).toBeInTheDocument();
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
 it("валидный токен → сабмит → переход на вход", async () => {
   fetchMock
     .mockResolvedValueOnce(mockResponse({ body: { valid: true } })) // validate

@@ -27,6 +27,7 @@ export function ResetPasswordPage() {
     retry: false,
   });
 
+  const loading = token.length > 0 && validation.isLoading;
   const invalid = !token || validation.data?.valid === false;
 
   const handleSubmit = (e: FormEvent) => {
@@ -51,7 +52,13 @@ export function ResetPasswordPage() {
         <CardHeader>
           <CardTitle className="text-2xl text-center">Новый пароль</CardTitle>
         </CardHeader>
-        {invalid ? (
+        {loading ? (
+          <CardContent className="space-y-4">
+            <p className="text-sm text-center text-muted-foreground">
+              Проверка ссылки...
+            </p>
+          </CardContent>
+        ) : invalid ? (
           <CardContent className="space-y-4">
             <p className="text-sm text-center text-destructive">
               Ссылка недействительна или устарела.
