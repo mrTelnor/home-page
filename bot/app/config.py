@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     cron_secret: str
     uptime_secret: str
     port: int = 8080
+    # Публичный адрес сайта — для ссылок в оповещениях (например, на рецепт-победитель).
+    site_url: str = "https://telnor.ru"
     # Google Calendar integration
     google_service_account_b64: str = ""
     calendar_configs: str = "[]"
