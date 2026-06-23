@@ -63,17 +63,22 @@ export function ForgotPasswordPage() {
                     <p className="text-sm text-muted-foreground">Куда отправить ссылку?</p>
                     {choices.includes("telegram") && (
                       <Button type="button" variant="outline" className="w-full"
+                        disabled={request.isPending}
                         onClick={() => submit("telegram")}>
                         Отправить в Telegram
                       </Button>
                     )}
                     {choices.includes("email") && (
                       <Button type="button" variant="outline" className="w-full"
+                        disabled={request.isPending}
                         onClick={() => submit("email")}>
                         Отправить на Email
                       </Button>
                     )}
                   </div>
+                )}
+                {request.isError && (
+                  <p className="text-sm text-center text-destructive">Ошибка. Попробуйте ещё раз.</p>
                 )}
               </>
             )}
