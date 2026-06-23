@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-const SENT_MSG = "Если аккаунт существует, мы отправили инструкции для сброса.";
+const SENT_MSG =
+  "Если аккаунт существует, мы отправили инструкции для сброса. Проверьте папку «Спам», если письмо не пришло.";
 const NO_CHANNELS_MSG =
   "Не удалось подобрать канал восстановления. Обратитесь к администратору.";
 

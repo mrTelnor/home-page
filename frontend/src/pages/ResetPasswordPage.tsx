@@ -6,7 +6,7 @@ import { endpoints } from "@/api/endpoints";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useConfirmReset } from "@/hooks/usePasswordReset";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -73,12 +73,12 @@ export function ResetPasswordPage() {
               {error && <p className="text-sm text-center text-destructive">{error}</p>}
               <div className="space-y-2">
                 <Label htmlFor="password">Новый пароль</Label>
-                <Input id="password" type="password" minLength={8} required
+                <PasswordInput id="password" minLength={8} required
                   value={password} onChange={(e) => setPassword(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="repeat">Повторите пароль</Label>
-                <Input id="repeat" type="password" minLength={8} required
+                <PasswordInput id="repeat" minLength={8} required
                   value={repeat} onChange={(e) => setRepeat(e.target.value)} />
               </div>
             </CardContent>

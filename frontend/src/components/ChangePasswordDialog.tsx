@@ -2,7 +2,7 @@ import { type FormEvent, useState } from "react";
 import { useChangePassword } from "@/hooks/useProfile";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -58,9 +58,8 @@ export function ChangePasswordDialog({ open, onOpenChange }: Readonly<Props>) {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="space-y-2">
             <Label htmlFor="old">Текущий пароль</Label>
-            <Input
+            <PasswordInput
               id="old"
-              type="password"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
               required
@@ -68,9 +67,8 @@ export function ChangePasswordDialog({ open, onOpenChange }: Readonly<Props>) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="new">Новый пароль</Label>
-            <Input
+            <PasswordInput
               id="new"
-              type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
@@ -79,9 +77,8 @@ export function ChangePasswordDialog({ open, onOpenChange }: Readonly<Props>) {
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm">Подтверждение</Label>
-            <Input
+            <PasswordInput
               id="confirm"
-              type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               required
