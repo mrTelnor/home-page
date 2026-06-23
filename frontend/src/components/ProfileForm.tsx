@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useUpdateProfile } from "@/hooks/useProfile";
 import { type User } from "@/api/types";
+import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,21 +15,26 @@ export function ProfileForm({ user }: Readonly<Props>) {
   const [birthday, setBirthday] = useState(user.birthday ?? "");
   const [isVolkov, setIsVolkov] = useState(user.is_volkov);
   const [gender, setGender] = useState<"male" | "female" | "">(user.gender ?? "");
+  const [email, setEmail] = useState(user.email ?? "");
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const update = useUpdateProfile();
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setSaved(false);
+    setError(null);
     update.mutate(
       {
         first_name: firstName.trim() || null,
         birthday: birthday || null,
         is_volkov: isVolkov,
         gender: gender || null,
+        email: email.trim() || null,
       },
       {
         onSuccess: () => setSaved(true),
+        onError: (err) => setError(err instanceof ApiError ? err.message : "Не удалось сохранить"),
       }
     );
   };
@@ -46,6 +52,20 @@ export function ProfileForm({ user }: Readonly<Props>) {
           }}
           maxLength={50}
           placeholder="Введите имя"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setSaved(false);
+          }}
+          placeholder="you@example.com"
         />
       </div>
 
@@ -114,6 +134,7 @@ export function ProfileForm({ user }: Readonly<Props>) {
           {update.isPending ? "Сохранение..." : "Сохранить"}
         </Button>
         {saved && <span className="text-sm text-muted-foreground">Сохранено ✓</span>}
+        {error && <span className="text-sm text-destructive">{error}</span>}
       </div>
     </form>
   );

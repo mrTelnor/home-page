@@ -74,6 +74,7 @@ export function makeUser(overrides: Partial<User> = {}): User {
     birthday: null,
     is_volkov: false,
     gender: null,
+    email: null,
     ...overrides,
   };
 }

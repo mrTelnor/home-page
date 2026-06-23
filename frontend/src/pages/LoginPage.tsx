@@ -5,6 +5,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { WolfMark } from "@/components/WolfMark";
@@ -49,9 +50,8 @@ export function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -70,6 +70,9 @@ export function LoginPage() {
             >
               Войти как гость
             </Button>
+            <Link to="/forgot-password" className="text-sm text-primary underline">
+              Забыли пароль?
+            </Link>
             <p className="text-sm text-muted-foreground">
               Нет аккаунта?{" "}
               <Link to="/register" className="text-primary underline">
