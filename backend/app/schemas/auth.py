@@ -5,6 +5,20 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field
 
 
+class AdminUserResponse(BaseModel):
+    id: uuid.UUID
+    username: str
+    first_name: str | None = None
+    role: str
+    has_telegram: bool
+    has_email: bool
+
+
+class ResetLinkResponse(BaseModel):
+    link: str
+    expires_at: datetime
+
+
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=8)

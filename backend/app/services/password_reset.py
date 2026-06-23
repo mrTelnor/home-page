@@ -122,6 +122,22 @@ async def request_reset(session: AsyncSession, identifier: str, channel: str | N
     return {"status": "choose", "channels": available}
 
 
+async def list_users_for_admin(session: AsyncSession) -> list[dict]:
+    result = await session.execute(select(User).order_by(User.username))
+    users = result.scalars().all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "first_name": u.first_name,
+            "role": u.role,
+            "has_telegram": u.tg_id is not None,
+            "has_email": bool(u.email),
+        }
+        for u in users
+    ]
+
+
 async def confirm_reset(session: AsyncSession, raw: str, new_password: str) -> bool:
     token = await get_valid_token(session, raw)
     if token is None:
