@@ -39,13 +39,14 @@ async def test_send_telegram_swallows_errors(monkeypatch):
 
 
 async def test_send_email_skips_without_key(monkeypatch):
-    monkeypatch.setattr(email_mod.settings, "resend_api_key", None)
+    monkeypatch.setattr(email_mod.settings, "rusender_api_key", None)
     assert await email_mod.send_email("a@b.c", "subj", "<p>x</p>") is False
 
 
-async def test_send_email_posts_to_resend(monkeypatch):
+async def test_send_email_posts_to_rusender(monkeypatch):
     captured = {}
-    monkeypatch.setattr(email_mod.settings, "resend_api_key", "re_test")
+    monkeypatch.setattr(email_mod.settings, "rusender_api_key", "rs_ck_test")
+    monkeypatch.setattr(email_mod.settings, "email_from", "Telnor <noreply@telnor.ru>")
 
     class FakeResponse:
         def raise_for_status(self): pass
@@ -63,6 +64,10 @@ async def test_send_email_posts_to_resend(monkeypatch):
     monkeypatch.setattr(email_mod.httpx, "AsyncClient", FakeClient)
     ok = await email_mod.send_email("a@b.c", "subj", "<p>x</p>")
     assert ok is True
-    assert captured["url"] == "https://api.resend.com/emails"
-    assert captured["headers"]["Authorization"] == "Bearer re_test"
-    assert captured["json"]["to"] == ["a@b.c"]
+    assert captured["url"] == "https://api.rusender.ru/api/v1/external-mails/send"
+    assert captured["headers"]["X-Api-Key"] == "rs_ck_test"
+    mail = captured["json"]["mail"]
+    assert mail["to"] == {"email": "a@b.c"}
+    assert mail["from"] == {"email": "noreply@telnor.ru", "name": "Telnor"}
+    assert mail["subject"] == "subj"
+    assert mail["html"] == "<p>x</p>"

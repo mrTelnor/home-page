@@ -70,6 +70,8 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       BOT_SECRET: ${BOT_SECRET}
+      RUSENDER_API_KEY: ${RUSENDER_API_KEY}
+      EMAIL_FROM: ${EMAIL_FROM}
       RECIPE_IMAGES_DIR: /app/recipe_images
     volumes:
       - recipe_images:/app/recipe_images
