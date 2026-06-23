@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -18,9 +18,11 @@ beforeEach(() => {
     },
   });
 });
-afterEach(() => {
+afterEach(async () => {
   vi.unstubAllGlobals();
-  useAuthStore.setState({ user: null });
+  await act(async () => {
+    useAuthStore.setState({ user: null });
+  });
 });
 
 function renderPage() {
@@ -44,7 +46,9 @@ it("показывает юзеров и генерирует ссылку", asy
   renderPage();
   await screen.findByText("vasya");
   await userEvent.click(screen.getByRole("button", { name: "Сбросить пароль" }));
-  await waitFor(() =>
-    expect(screen.getByDisplayValue("https://telnor.ru/reset-password?token=abc")).toBeInTheDocument()
-  );
+  await waitFor(() => {
+    expect(screen.getByDisplayValue("https://telnor.ru/reset-password?token=abc")).toBeInTheDocument();
+    // pendingId must be cleared (button re-enabled) — ensures onSettled has fully settled
+    expect(screen.getByRole("button", { name: "Сбросить пароль" })).not.toBeDisabled();
+  });
 });
