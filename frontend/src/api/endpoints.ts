@@ -27,4 +27,8 @@ export const endpoints = {
     validate: (token: string) =>
       `/api/auth/password-reset/validate?token=${encodeURIComponent(token)}`,
   },
+  admin: {
+    users: "/api/auth/admin/users",
+    resetLink: (id: string) => `/api/auth/admin/users/${id}/reset-link`,
+  },
 } as const;

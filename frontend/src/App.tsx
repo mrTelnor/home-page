@@ -15,6 +15,7 @@ import { RecipeNewPage } from "@/pages/RecipeNewPage";
 import { RecipeDetailPage } from "@/pages/RecipeDetailPage";
 import { RecipeEditPage } from "@/pages/RecipeEditPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { AdminUsersPage } from "@/pages/AdminUsersPage";
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -50,6 +51,7 @@ export default function App() {
                 <Route path="/recipes/new" element={<RecipeNewPage />} />
                 <Route path="/recipes/:id/edit" element={<RecipeEditPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFoundPage />} />

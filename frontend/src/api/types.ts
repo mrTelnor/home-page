@@ -56,6 +56,16 @@ export interface MenuRecipe {
   voters: Voter[];
 }
 
+/** backend/app/schemas/auth.py :: AdminUserResponse */
+export interface AdminUserRow {
+  id: string;
+  username: string;
+  first_name: string | null;
+  role: string;
+  has_telegram: boolean;
+  has_email: boolean;
+}
+
 /** backend/app/schemas/menu.py :: MenuResponse */
 export interface Menu {
   id: string;
