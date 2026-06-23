@@ -52,13 +52,8 @@ TestSessionMaker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def setup_database(request):
+async def setup_database():
     """Создать схемы и таблицы один раз за сессию."""
-    items = request.session.items
-    needs_db = any(not item.get_closest_marker("no_db") for item in items)
-    if not needs_db:
-        yield
-        return
     async with admin_engine.begin() as conn:
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
         await conn.execute(text("CREATE SCHEMA IF NOT EXISTS dinner"))
@@ -73,11 +68,8 @@ async def setup_database(request):
 
 
 @pytest.fixture(autouse=True)
-async def clean_tables(request):
+async def clean_tables():
     """Очистить таблицы перед каждым тестом (используем перед, чтобы избежать гонок после)."""
-    if request.node.get_closest_marker("no_db"):
-        yield
-        return
     async with admin_engine.begin() as conn:
         await conn.execute(text(
             "TRUNCATE TABLE dinner.votes, dinner.daily_menu_recipes, dinner.daily_menus, "

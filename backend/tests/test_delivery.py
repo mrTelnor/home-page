@@ -4,9 +4,6 @@ import pytest
 from app.services import email as email_mod
 from app.services import telegram as tg_mod
 
-pytestmark = pytest.mark.no_db
-
-
 async def test_send_telegram_calls_bot_api(monkeypatch):
     captured = {}
 
@@ -17,7 +14,7 @@ async def test_send_telegram_calls_bot_api(monkeypatch):
         def __init__(self, *a, **k): pass
         async def __aenter__(self): return self
         async def __aexit__(self, *a): return False
-        async def post(self, url, json):
+        async def post(self, url, *, json):
             captured["url"] = url
             captured["json"] = json
             return FakeResponse()
@@ -57,7 +54,7 @@ async def test_send_email_posts_to_resend(monkeypatch):
         def __init__(self, *a, **k): pass
         async def __aenter__(self): return self
         async def __aexit__(self, *a): return False
-        async def post(self, url, headers, json):
+        async def post(self, url, *, headers, json):
             captured["url"] = url
             captured["headers"] = headers
             captured["json"] = json
