@@ -12,6 +12,7 @@ export interface User {
   birthday: string | null;
   is_volkov: boolean;
   gender: "male" | "female" | null;
+  email: string | null;
 }
 
 /** backend/app/schemas/recipe.py :: IngredientResponse (id отсутствует в запросах) */

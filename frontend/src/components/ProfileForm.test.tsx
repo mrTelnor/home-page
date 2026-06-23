@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { ProfileForm } from "./ProfileForm";
-import { createWrapper, makeUser, mockResponse } from "@/test/utils";
+import { createQueryClient, createWrapper, makeUser, mockResponse } from "@/test/utils";
+import { type User } from "@/api/types";
 
 const fetchMock = vi.fn();
 
@@ -18,6 +20,19 @@ afterEach(() => {
 function renderForm(user = makeUser()) {
   const { Wrapper } = createWrapper();
   return render(<ProfileForm user={user} />, { wrapper: Wrapper });
+}
+
+const baseUser: User = {
+  id: "u1", username: "tester", role: "user", created_at: "2026-01-01T00:00:00Z",
+  tg_id: null, first_name: null, birthday: null, is_volkov: false, gender: null, email: null,
+};
+
+function renderFormWithBase(user: User = baseUser) {
+  render(
+    <QueryClientProvider client={createQueryClient()}>
+      <ProfileForm user={user} />
+    </QueryClientProvider>
+  );
 }
 
 describe("ProfileForm", () => {
@@ -67,6 +82,7 @@ describe("ProfileForm", () => {
       birthday: null,
       is_volkov: true,
       gender: "male",
+      email: null,
     });
   });
 
@@ -85,6 +101,7 @@ describe("ProfileForm", () => {
       birthday: null,
       is_volkov: false,
       gender: null,
+      email: null,
     });
   });
 
@@ -100,4 +117,22 @@ describe("ProfileForm", () => {
 
     expect(screen.queryByText(/Сохранено/)).not.toBeInTheDocument();
   });
+});
+
+it("сохраняет email", async () => {
+  fetchMock.mockResolvedValue(mockResponse({ body: { ...baseUser, email: "me@x.com" } }));
+  renderFormWithBase();
+  await userEvent.type(screen.getByLabelText("Email"), "me@x.com");
+  await userEvent.click(screen.getByRole("button", { name: /Сохранить/ }));
+  await waitFor(() => expect(screen.getByText(/Сохранено/)).toBeInTheDocument());
+});
+
+it("показывает ошибку 403 при блокировке смены email", async () => {
+  fetchMock.mockResolvedValue(
+    mockResponse({ ok: false, status: 403, body: { detail: "Сменить email можно только после 27.06.2026" } })
+  );
+  renderFormWithBase();
+  await userEvent.type(screen.getByLabelText("Email"), "new@x.com");
+  await userEvent.click(screen.getByRole("button", { name: /Сохранить/ }));
+  await waitFor(() => expect(screen.getByText(/Сменить email можно только после/)).toBeInTheDocument());
 });
