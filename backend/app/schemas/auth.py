@@ -2,7 +2,21 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
+
+
+class AdminUserResponse(BaseModel):
+    id: uuid.UUID
+    username: str
+    first_name: str | None = None
+    role: str
+    has_telegram: bool
+    has_email: bool
+
+
+class ResetLinkResponse(BaseModel):
+    link: str
+    expires_at: datetime
 
 
 class RegisterRequest(BaseModel):
@@ -19,6 +33,7 @@ class LoginRequest(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
+    email: str | None = None
     role: str
     created_at: datetime
     tg_id: int | None = None
@@ -37,10 +52,21 @@ class UpdateProfileRequest(BaseModel):
     is_volkov: bool | None = None
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool | None = None
+    email: EmailStr | None = None
 
 
 class ChangePasswordRequest(BaseModel):
     old_password: str
+    new_password: str = Field(min_length=8)
+
+
+class PasswordResetRequest(BaseModel):
+    identifier: str
+    channel: Literal["telegram", "email"] | None = None
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
     new_password: str = Field(min_length=8)
 
 

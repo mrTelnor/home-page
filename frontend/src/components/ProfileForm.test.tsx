@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProfileForm } from "./ProfileForm";
 import { createWrapper, makeUser, mockResponse } from "@/test/utils";
+import { type User } from "@/api/types";
 
 const fetchMock = vi.fn();
 
@@ -15,7 +16,12 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderForm(user = makeUser()) {
+const baseUser: User = {
+  id: "u1", username: "tester", role: "user", created_at: "2026-01-01T00:00:00Z",
+  tg_id: null, first_name: null, birthday: null, is_volkov: false, gender: null, email: null,
+};
+
+function renderForm(user: User = makeUser()) {
   const { Wrapper } = createWrapper();
   return render(<ProfileForm user={user} />, { wrapper: Wrapper });
 }
@@ -67,6 +73,7 @@ describe("ProfileForm", () => {
       birthday: null,
       is_volkov: true,
       gender: "male",
+      email: null,
     });
   });
 
@@ -85,6 +92,7 @@ describe("ProfileForm", () => {
       birthday: null,
       is_volkov: false,
       gender: null,
+      email: null,
     });
   });
 
@@ -99,5 +107,26 @@ describe("ProfileForm", () => {
     await user.type(screen.getByLabelText("Имя"), "Н");
 
     expect(screen.queryByText(/Сохранено/)).not.toBeInTheDocument();
+  });
+
+  it("сохраняет email", async () => {
+    fetchMock.mockResolvedValue(mockResponse({ body: { ...baseUser, email: "me@x.com" } }));
+    renderForm(baseUser);
+    await userEvent.type(screen.getByLabelText("Email"), "me@x.com");
+    await userEvent.click(screen.getByRole("button", { name: /Сохранить/ }));
+    await waitFor(() => expect(screen.getByText(/Сохранено/)).toBeInTheDocument());
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(options.body as string)).toMatchObject({ email: "me@x.com" });
+  });
+
+  it("показывает ошибку 403 при блокировке смены email", async () => {
+    fetchMock.mockResolvedValue(
+      mockResponse({ ok: false, status: 403, body: { detail: "Сменить email можно только после 27.06.2026" } })
+    );
+    renderForm(baseUser);
+    await userEvent.type(screen.getByLabelText("Email"), "new@x.com");
+    await userEvent.click(screen.getByRole("button", { name: /Сохранить/ }));
+    await waitFor(() => expect(screen.getByText(/Сменить email можно только после/)).toBeInTheDocument());
   });
 });

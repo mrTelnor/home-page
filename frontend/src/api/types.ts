@@ -12,6 +12,7 @@ export interface User {
   birthday: string | null;
   is_volkov: boolean;
   gender: "male" | "female" | null;
+  email: string | null;
 }
 
 /** backend/app/schemas/recipe.py :: IngredientResponse (id отсутствует в запросах) */
@@ -53,6 +54,16 @@ export interface MenuRecipe {
   added_by: string | null;
   votes_count: number;
   voters: Voter[];
+}
+
+/** backend/app/schemas/auth.py :: AdminUserResponse */
+export interface AdminUserRow {
+  id: string;
+  username: string;
+  first_name: string | null;
+  role: string;
+  has_telegram: boolean;
+  has_email: boolean;
 }
 
 /** backend/app/schemas/menu.py :: MenuResponse */

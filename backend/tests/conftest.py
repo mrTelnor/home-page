@@ -38,6 +38,7 @@ from app.db.models import (  # noqa: F401 — imports trigger model registration
     DailyMenu,
     DailyMenuRecipe,
     Ingredient,
+    PasswordResetToken,
     Recipe,
     Vote,
 )
@@ -72,7 +73,7 @@ async def clean_tables():
     async with admin_engine.begin() as conn:
         await conn.execute(text(
             "TRUNCATE TABLE dinner.votes, dinner.daily_menu_recipes, dinner.daily_menus, "
-            "dinner.ingredients, dinner.recipes, auth.users "
+            "dinner.ingredients, dinner.recipes, auth.password_reset_tokens, auth.users "
             "RESTART IDENTITY CASCADE"
         ))
     yield
@@ -90,6 +91,8 @@ async def _create_user_standalone(
     tg_id: int | None = None,
     is_volkov: bool = False,
     notifications_enabled: bool = True,
+    email: str | None = None,
+    password_changed_at=None,
 ) -> User:
     """Создать пользователя в отдельной сессии и закрыть её сразу."""
     async with TestSessionMaker() as session:
@@ -101,11 +104,12 @@ async def _create_user_standalone(
             tg_id=tg_id,
             is_volkov=is_volkov,
             notifications_enabled=notifications_enabled,
+            email=email,
+            password_changed_at=password_changed_at,
         )
         session.add(user)
         await session.commit()
         await session.refresh(user)
-        # Отсоединить от сессии — будем использовать только как DTO
         session.expunge(user)
         return user
 

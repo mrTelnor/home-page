@@ -57,6 +57,14 @@ def ensure_admin(user: User) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
 
 
+async def get_admin_user(user: CurrentUser) -> User:
+    ensure_admin(user)
+    return user
+
+
+AdminUser = Annotated[User, Depends(get_admin_user)]
+
+
 def ensure_owner_or_admin(user: User, owner_id: uuid.UUID | None) -> None:
     """403, если пользователь не владелец ресурса и не админ."""
     if user.id != owner_id and user.role != "admin":
