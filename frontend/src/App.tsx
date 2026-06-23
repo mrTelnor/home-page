@@ -16,6 +16,7 @@ import { RecipeDetailPage } from "@/pages/RecipeDetailPage";
 import { RecipeEditPage } from "@/pages/RecipeEditPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 const queryClient = new QueryClient({
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<AuthAwareRoute />}>
               <Route element={<Layout />}>
                 <Route path="/" element={<HomePage />} />
