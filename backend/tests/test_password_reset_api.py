@@ -113,3 +113,17 @@ async def test_validate_endpoint(client):
     assert ok.json()["valid"] is True
     bad = await client.get("/api/auth/password-reset/validate?token=nope")
     assert bad.json()["valid"] is False
+
+
+async def test_confirm_rejects_already_used_token(client):
+    user = await _create_user_standalone("usedtok", email="u@x.com")
+    async with TestSessionMaker() as session:
+        u = await session.get(type(user), user.id)
+        raw, _ = await pr.create_reset_token(session, u, "email")
+    # mark the token used directly in DB before attempting confirm
+    async with TestSessionMaker() as session:
+        row = (await session.execute(select(PasswordResetToken).where(PasswordResetToken.user_id == user.id))).scalar_one()
+        row.used_at = datetime.now(UTC)
+        await session.commit()
+    resp = await client.post("/api/auth/password-reset/confirm", json={"token": raw, "new_password": "whatever12345"})
+    assert resp.status_code == 400
