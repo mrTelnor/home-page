@@ -70,6 +70,9 @@ export function LoginPage() {
             >
               Войти как гость
             </Button>
+            <Link to="/forgot-password" className="text-sm text-primary underline">
+              Забыли пароль?
+            </Link>
             <p className="text-sm text-muted-foreground">
               Нет аккаунта?{" "}
               <Link to="/register" className="text-primary underline">

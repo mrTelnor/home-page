@@ -21,4 +21,10 @@ export const endpoints = {
     suggest: (menuId: string) => `/api/menus/${menuId}/suggest`,
     vote: (menuId: string) => `/api/menus/${menuId}/vote`,
   },
+  passwordReset: {
+    request: "/api/auth/password-reset/request",
+    confirm: "/api/auth/password-reset/confirm",
+    validate: (token: string) =>
+      `/api/auth/password-reset/validate?token=${encodeURIComponent(token)}`,
+  },
 } as const;
