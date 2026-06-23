@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class RegisterRequest(BaseModel):
@@ -19,6 +19,7 @@ class LoginRequest(BaseModel):
 class UserResponse(BaseModel):
     id: uuid.UUID
     username: str
+    email: str | None = None
     role: str
     created_at: datetime
     tg_id: int | None = None
@@ -37,6 +38,7 @@ class UpdateProfileRequest(BaseModel):
     is_volkov: bool | None = None
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool | None = None
+    email: EmailStr | None = None
 
 
 class ChangePasswordRequest(BaseModel):

@@ -20,6 +20,7 @@ from app.schemas.auth import (
 from app.services.auth import (
     authenticate_user,
     create_user,
+    email_lock_until,
     get_admin_users,
     get_notifiable_users,
     get_user_by_tg_id,
@@ -89,7 +90,19 @@ async def update_me(
     user: CurrentUser,
 ):
     fields = data.model_dump(exclude_unset=True)
-    user = await update_profile(session, user, fields)
+    if "email" in fields:
+        new_email = fields["email"].lower() if fields["email"] else None
+        if new_email != user.email:
+            until = email_lock_until(user)
+            if until is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Сменить email можно только после {until:%d.%m.%Y} (7 дней после смены пароля)",
+                )
+    try:
+        user = await update_profile(session, user, fields)
+    except IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email уже используется") from exc
     return user
 
 
