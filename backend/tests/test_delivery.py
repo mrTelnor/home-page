@@ -46,6 +46,7 @@ async def test_send_email_skips_without_key(monkeypatch):
 async def test_send_email_posts_to_rusender(monkeypatch):
     captured = {}
     monkeypatch.setattr(email_mod.settings, "rusender_api_key", "rs_ck_test")
+    monkeypatch.setattr(email_mod.settings, "rusender_key_id", "5555")
     monkeypatch.setattr(email_mod.settings, "email_from", "Telnor <noreply@telnor.ru>")
 
     class FakeResponse:
@@ -64,8 +65,8 @@ async def test_send_email_posts_to_rusender(monkeypatch):
     monkeypatch.setattr(email_mod.httpx, "AsyncClient", FakeClient)
     ok = await email_mod.send_email("a@b.c", "subj", "<p>x</p>")
     assert ok is True
-    assert captured["url"] == "https://api.rusender.ru/api/v1/external-mails/send"
-    assert captured["headers"]["X-Api-Key"] == "rs_ck_test"
+    assert captured["url"] == "https://api.rusender.ru/api/v1/external-mails/send/5555"
+    assert captured["headers"]["Authorization"] == "Bearer rs_ck_test"
     mail = captured["json"]["mail"]
     assert mail["to"] == {"email": "a@b.c"}
     assert mail["from"] == {"email": "noreply@telnor.ru", "name": "Telnor"}

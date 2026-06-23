@@ -7,12 +7,12 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-RUSENDER_URL = "https://api.rusender.ru/api/v1/external-mails/send"
+RUSENDER_BASE_URL = "https://api.rusender.ru/api/v1/external-mails/send"
 
 
 async def send_email(to: str, subject: str, html: str) -> bool:
-    if not settings.rusender_api_key:
-        logger.warning("RUSENDER_API_KEY не задан; письмо для %s не отправлено", to)
+    if not settings.rusender_api_key or not settings.rusender_key_id:
+        logger.warning("RUSENDER_API_KEY/RUSENDER_KEY_ID не заданы; письмо для %s не отправлено", to)
         return False
     from_name, from_address = parseaddr(settings.email_from)
     from_obj: dict[str, str] = {"email": from_address}
@@ -29,8 +29,8 @@ async def send_email(to: str, subject: str, html: str) -> bool:
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
-                RUSENDER_URL,
-                headers={"X-Api-Key": settings.rusender_api_key},
+                f"{RUSENDER_BASE_URL}/{settings.rusender_key_id}",
+                headers={"Authorization": f"Bearer {settings.rusender_api_key}"},
                 json=payload,
             )
             resp.raise_for_status()

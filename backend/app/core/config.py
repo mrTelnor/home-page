@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] | None = None
     telegram_auth_max_age_seconds: int = 3600
     rusender_api_key: str | None = None
+    rusender_key_id: str | None = None
     email_from: str = "Telnor <noreply@telnor.ru>"
     reset_token_ttl_minutes: int = 60
     email_change_lock_days: int = 7
