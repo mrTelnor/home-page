@@ -46,6 +46,16 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8)
 
 
+class PasswordResetRequest(BaseModel):
+    identifier: str
+    channel: Literal["telegram", "email"] | None = None
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8)
+
+
 class TelegramAuthData(BaseModel):
     id: int
     first_name: str

@@ -9,6 +9,9 @@ from app.core.config import settings
 from app.core.security import generate_reset_token, hash_reset_token
 from app.db.models.password_reset import PasswordResetToken
 from app.db.models.user import User
+from app.services.auth import get_user_by_email, get_user_by_id, get_user_by_username, update_password
+from app.services.email import send_email
+from app.services.telegram import send_telegram_message
 
 logger = logging.getLogger(__name__)
 
@@ -55,3 +58,78 @@ async def get_valid_token(session: AsyncSession, raw: str) -> PasswordResetToken
         )
     )
     return result.scalar_one_or_none()
+
+
+def _reset_link(raw: str) -> str:
+    return f"https://{settings.domain}/reset-password?token={raw}"
+
+
+def _telegram_text(link: str) -> str:
+    return (
+        "🔑 Запрос на сброс пароля для аккаунта на telnor.ru.\n"
+        f"Ссылка действует {settings.reset_token_ttl_minutes} минут:\n{link}\n"
+        "Если это были не вы — проигнорируйте сообщение."
+    )
+
+
+def _email_html(link: str) -> str:
+    return (
+        "<p>Запрос на сброс пароля для аккаунта на telnor.ru.</p>"
+        f'<p>Ссылка действует {settings.reset_token_ttl_minutes} минут: '
+        f'<a href="{link}">Сбросить пароль</a></p>'
+        "<p>Если это были не вы — проигнорируйте письмо.</p>"
+    )
+
+
+async def _dispatch(session: AsyncSession, user: User, channel: str) -> None:
+    if await is_throttled(session, user):
+        logger.warning("password reset throttled for user=%s", user.id)
+        return
+    raw, _ = await create_reset_token(session, user, channel)
+    link = _reset_link(raw)
+    if channel == "telegram":
+        await send_telegram_message(user.tg_id, _telegram_text(link))
+    else:
+        await send_email(user.email, "Сброс пароля — telnor.ru", _email_html(link))
+
+
+async def request_reset(session: AsyncSession, identifier: str, channel: str | None) -> dict:
+    identifier = identifier.strip()
+    if "@" in identifier:
+        user = await get_user_by_email(session, identifier)
+        if user is not None and user.email:
+            await _dispatch(session, user, "email")
+        return {"status": "sent"}
+
+    user = await get_user_by_username(session, identifier)
+    if user is None:
+        return {"status": "no_channels"}
+    available = []
+    if user.tg_id is not None:
+        available.append("telegram")
+    if user.email:
+        available.append("email")
+    if not available:
+        return {"status": "no_channels"}
+    if channel is not None:
+        if channel not in available:
+            return {"status": "no_channels"}
+        await _dispatch(session, user, channel)
+        return {"status": "sent"}
+    if len(available) == 1:
+        await _dispatch(session, user, available[0])
+        return {"status": "sent"}
+    return {"status": "choose", "channels": available}
+
+
+async def confirm_reset(session: AsyncSession, raw: str, new_password: str) -> bool:
+    token = await get_valid_token(session, raw)
+    if token is None:
+        return False
+    user = await get_user_by_id(session, token.user_id)
+    if user is None:
+        return False
+    await update_password(session, user, new_password)
+    token.used_at = datetime.now(UTC)
+    await session.commit()
+    return True
