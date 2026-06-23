@@ -129,7 +129,6 @@ async def confirm_reset(session: AsyncSession, raw: str, new_password: str) -> b
     user = await get_user_by_id(session, token.user_id)
     if user is None:
         return False
-    await update_password(session, user, new_password)
     token.used_at = datetime.now(UTC)
-    await session.commit()
+    await update_password(session, user, new_password)
     return True

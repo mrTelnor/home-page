@@ -44,12 +44,14 @@ async def test_request_login_no_channels(client):
     assert resp.json()["status"] == "no_channels"
 
 
-async def test_request_login_two_channels_choose(client):
+async def test_request_login_two_channels_choose(client, _stub_delivery):
     await _create_user_standalone("both", tg_id=999, email="b@x.com")
     resp = await client.post("/api/auth/password-reset/request", json={"identifier": "both"})
     body = resp.json()
     assert body["status"] == "choose"
     assert set(body["channels"]) == {"telegram", "email"}
+    assert _stub_delivery["tg"] == []
+    assert _stub_delivery["email"] == []
 
 
 async def test_request_login_one_channel_sent(client, _stub_delivery):
