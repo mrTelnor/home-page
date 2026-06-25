@@ -2,9 +2,11 @@ import logging
 
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
+from aiogram.utils.text_decorations import html_decoration
 
 from app.api_client import api
 from app.calendar_service import mark_event_sent
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,22 +17,26 @@ STATUS_LABELS = {
 }
 
 
-async def broadcast(bot: Bot, text: str, *, exclude_admins: bool = False) -> None:
+async def broadcast(
+    bot: Bot, text: str, *, exclude_admins: bool = False, parse_mode: str | None = None
+) -> None:
     """Send text to all notifiable users.
 
     If exclude_admins=True, skip admin users (they receive a richer message
     elsewhere — e.g., as part of the unified morning digest).
+    parse_mode передаётся в Telegram только когда задан (например, "HTML").
     """
     users = await api.get_notifiable_users()
     excluded_ids: set[int] = set()
     if exclude_admins:
         admins = await api.get_admin_users()
         excluded_ids = {a["tg_id"] for a in admins}
+    extra = {"parse_mode": parse_mode} if parse_mode else {}
     for user in users:
         if user["tg_id"] in excluded_ids:
             continue
         try:
-            await bot.send_message(chat_id=user["tg_id"], text=text)
+            await bot.send_message(chat_id=user["tg_id"], text=text, **extra)
         except TelegramAPIError:
             logger.warning("Failed to send to tg_id=%s", user["tg_id"])
 
@@ -91,15 +97,17 @@ async def notify_voting_closed(bot: Bot) -> None:
         return
     winner_id = menu.get("winner_recipe_id")
     results = []
-    winner_title = "Не определён"
+    winner_html = "Не определён"
     for r in sorted(menu["recipes"], key=lambda x: x["votes_count"], reverse=True):
-        mark = " 🏆" if r["recipe_id"] == winner_id else ""
-        results.append(f"  • {r['title']} — {r['votes_count']} гол.{mark}")
-        if r["recipe_id"] == winner_id:
-            winner_title = r["title"]
+        is_winner = r["recipe_id"] == winner_id
+        mark = " 🏆" if is_winner else ""
+        results.append(f"  • {html_decoration.quote(r['title'])} — {r['votes_count']} гол.{mark}")
+        if is_winner:
+            url = f"{settings.site_url}/recipes/{r['recipe_id']}"
+            winner_html = html_decoration.link(r["title"], url)
 
-    text = f"🎉 Голосование завершено!\n\nПобедитель: {winner_title}\n\n" + "\n".join(results)
-    await broadcast(bot, text)
+    text = f"🎉 Голосование завершено!\n\nПобедитель: {winner_html}\n\n" + "\n".join(results)
+    await broadcast(bot, text, parse_mode="HTML")
 
 
 async def notify_recipe_suggested(bot: Bot, suggester_name: str, recipe_title: str, exclude_tg_id: int) -> None:

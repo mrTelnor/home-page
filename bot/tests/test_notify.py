@@ -256,8 +256,10 @@ async def test_notify_voting_closed_ok(monkeypatch):
     await notify.notify_voting_closed(bot)
 
     mark.assert_called_once_with("voting_closed:m1")
-    text = bot.send_message.await_args.kwargs["text"]
-    assert "Победитель: Борщ" in text
+    kwargs = bot.send_message.await_args.kwargs
+    text = kwargs["text"]
+    assert kwargs["parse_mode"] == "HTML"
+    assert 'Победитель: <a href="https://telnor.ru/recipes/r1">Борщ</a>' in text
     assert "Борщ — 2 гол. 🏆" in text
     assert "Плов — 1 гол." in text
 
