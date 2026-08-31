@@ -19,8 +19,10 @@ async def test_download_saves_jpeg(monkeypatch, tmp_path):
     _mock_transport(monkeypatch)
     rid = uuid.uuid4()
     path = await download_recipe_image("https://example.com/a.jpg", rid)
-    assert path == f"/api/recipe-images/{rid}.jpg"
-    assert (tmp_path / f"{rid}.jpg").read_bytes().startswith(b"\xff\xd8")
+    assert path.startswith(f"/api/recipe-images/{rid}-")
+    assert path.endswith(".jpg")
+    filename = path.rsplit("/", 1)[-1]
+    assert (tmp_path / filename).read_bytes().startswith(b"\xff\xd8")
 
 
 async def test_download_rejects_non_http(monkeypatch, tmp_path):
@@ -48,7 +50,19 @@ async def test_download_maps_png_extension(monkeypatch, tmp_path):
     _mock_transport(monkeypatch, content_type="image/png", content=b"\x89PNGdata")
     rid = uuid.uuid4()
     path = await download_recipe_image("https://example.com/a.png", rid)
-    assert path.endswith(f"{rid}.png")
+    assert str(rid) in path
+    assert path.endswith(".png")
+
+
+async def test_download_unique_filename_per_call(monkeypatch, tmp_path):
+    """Каждое скачивание даёт уникальное имя файла — иначе при замене фото
+    удаление старого url стирает только что записанный файл (та же {id}.{ext})."""
+    monkeypatch.setattr(recipe_image.settings, "recipe_images_dir", str(tmp_path))
+    _mock_transport(monkeypatch)
+    rid = uuid.uuid4()
+    first = await download_recipe_image("https://example.com/a.jpg", rid)
+    second = await download_recipe_image("https://example.com/b.jpg", rid)
+    assert first != second
 
 
 def test_delete_recipe_image_removes_file(monkeypatch, tmp_path):

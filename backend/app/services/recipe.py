@@ -97,7 +97,8 @@ async def update_recipe(
         else:
             try:
                 new_url = await download_recipe_image(photo_url, recipe.id)
-                delete_recipe_image(recipe.image_url)
+                if recipe.image_url != new_url:
+                    delete_recipe_image(recipe.image_url)
                 recipe.image_url = new_url
             except Exception:
                 logger.warning("Failed to download recipe image from %s", photo_url, exc_info=True)

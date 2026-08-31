@@ -1,5 +1,6 @@
 import logging
 import os
+import secrets
 import uuid
 from urllib.parse import urlparse
 
@@ -36,7 +37,10 @@ async def download_recipe_image(url: str, recipe_id: uuid.UUID) -> str:
         raise ValueError("image too large")
 
     os.makedirs(settings.recipe_images_dir, exist_ok=True)
-    filename = f"{recipe_id}.{ext}"
+    # Случайный суффикс: имя уникально на каждое скачивание, иначе замена фото
+    # с тем же расширением удаляет только что записанный файл, а браузер
+    # кэширует старую картинку по неизменному URL.
+    filename = f"{recipe_id}-{secrets.token_hex(4)}.{ext}"
     with open(os.path.join(settings.recipe_images_dir, filename), "wb") as f:
         f.write(data)
     return f"/api/recipe-images/{filename}"

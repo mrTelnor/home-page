@@ -341,3 +341,38 @@ async def test_update_recipe_clears_photo(authed_client: AsyncClient, monkeypatc
     assert upd.status_code == 200, upd.text
     assert upd.json()["image_url"] is None
     assert deleted["url"].endswith(".jpg")
+
+
+async def test_update_recipe_replaces_photo_same_extension(authed_client: AsyncClient, monkeypatch, tmp_path):
+    """Регресс: при замене фото jpg→jpg image_url не должен указывать на удалённый файл."""
+    import httpx
+
+    from app.services import recipe_image
+
+    monkeypatch.setattr(recipe_image.settings, "recipe_images_dir", str(tmp_path))
+
+    async def fake_get(self, url, **kwargs):
+        request = httpx.Request("GET", url)
+        return httpx.Response(200, content=b"\xff\xd8" + url.encode(),
+                              headers={"content-type": "image/jpeg"}, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+
+    create = await authed_client.post("/api/recipes", json={
+        "title": "Замена фото", "servings": 2, "ingredients": [],
+        "photo_url": "https://example.com/old.jpg",
+    })
+    assert create.status_code == 201, create.text
+    rid = create.json()["id"]
+    old_url = create.json()["image_url"]
+
+    upd = await authed_client.put(f"/api/recipes/{rid}", json={"photo_url": "https://example.com/new.jpg"})
+    assert upd.status_code == 200, upd.text
+    new_url = upd.json()["image_url"]
+    assert new_url is not None
+
+    new_file = tmp_path / new_url.rsplit("/", 1)[-1]
+    assert new_file.exists(), "новый файл фото удалён при замене"
+    assert new_file.read_bytes().endswith(b"new.jpg")
+    if old_url != new_url:
+        assert not (tmp_path / old_url.rsplit("/", 1)[-1]).exists(), "старый файл не подчищен"
