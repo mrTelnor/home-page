@@ -17,6 +17,17 @@
     regexp: "^#?PermitRootLogin "
     line: "PermitRootLogin no"
 
+# Правок sshd_config недостаточно: Include /etc/ssh/sshd_config.d/*.conf идёт
+# в начале конфига, и 50-cloud-init.conf с PasswordAuthentication yes побеждает
+# (sshd берёт первое встреченное значение). Файл 00-* сортируется раньше него.
+- name: Harden sshd ahead of cloud-init overrides
+  copy:
+    dest: /etc/ssh/sshd_config.d/00-hardening.conf
+    mode: "0644"
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+
 - name: Create ssh.socket override directory
   file:
     path: /etc/systemd/system/ssh.socket.d

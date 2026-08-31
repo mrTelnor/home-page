@@ -11,3 +11,5 @@
     - vpn
     - app
     - firewalld
+    - role: sshd
+      tags: [sshd]
