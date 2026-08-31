@@ -7,7 +7,7 @@ set -euo pipefail
 # --------------------------------------------------
 
 USERNAME="telnor"
-SSH_PUB_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGLyikKhMXzLTMxXMH3vjpAMgrml2B2TzRdOlrSqeB7u mrTelnor@github"
+SSH_PUB_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOFShAd01ehaJrncA89rse4cK21r3YuoAH/aQ6GKm63M Nikita Volkov"
 
 echo ">>> Обновление пакетов..."
 apt update && apt upgrade -y

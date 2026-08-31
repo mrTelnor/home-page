@@ -6,7 +6,9 @@ set -euo pipefail
 # Запускать один раз из WSL
 # --------------------------------------------------
 
-WIN_KEY="/mnt/c/Users/telnor/.ssh/GitHub_SSH"
+# Приватный ключ в Windows (пара id_ed25519 от 25.08.2026; прежний GitHub_SSH утрачен).
+# В WSL копируется под именем GitHub_SSH — его ждёт vault_ssh_key_path в инвентаре.
+WIN_KEY="${WIN_KEY:-/mnt/c/Users/telnor/.ssh/id_ed25519}"
 WSL_DIR="$HOME/.ssh"
 WSL_KEY="${WSL_DIR}/GitHub_SSH"
 
