@@ -319,13 +319,18 @@ docker exec bot cat /data/sent_reminders.json
 
 ## 9. Бэкапы
 
-Ежедневно в 03:00 GMT+3 cron-контейнер делает `pg_dump` БД, gzip, заливает на Яндекс.Диск через WebDAV в папку `/backups/`. Файлы старше 14 дней удаляются.
+Ежедневно в 03:00 GMT+3 cron-контейнер делает `pg_dump -Fc` БД (custom format уже сжат, без отдельного gzip) и tar.gz-архив фото рецептов (том `recipe_images`), заливает оба файла на Яндекс.Диск через WebDAV в папку `/backups/` с ретраями. Файлы старше 14 дней удаляются (включая legacy `*.dump.gz`). Провал любого шага — алерт админам в Telegram.
 
 ### Проверить вручную
 ```bash
-ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker exec cron /usr/local/bin/backup.sh'
+ssh homepage 'docker exec cron /usr/local/bin/backup.sh'
 ```
-После выполнения на Яндекс.Диске должен появиться файл `homepage_YYYY-MM-DD.dump.gz`.
+После выполнения на Яндекс.Диске должны появиться файлы `homepage_YYYY-MM-DD.dump` и `recipe_images_YYYY-MM-DD.tar.gz`.
+
+### Тесты backup.sh (локально, в том же alpine, что и прод)
+```bash
+docker run --rm -v "$(pwd)/infra/docker/cron:/cron" alpine:3.21 sh /cron/tests/test_backup.sh
+```
 
 ---
 

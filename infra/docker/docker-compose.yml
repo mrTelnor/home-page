@@ -115,6 +115,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       YADISK_USER: ${YADISK_USER}
       YADISK_APP_PASSWORD: ${YADISK_APP_PASSWORD}
+    volumes:
+      # Фото рецептов попадают в ежедневный бэкап (read-only)
+      - recipe_images:/backup-src/recipe_images:ro
     networks:
       - web
       - internal
