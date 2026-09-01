@@ -103,8 +103,8 @@ source ~/.bashrc
 
 | Переменная | Значение по умолчанию | Описание |
 |---|---|---|
-| `WIN_KEY` | `/mnt/c/Users/telnor/.ssh/GitHub_SSH` | Путь к приватному SSH-ключу в Windows |
-| `WSL_DIR` | `$HOME/.ssh` | Директория SSH в WSL |
+| `WIN_KEY` | `/mnt/c/Users/telnor/.ssh/id_ed25519` | Путь к приватному SSH-ключу в Windows |
+| `WSL_DIR` | `$HOME/.ssh` | Директория SSH в WSL (ключ копируется как `GitHub_SSH` — это имя ждёт `vault_ssh_key_path`) |
 
 ### 2. Подготовка ВМ
 
