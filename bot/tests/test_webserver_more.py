@@ -81,6 +81,25 @@ async def test_uptime_alert_forbidden(client):
     assert resp.status == 403
 
 
+async def test_uptime_alert_accepts_header_secret(client, admins):
+    """Секрет в заголовке X-Uptime-Secret — предпочтительный способ:
+    query string оседает в access-логах."""
+    resp = await client.post(
+        "/uptime-alert",
+        json={"monitor_name": "backend", "monitor_status": "offline"},
+        headers={"X-Uptime-Secret": "test-uptime-secret"},
+    )
+    assert resp.status == 200
+    assert client.bot.send_message.await_count == 1
+
+
+async def test_uptime_alert_wrong_header_forbidden(client):
+    resp = await client.post(
+        "/uptime-alert", json={}, headers={"X-Uptime-Secret": "wrong"}
+    )
+    assert resp.status == 403
+
+
 @pytest.mark.parametrize(
     ("status", "expected"),
     [

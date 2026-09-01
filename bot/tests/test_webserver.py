@@ -46,6 +46,22 @@ async def test_alert_requires_text(client):
     assert resp.status == 400
 
 
+def test_access_logger_hides_query():
+    """Access-лог не должен светить query string (?secret=... от HetrixTools)."""
+    from aiohttp.test_utils import make_mocked_request
+
+    logger = MagicMock()
+    access_logger = webserver.NoQueryAccessLogger(logger, "")
+    request = make_mocked_request("POST", "/uptime-alert?secret=SUPERSECRET")
+    response = MagicMock(status=200, body_length=7)
+
+    access_logger.log(request, response, 0.01)
+
+    logged = str(logger.info.call_args)
+    assert "SUPERSECRET" not in logged
+    assert "/uptime-alert" in logged
+
+
 async def test_alert_sends_to_admins(client, monkeypatch):
     monkeypatch.setattr(
         webserver.api,

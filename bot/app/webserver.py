@@ -2,6 +2,7 @@
 
 Поднимается рядом с polling в main.py через create_app(bot).
 """
+import hmac
 import logging
 from datetime import datetime, timedelta
 
@@ -9,6 +10,7 @@ import httpx
 from aiogram import Bot
 from aiogram.exceptions import TelegramAPIError
 from aiohttp import web
+from aiohttp.abc import AbstractAccessLogger
 
 from app.api_client import api
 from app.calendar_service import (
@@ -29,6 +31,27 @@ from app.notify import EVENT_HANDLERS, notify_voting_closed, notify_voting_opene
 logger = logging.getLogger(__name__)
 
 
+def _secret_ok(provided: str | None, expected: str) -> bool:
+    """Сравнение секретов в постоянном времени (эндпоинты доступны из интернета)."""
+    return provided is not None and hmac.compare_digest(provided, expected)
+
+
+class NoQueryAccessLogger(AbstractAccessLogger):
+    """Access-лог без query string: HetrixTools передаёт секрет как ?secret=...,
+    и стандартный формат %r оседал бы вместе с ним в логах."""
+
+    def log(self, request: web.BaseRequest, response: web.StreamResponse, time: float) -> None:
+        self.logger.info(
+            '%s "%s %s" %s %s %.3fs',
+            request.remote,
+            request.method,
+            request.path,
+            response.status,
+            response.body_length,
+            time,
+        )
+
+
 async def handle_healthz(request: web.Request) -> web.Response:
     """Проверка реальной связности с Telegram (а не только HTTP-сервера).
 
@@ -46,7 +69,7 @@ async def handle_healthz(request: web.Request) -> web.Response:
 
 async def handle_alert(request: web.Request) -> web.Response:
     """Общий канал алертов для cron: текст рассылается админам."""
-    if request.headers.get("X-Cron-Secret") != settings.cron_secret:
+    if not _secret_ok(request.headers.get("X-Cron-Secret"), settings.cron_secret):
         return web.json_response({"error": "forbidden"}, status=403)
 
     data = await request.json()
@@ -60,8 +83,7 @@ async def handle_alert(request: web.Request) -> web.Response:
 
 
 async def handle_notify(request: web.Request) -> web.Response:
-    cron_secret = request.headers.get("X-Cron-Secret")
-    if cron_secret != settings.cron_secret:
+    if not _secret_ok(request.headers.get("X-Cron-Secret"), settings.cron_secret):
         return web.json_response({"error": "forbidden"}, status=403)
 
     data = await request.json()
@@ -76,8 +98,13 @@ async def handle_notify(request: web.Request) -> web.Response:
 
 
 async def handle_uptime_alert(request: web.Request) -> web.Response:
-    """HetrixTools webhook. Secret passed as ?secret= query param."""
-    if request.query.get("secret") != settings.uptime_secret:
+    """HetrixTools webhook.
+
+    Секрет — в заголовке X-Uptime-Secret (предпочтительно) либо в ?secret=
+    (legacy: query string оседает в логах промежуточных прокси).
+    """
+    provided = request.headers.get("X-Uptime-Secret") or request.query.get("secret")
+    if not _secret_ok(provided, settings.uptime_secret):
         return web.json_response({"error": "forbidden"}, status=403)
 
     data = await request.json()
@@ -135,7 +162,7 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
       ?force=true      — игнорировать дедупликацию (для дайджеста — отправить
                           даже если уже был сегодня)
     """
-    if request.headers.get("X-Cron-Secret") != settings.cron_secret:
+    if not _secret_ok(request.headers.get("X-Cron-Secret"), settings.cron_secret):
         return web.json_response({"error": "forbidden"}, status=403)
 
     bot: Bot = request.app["bot"]

@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.dependencies import CurrentUser, DbSession, verify_bot_secret
-from app.core.security import create_jwt, verify_password
+from app.core.security import constant_time_equals, create_jwt, verify_password
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -40,7 +40,7 @@ INVALID_CREDENTIALS = "Invalid username or password"
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest, session: DbSession):
-    if data.invite_code != settings.invite_code:
+    if not constant_time_equals(data.invite_code, settings.invite_code):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid invite code")
 
     try:

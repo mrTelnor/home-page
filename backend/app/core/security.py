@@ -10,6 +10,14 @@ from app.core.config import settings
 ALGORITHM = "HS256"
 
 
+def constant_time_equals(provided: str | None, expected: str) -> bool:
+    """Сравнение секретов в постоянном времени: `!=` утекает длину совпавшего
+    префикса по времени ответа, а эти секреты принимаются с публичного API."""
+    return provided is not None and secrets.compare_digest(
+        provided.encode("utf-8"), expected.encode("utf-8")
+    )
+
+
 def generate_reset_token() -> str:
     return secrets.token_urlsafe(32)
 

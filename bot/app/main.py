@@ -10,7 +10,7 @@ from aiohttp import web
 from app.api_client import api
 from app.config import settings
 from app.handlers import main_router
-from app.webserver import create_app
+from app.webserver import NoQueryAccessLogger, create_app
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ async def set_commands(bot: Bot) -> None:
 
 async def run(bot: Bot, dp: Dispatcher) -> None:
     """Run polling + notify server on the same event loop."""
-    runner = web.AppRunner(create_app(bot))
+    runner = web.AppRunner(create_app(bot), access_log_class=NoQueryAccessLogger)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", settings.port)
     await site.start()

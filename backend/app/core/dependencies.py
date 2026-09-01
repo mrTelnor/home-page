@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.db import async_session
-from app.core.security import decode_jwt
+from app.core.security import constant_time_equals, decode_jwt
 from app.db.models.user import User
 from app.services.auth import get_user_by_id
 
@@ -73,7 +73,7 @@ def ensure_owner_or_admin(user: User, owner_id: uuid.UUID | None) -> None:
 
 async def verify_bot_secret(x_bot_secret: Annotated[str | None, Header()] = None) -> None:
     """Авторизация запросов Telegram-бота по общему секрету."""
-    if x_bot_secret != settings.bot_secret:
+    if not constant_time_equals(x_bot_secret, settings.bot_secret):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
 
 
@@ -82,7 +82,7 @@ async def verify_cron_or_admin(
     x_cron_secret: Annotated[str | None, Header()] = None,
     access_token: Annotated[str | None, Cookie()] = None,
 ) -> User | None:
-    if x_cron_secret == settings.cron_secret:
+    if constant_time_equals(x_cron_secret, settings.cron_secret):
         return None
 
     if access_token is None:
