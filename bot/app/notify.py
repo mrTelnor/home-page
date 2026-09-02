@@ -11,6 +11,12 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Сериализация событийных рассылок: cron бьёт /notify и */5-тик /check-calendar
+# (catch-up) в одну минуту (13:00/17:00), оба зовут notify_voting_*. Маркер
+# дедупа ставится ПОСЛЕ отправки, поэтому без замка второй вызов успевает
+# продублировать рассылку, пока первый ещё шлёт (гонка через await).
+_event_notify_lock = asyncio.Lock()
+
 STATUS_LABELS = {
     "collecting": "Сбор предложений",
     "voting": "Голосование",
@@ -101,56 +107,58 @@ async def notify_menu_created(bot: Bot) -> None:
 
 async def notify_voting_opened(bot: Bot) -> None:
     """Уведомить, что голосование открылось. Идемпотентно: пер-пользовательский дедуп."""
-    users = await api.get_notifiable_users()
-    if not users:
-        return
-    menu, _ = await api.get_today_menu(users[0]["tg_id"])
-    if menu is None:
-        return
-    if menu.get("status") != "voting":
-        return
-    event_key = f"voting_opened:{menu['id']}"
-    # Legacy-маркер (до перехода на пер-пользовательский дедуп): событие уже разослано целиком.
-    if has_event_sent(event_key):
-        return
+    async with _event_notify_lock:
+        users = await api.get_notifiable_users()
+        if not users:
+            return
+        menu, _ = await api.get_today_menu(users[0]["tg_id"])
+        if menu is None:
+            return
+        if menu.get("status") != "voting":
+            return
+        event_key = f"voting_opened:{menu['id']}"
+        # Legacy-маркер (до перехода на пер-пользовательский дедуп): событие уже разослано целиком.
+        if has_event_sent(event_key):
+            return
 
-    recipes = menu.get("recipes", [])
-    lines = ["🗳 Голосование за ужин открыто!", ""]
-    for r in recipes:
-        lines.append(f"  • {html_decoration.quote(r['title'])}")
-    lines.append("")
-    lines.append("Голосуй: /vote")
-    await broadcast(bot, "\n".join(lines), dedup_prefix=event_key)
+        recipes = menu.get("recipes", [])
+        lines = ["🗳 Голосование за ужин открыто!", ""]
+        for r in recipes:
+            lines.append(f"  • {html_decoration.quote(r['title'])}")
+        lines.append("")
+        lines.append("Голосуй: /vote")
+        await broadcast(bot, "\n".join(lines), dedup_prefix=event_key)
 
 
 async def notify_voting_closed(bot: Bot) -> None:
     """Уведомить о результатах голосования. Идемпотентно: пер-пользовательский дедуп."""
-    users = await api.get_notifiable_users()
-    if not users:
-        return
+    async with _event_notify_lock:
+        users = await api.get_notifiable_users()
+        if not users:
+            return
 
-    menu, _ = await api.get_today_menu(users[0]["tg_id"])
-    if menu is None:
-        return
-    if menu.get("status") != "closed":
-        return
-    event_key = f"voting_closed:{menu['id']}"
-    if has_event_sent(event_key):
-        return
-    winner_id = menu.get("winner_recipe_id")
-    results = []
-    winner_html = "Не определён"
-    for r in sorted(menu["recipes"], key=lambda x: x["votes_count"], reverse=True):
-        is_winner = r["recipe_id"] == winner_id
-        mark = " 🏆" if is_winner else ""
-        results.append(f"  • {html_decoration.quote(r['title'])} — {r['votes_count']} гол.{mark}")
-        if is_winner:
-            url = f"{settings.site_url}/recipes/{r['recipe_id']}"
-            # link() сам НЕ экранирует текст — прогоняем через quote()
-            winner_html = html_decoration.link(html_decoration.quote(r["title"]), url)
+        menu, _ = await api.get_today_menu(users[0]["tg_id"])
+        if menu is None:
+            return
+        if menu.get("status") != "closed":
+            return
+        event_key = f"voting_closed:{menu['id']}"
+        if has_event_sent(event_key):
+            return
+        winner_id = menu.get("winner_recipe_id")
+        results = []
+        winner_html = "Не определён"
+        for r in sorted(menu["recipes"], key=lambda x: x["votes_count"], reverse=True):
+            is_winner = r["recipe_id"] == winner_id
+            mark = " 🏆" if is_winner else ""
+            results.append(f"  • {html_decoration.quote(r['title'])} — {r['votes_count']} гол.{mark}")
+            if is_winner:
+                url = f"{settings.site_url}/recipes/{r['recipe_id']}"
+                # link() сам НЕ экранирует текст — прогоняем через quote()
+                winner_html = html_decoration.link(html_decoration.quote(r["title"]), url)
 
-    text = f"🎉 Голосование завершено!\n\nПобедитель: {winner_html}\n\n" + "\n".join(results)
-    await broadcast(bot, text, parse_mode="HTML", dedup_prefix=event_key)
+        text = f"🎉 Голосование завершено!\n\nПобедитель: {winner_html}\n\n" + "\n".join(results)
+        await broadcast(bot, text, parse_mode="HTML", dedup_prefix=event_key)
 
 
 async def notify_recipe_suggested(bot: Bot, suggester_name: str, recipe_title: str, exclude_tg_id: int) -> None:

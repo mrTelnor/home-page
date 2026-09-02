@@ -2,6 +2,7 @@
 
 API мокается на singleton api_client.api, дедуп mark_event_sent — на модуле notify.
 """
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, call
 
 from aiogram.exceptions import TelegramAPIError, TelegramForbiddenError, TelegramRetryAfter
@@ -42,6 +43,35 @@ def make_bot() -> MagicMock:
 
 def tg_error() -> TelegramAPIError:
     return TelegramAPIError(method=MagicMock(), message="blocked")
+
+
+async def test_notify_voting_opened_concurrent_calls_send_once(monkeypatch):
+    """Регресс (2026-09-02): crontab запускает /notify и */5-тик /check-calendar
+    в одну и ту же минуту (13:00/17:00) — оба зовут notify_voting_opened
+    конкурентно. Дедуп ставится после отправки, поэтому без сериализации
+    второй вызов успевает продублировать рассылку."""
+    make_dedup_store(monkeypatch)
+    monkeypatch.setattr(
+        api_client.api,
+        "get_notifiable_users",
+        AsyncMock(return_value=[{"tg_id": 1}, {"tg_id": 2}]),
+    )
+    monkeypatch.setattr(
+        api_client.api, "get_today_menu", AsyncMock(return_value=(MENU_VOTING, None))
+    )
+    bot = make_bot()
+
+    async def slow_send(**kwargs):
+        # Реальная отправка уступает event loop (сетевой await) — воспроизводим
+        await asyncio.sleep(0)
+
+    bot.send_message = AsyncMock(side_effect=slow_send)
+
+    await asyncio.gather(
+        notify.notify_voting_opened(bot), notify.notify_voting_opened(bot)
+    )
+
+    assert bot.send_message.await_count == 2  # по одному на пользователя, без дублей
 
 
 # --- broadcast ---
