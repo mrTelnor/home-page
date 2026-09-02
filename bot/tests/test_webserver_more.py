@@ -166,6 +166,42 @@ async def test_check_calendar_forbidden(client):
     assert resp.status == 403
 
 
+async def test_check_calendar_does_not_block_event_loop(client, admins, monkeypatch):
+    """Синхронный Google-вызов должен идти в пуле потоков: пока он «висит»,
+    event loop продолжает работать (polling/healthz не морозятся)."""
+    import asyncio
+    import time
+
+    def slow_fetch(time_min, time_max):
+        time.sleep(0.4)  # блокирующий sync-вызов Google API
+        return []
+
+    monkeypatch.setattr(webserver, "fetch_events", slow_fetch)
+    monkeypatch.setattr(webserver, "select_reminders_to_send", MagicMock(return_value=([], {})))
+    monkeypatch.setattr(webserver, "save_sent", MagicMock())
+    monkeypatch.setattr(webserver, "notify_voting_opened", AsyncMock())
+    monkeypatch.setattr(webserver, "notify_voting_closed", AsyncMock())
+
+    ticks = 0
+    stop = False
+
+    async def ticker():
+        nonlocal ticks
+        while not stop:
+            await asyncio.sleep(0.02)
+            ticks += 1
+
+    task = asyncio.create_task(ticker())
+    resp = await client.post("/check-calendar", headers=CRON_HEADERS)
+    ticks_at_return = ticks  # сколько тиков успело пройти ПОКА шёл запрос
+    stop = True
+    await task
+
+    assert resp.status == 200
+    # при блокировке loop тикер во время 0.4с fetch не двигался бы → ticks≈0
+    assert ticks_at_return >= 10, f"event loop блокировался: ticks={ticks_at_return}"
+
+
 async def test_check_calendar_digest_already_sent(client, monkeypatch):
     monkeypatch.setattr(webserver, "mark_digest_sent", MagicMock(return_value=False))
     fetch = MagicMock()

@@ -96,8 +96,38 @@ def test_build_service_ok(monkeypatch):
     monkeypatch.setattr(cs, "build", build_mock)
 
     assert cs._build_service() is fake_service
+
+
+def test_new_http_has_timeout():
+    """У httplib2-клиента Google задан таймаут — иначе подвисший запрос
+    к Google морозит поток без ограничения по времени."""
+    http = cs._new_http()
+    assert http.timeout == cs.CALENDAR_HTTP_TIMEOUT_SEC
+    assert cs.CALENDAR_HTTP_TIMEOUT_SEC > 0
+
+
+def test_build_service_passes_timeout_http(monkeypatch):
+    """_build_service отдаёт в build() http с таймаутом (через AuthorizedHttp),
+    а не голые credentials без таймаута."""
+    info = {"type": "service_account", "project_id": "test"}
+    b64 = base64.b64encode(json.dumps(info).encode()).decode()
+    monkeypatch.setattr(cs.settings, "google_service_account_b64", b64)
+
+    fake_sa = MagicMock()
+    fake_sa.Credentials.from_service_account_info.return_value = object()
+    monkeypatch.setattr(cs, "service_account", fake_sa)
+    build_mock = MagicMock(return_value=object())
+    monkeypatch.setattr(cs, "build", build_mock)
+
+    cs._build_service()
+
+    kwargs = build_mock.call_args.kwargs
+    assert "http" in kwargs
+    assert kwargs.get("credentials") is None
+    # http должен нести таймаут (напрямую или обёрнутый AuthorizedHttp)
+    inner = getattr(kwargs["http"], "http", kwargs["http"])
+    assert getattr(inner, "timeout", None) == cs.CALENDAR_HTTP_TIMEOUT_SEC
     fake_sa.Credentials.from_service_account_info.assert_called_once_with(info, scopes=cs.SCOPES)
-    build_mock.assert_called_once_with("calendar", "v3", credentials=fake_creds, cache_discovery=False)
 
 
 # --- _parse_event_start ---

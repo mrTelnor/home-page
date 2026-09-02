@@ -2,6 +2,7 @@
 
 Поднимается рядом с polling в main.py через create_app(bot).
 """
+import asyncio
 import hmac
 import logging
 from datetime import datetime, timedelta
@@ -173,7 +174,8 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
         today = datetime.now(CALENDAR_TZ).date()
         if not force and not mark_digest_sent(today):
             return web.json_response({"ok": True, "skipped": "already_sent"})
-        today_events, tomorrow_events = fetch_digest_events()
+        # Google API синхронный — в пул потоков, чтобы не морозить polling/healthz
+        today_events, tomorrow_events = await asyncio.to_thread(fetch_digest_events)
         menu = await _fetch_today_menu()
         text = format_digest(today_events, tomorrow_events, menu=menu)
         await _send_to_admins(bot, text)
@@ -189,7 +191,7 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
     now = datetime.now(CALENDAR_TZ)
     time_min = now - timedelta(minutes=5)
     time_max = now + timedelta(hours=25)
-    events = fetch_events(time_min, time_max)
+    events = await asyncio.to_thread(fetch_events, time_min, time_max)
     reminders, updated_sent = select_reminders_to_send(now, events)
     save_sent(updated_sent)
 

@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+import google_auth_httplib2
+import httplib2
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -28,6 +30,13 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 TZ = zoneinfo.ZoneInfo("Europe/Moscow")
 HOUR_REMINDER_MIN = 60
 HOUR_REMINDER_TOLERANCE_MIN = 4  # window for cron jitter
+# Таймаут HTTP-клиента Google: по умолчанию httplib2 ждёт ответа бесконечно,
+# и подвисший запрос держал бы поток (а раньше — и event loop) без ограничения.
+CALENDAR_HTTP_TIMEOUT_SEC = 15
+
+
+def _new_http() -> httplib2.Http:
+    return httplib2.Http(timeout=CALENDAR_HTTP_TIMEOUT_SEC)
 
 
 @dataclass(frozen=True)
@@ -69,7 +78,8 @@ def _build_service():
         logger.exception("Failed to decode GOOGLE_SERVICE_ACCOUNT_B64")
         return None
     creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
-    return build("calendar", "v3", credentials=creds, cache_discovery=False)
+    authed_http = google_auth_httplib2.AuthorizedHttp(creds, http=_new_http())
+    return build("calendar", "v3", http=authed_http, cache_discovery=False)
 
 
 def _parse_event_start(raw_event: dict) -> tuple[datetime, datetime | None, bool]:
