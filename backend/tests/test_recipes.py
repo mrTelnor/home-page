@@ -144,6 +144,8 @@ async def test_delete_recipe_not_found(authed_client: AsyncClient):
 async def test_delete_recipe_in_active_voting(
     authed_client: AsyncClient, admin_client: AsyncClient
 ):
+    """Рецепт в активном голосовании удаляется soft-delete (204): пропадает из
+    книги, но сохраняется в меню с настоящим названием."""
     created = await admin_client.post("/api/recipes", json=_sample_recipe_payload())
     recipe_id = created.json()["id"]
 
@@ -152,11 +154,18 @@ async def test_delete_recipe_in_active_voting(
     await admin_client.post("/api/recipes", json=_sample_recipe_payload("Каша"))
 
     # Создать меню и финализировать — рецепт попадёт в активное голосование
-    await admin_client.post("/api/menus/create-daily", json={})
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
     await admin_client.post("/api/menus/finalize", json={})
 
     response = await admin_client.delete(f"/api/recipes/{recipe_id}")
-    assert response.status_code == 409
+    assert response.status_code == 204
+
+    # Пропал из книги, но остался в меню с названием
+    listed = (await admin_client.get("/api/recipes")).json()
+    assert recipe_id not in {x["id"] for x in listed}
+    menu_after = (await admin_client.get(f"/api/menus/{menu['id']}")).json()
+    mr = next(x for x in menu_after["recipes"] if x["recipe_id"] == recipe_id)
+    assert mr["title"] == created.json()["title"]
 
 
 async def test_admin_can_delete_any_recipe(

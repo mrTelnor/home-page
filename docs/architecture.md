@@ -123,6 +123,7 @@
 - `recipes.glyph_kind` ∈ {`soup`, `noodles`, `eggs`, `pancakes`, `pelmeni`, `pie`, `pizza`, `salad`, `steak`, `chicken`, `toast`, `roast`, `shashlik`, `pot`, `bread`} — тип SVG-иконки. NULL → авто-выбор по хешу названия
 - `recipes.glyph_color` ∈ {`red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `cream`} — палитра иконки. NULL → авто-выбор
 - `recipes.image_url` — локальный путь фото (`/api/recipe-images/<id>.<ext>`). Backend скачивает фото по URL из формы (`photo_url`), хостит в Docker volume `recipe_images`, раздаёт через StaticFiles. NULL → показывается SVG-глиф (фолбэк также при ошибке загрузки `<img>`)
+- `recipes.deleted_at` — soft-delete: рецепт, задействованный в истории меню, не удаляется физически (помечается `deleted_at`, ингредиенты и фото вычищаются), прячется из книги/поиска/новых меню, но сохраняет название для истории голосований. Неиспользуемый рецепт удаляется физически
 - Username нормализуется в lowercase (регистронезависимость)
 
 ### Авторизация

@@ -231,25 +231,32 @@ async def test_cast_vote_twice_same_user_raises(session: AsyncSession, author: U
 
 # ---------- delete_recipe (services/recipe.py) ----------
 
-async def test_delete_recipe_in_menu_blocked_by_fk(session: AsyncSession, author: User):
-    """Рецепт, состоящий в меню, удалить нельзя: FK daily_menu_recipes.recipe_id
-    задан БЕЗ ondelete (models/menu.py:30), у Recipe нет relationship на
-    DailyMenuRecipe → Postgres кидает FK violation (IntegrityError) на commit.
-    CI-ревью: поведение опирается на серверный FK (NO ACTION) — проверяется только на Postgres.
-    """
+async def test_delete_recipe_in_menu_soft_deletes(session: AsyncSession, author: User):
+    """Рецепт, состоящий в меню, soft-delete: строка остаётся (deleted_at выставлен,
+    ингредиенты вычищены), связь с меню и название сохраняются для истории,
+    но get_recipe_by_id его больше не отдаёт."""
     recipe = await _create_recipe(session, "InMenu", author.id)
+    session.add(Ingredient(id=uuid4(), recipe_id=recipe.id, name="соль", amount="1", unit="г"))
+    await session.commit()
     menu = await _create_menu_with_recipes(session, [recipe])
-    # id снимаем до rollback: после него объекты протухают, а async lazy-load
-    # вне greenlet-контекста падает MissingGreenlet
     recipe_id = recipe.id
     menu_id = menu.id
 
-    with pytest.raises(IntegrityError):
-        await delete_recipe(session, recipe)
-    await session.rollback()
+    await delete_recipe(session, recipe)
 
-    # Рецепт и связь с меню на месте
-    assert await get_recipe_by_id(session, recipe_id) is not None
+    # Живой выборкой не отдаётся
+    assert await get_recipe_by_id(session, recipe_id) is None
+    # Но строка на месте: помечена, ингредиенты вычищены, название сохранено
+    row = (
+        await session.execute(select(Recipe).where(Recipe.id == recipe_id))
+    ).scalar_one()
+    assert row.deleted_at is not None
+    assert row.title == "InMenu"
+    ings = (
+        await session.execute(select(Ingredient).where(Ingredient.recipe_id == recipe_id))
+    ).scalars().all()
+    assert len(ings) == 0
+    # Связь с меню сохранена
     result = await session.execute(select(DailyMenuRecipe).where(DailyMenuRecipe.menu_id == menu_id))
     assert len(result.scalars().all()) == 1
 

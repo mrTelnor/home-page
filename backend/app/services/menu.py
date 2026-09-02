@@ -66,7 +66,7 @@ async def get_all_menus(session: AsyncSession) -> list[DailyMenu]:
 
 
 async def create_daily_menu(session: AsyncSession, menu_date: date) -> DailyMenu:
-    result = await session.execute(select(Recipe.id))
+    result = await session.execute(select(Recipe.id).where(Recipe.deleted_at.is_(None)))
     all_recipe_ids = [row[0] for row in result.all()]
 
     rng = secrets.SystemRandom()
@@ -312,5 +312,8 @@ async def delete_menu(session: AsyncSession, menu: DailyMenu) -> None:
 
 
 async def recipe_exists(session: AsyncSession, recipe_id: uuid.UUID) -> bool:
-    result = await session.execute(select(Recipe.id).where(Recipe.id == recipe_id))
+    """Живой рецепт (soft-deleted нельзя предложить в меню)."""
+    result = await session.execute(
+        select(Recipe.id).where(Recipe.id == recipe_id, Recipe.deleted_at.is_(None))
+    )
     return result.scalar_one_or_none() is not None

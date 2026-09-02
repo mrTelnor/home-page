@@ -25,6 +25,10 @@ class Recipe(Base, UUIDMixin, TimestampMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # Soft-delete: рецепт, задействованный в истории меню, не удаляется физически,
+    # а помечается — прячется из книги/поиска/новых меню, но сохраняет название
+    # для истории голосований. Ингредиенты и фото при этом вычищаются (снижаем вес).
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     ingredients: Mapped[list["Ingredient"]] = relationship(back_populates="recipe", cascade="all, delete-orphan")
 

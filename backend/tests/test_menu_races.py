@@ -57,33 +57,89 @@ async def test_delete_menu_with_votes(admin_client: AsyncClient, authed_client: 
     assert len(r.json()) == 3
 
 
-# ---------- DELETE рецепта, задействованного в меню ----------
+# ---------- DELETE рецепта, задействованного в меню (soft-delete) ----------
 
 
-async def test_delete_recipe_in_collecting_menu_conflict(admin_client: AsyncClient):
-    """Рецепт в меню со статусом collecting: 409, а не 500 (раньше проверялся только voting)."""
+async def test_delete_recipe_in_collecting_menu_soft_deletes(admin_client: AsyncClient):
+    """Рецепт в меню (collecting): 204 soft-delete — пропадает из книги,
+    но меню сохраняет его название, а не '500'."""
     await _create_recipes(admin_client, 3)
     menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
-    recipe_id = menu["recipes"][0]["recipe_id"]
+    target = menu["recipes"][0]
+    recipe_id = target["recipe_id"]
+    title = target["title"]
 
     r = await admin_client.delete(f"/api/recipes/{recipe_id}")
-    assert r.status_code == 409
+    assert r.status_code == 204
+
+    # Из книги исчез
+    listed = (await admin_client.get("/api/recipes")).json()
+    assert recipe_id not in {x["id"] for x in listed}
+    # Деталь — 404
+    assert (await admin_client.get(f"/api/recipes/{recipe_id}")).status_code == 404
+    # Но меню всё ещё показывает настоящее название
+    menu_after = (await admin_client.get(f"/api/menus/{menu['id']}")).json()
+    mr = next(x for x in menu_after["recipes"] if x["recipe_id"] == recipe_id)
+    assert mr["title"] == title
 
 
-async def test_delete_recipe_in_closed_menu_conflict(
+async def test_delete_recipe_in_closed_menu_soft_deletes(
     admin_client: AsyncClient, authed_client: AsyncClient
 ):
-    """Рецепт-победитель закрытого меню: 409, а не 500."""
+    """Рецепт-победитель закрытого меню: 204 soft-delete, победитель в истории сохраняет название."""
     await _create_recipes(admin_client, 3)
     menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
-    recipe_id = menu["recipes"][0]["recipe_id"]
+    target = menu["recipes"][0]
+    recipe_id = target["recipe_id"]
+    title = target["title"]
     await admin_client.post("/api/menus/finalize", json={})
     await authed_client.post(f"/api/menus/{menu['id']}/vote", json={"recipe_id": recipe_id})
     closed = (await admin_client.post("/api/menus/close-voting", json={})).json()
     assert closed["winner_recipe_id"] == recipe_id
 
     r = await admin_client.delete(f"/api/recipes/{recipe_id}")
-    assert r.status_code == 409
+    assert r.status_code == 204
+
+    menu_after = (await admin_client.get(f"/api/menus/{menu['id']}")).json()
+    assert menu_after["winner_recipe_id"] == recipe_id
+    mr = next(x for x in menu_after["recipes"] if x["recipe_id"] == recipe_id)
+    assert mr["title"] == title
+
+
+async def test_delete_unused_recipe_hard_deletes(admin_client: AsyncClient):
+    """Рецепт нигде не используется — удаляется физически (soft-delete не нужен)."""
+    from tests.conftest import TestSessionMaker
+    from sqlalchemy import select as _select
+    from app.db.models.recipe import Recipe as _Recipe
+    from uuid import UUID as _UUID
+
+    ids = await _create_recipes(admin_client, 1)
+    r = await admin_client.delete(f"/api/recipes/{ids[0]}")
+    assert r.status_code == 204
+
+    async with TestSessionMaker() as s:
+        row = (await s.execute(_select(_Recipe).where(_Recipe.id == _UUID(ids[0])))).scalar_one_or_none()
+        assert row is None, "неиспользуемый рецепт должен удаляться физически"
+
+
+async def test_deleted_recipe_excluded_from_search_and_menu_pick(
+    admin_client: AsyncClient, authed_client: AsyncClient
+):
+    """Soft-deleted рецепт не находится поиском, не берётся в новые меню и не предлагается."""
+    await _create_recipes(admin_client, 3)
+    menu = (await admin_client.post("/api/menus/create-daily", json={})).json()
+    victim = menu["recipes"][0]["recipe_id"]
+    victim_title = menu["recipes"][0]["title"]
+
+    await admin_client.delete(f"/api/recipes/{victim}")
+
+    # Поиск по названию его не находит
+    found = (await admin_client.get(f"/api/recipes/search?q={victim_title}")).json()
+    assert victim not in {x["id"] for x in found}
+
+    # Предложить его в меню нельзя — 404 (рецепт «не существует»)
+    r = await authed_client.post(f"/api/menus/{menu['id']}/suggest", json={"recipe_id": victim})
+    assert r.status_code == 404
 
 
 # ---------- Дубль предложения (гонка мимо check-then-insert) ----------

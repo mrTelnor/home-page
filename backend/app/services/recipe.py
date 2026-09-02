@@ -51,14 +51,21 @@ async def create_recipe(
 
 async def get_all_recipes(session: AsyncSession) -> list[Recipe]:
     result = await session.execute(
-        select(Recipe).options(selectinload(Recipe.ingredients)).order_by(Recipe.created_at.desc())
+        select(Recipe)
+        .where(Recipe.deleted_at.is_(None))
+        .options(selectinload(Recipe.ingredients))
+        .order_by(Recipe.created_at.desc())
     )
     return list(result.scalars().all())
 
 
 async def get_recipe_by_id(session: AsyncSession, recipe_id: uuid.UUID) -> Recipe | None:
+    """Живой рецепт по id. Soft-deleted не возвращается (деталь/редактирование → 404).
+    Для истории меню название резолвит build_menu_response отдельным запросом."""
     result = await session.execute(
-        select(Recipe).where(Recipe.id == recipe_id).options(selectinload(Recipe.ingredients))
+        select(Recipe)
+        .where(Recipe.id == recipe_id, Recipe.deleted_at.is_(None))
+        .options(selectinload(Recipe.ingredients))
     )
     return result.scalar_one_or_none()
 
@@ -120,15 +127,30 @@ async def is_recipe_used_in_menus(session: AsyncSession, recipe_id: uuid.UUID) -
 
 
 async def delete_recipe(session: AsyncSession, recipe: Recipe) -> None:
+    """Удалить рецепт. Если он задействован в истории меню — soft-delete
+    (помечаем deleted_at, вычищаем ингредиенты и фото, сохраняем название);
+    иначе — физическое удаление."""
+    from datetime import UTC, datetime
+
+    from sqlalchemy import delete as sa_delete
+
     delete_recipe_image(recipe.image_url)
-    await session.delete(recipe)
-    await session.commit()
+    recipe.image_url = None
+
+    if await is_recipe_used_in_menus(session, recipe.id):
+        # bulk-DELETE ингредиентов (снижаем вес; истории они не нужны) без загрузки коллекции
+        await session.execute(sa_delete(Ingredient).where(Ingredient.recipe_id == recipe.id))
+        recipe.deleted_at = datetime.now(UTC)
+        await session.commit()
+    else:
+        await session.delete(recipe)
+        await session.commit()
 
 
 async def search_recipes(session: AsyncSession, query: str) -> list[Recipe]:
     result = await session.execute(
         select(Recipe)
-        .where(Recipe.title.ilike(f"%{query}%"))
+        .where(Recipe.title.ilike(f"%{query}%"), Recipe.deleted_at.is_(None))
         .options(selectinload(Recipe.ingredients))
         .order_by(Recipe.title)
     )
