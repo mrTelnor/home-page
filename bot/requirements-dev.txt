@@ -1,6 +1,6 @@
 -r requirements.txt
 pytest>=8.0
 pytest-asyncio>=1.4.0
-pytest-mock>=3.12
+pytest-mock>=3.15.1
 respx>=0.23.1
 tzdata>=2024.1  # на Windows нет системной tz-базы для ZoneInfo("Europe/Moscow")
