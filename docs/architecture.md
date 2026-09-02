@@ -132,6 +132,7 @@
 - **Bearer token** для бота — JWT в заголовке `Authorization: Bearer <token>`
 - **Гостевой доступ** — `GET /api/recipes`, `GET /api/recipes/{id}`, `GET /api/recipes/search` открыты без авторизации (просмотр базы рецептов)
 - **Регистрация по инвайт-коду** (в Ansible Vault)
+- **Rate limiting** (slowapi, in-memory) на публичных auth-эндпоинтах по IP: login 10/мин, register 5/мин, password-reset/request 5/мин. Реальный IP — из `X-Real-Ip` (выставляет Traefik). Отключается флагом `RATE_LIMIT_ENABLED=false`
 - **Пароль** — bcrypt (passlib + bcrypt 4.0 pinned), смена через `/profile`
 - **Роли:** `user` (по умолчанию), `admin`
 - **Привязка Telegram** через Login Widget на странице `/profile` (HMAC-проверка через `TELEGRAM_BOT_TOKEN`)

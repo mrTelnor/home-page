@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     email_from: str = "Telnor <noreply@telnor.ru>"
     reset_token_ttl_minutes: int = 60
     email_change_lock_days: int = 7
+    rate_limit_enabled: bool = True
 
     model_config = {"env_file": ".env"}
 

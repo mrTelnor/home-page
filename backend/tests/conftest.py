@@ -17,6 +17,9 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-bot-token")
 os.environ.setdefault("TELEGRAM_BOT_USERNAME", "test_bot")
 os.environ.setdefault("BOT_SECRET", "test-bot-secret")
 os.environ.setdefault("COOKIE_SECURE", "false")
+# Лимитер по умолчанию выключен в тестах (иначе многочисленные login тестов
+# упрутся в 429); тесты rate limiting включают его точечно.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 # Дефолт /app/recipe_images недоступен в CI/локально (нет прав на /app);
 # app.main делает makedirs на импорте — направляем в временную папку.
 os.environ.setdefault("RECIPE_IMAGES_DIR", os.path.join(tempfile.gettempdir(), "test_recipe_images"))

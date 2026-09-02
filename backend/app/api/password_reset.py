@@ -1,9 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.core.config import settings
 from app.core.dependencies import AdminUser, DbSession
+from app.core.ratelimit import PASSWORD_RESET_LIMIT, limiter
 from app.schemas.auth import AdminUserResponse, PasswordResetConfirm, PasswordResetRequest, ResetLinkResponse
 from app.services.auth import get_user_by_id
 from app.services.password_reset import (
@@ -18,7 +19,8 @@ router = APIRouter(prefix="/auth/password-reset", tags=["password-reset"])
 
 
 @router.post("/request")
-async def password_reset_request(data: PasswordResetRequest, session: DbSession):
+@limiter.limit(PASSWORD_RESET_LIMIT)
+async def password_reset_request(request: Request, data: PasswordResetRequest, session: DbSession):
     return await request_reset(session, data.identifier, data.channel)
 
 

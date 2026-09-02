@@ -1,10 +1,11 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.dependencies import CurrentUser, DbSession, verify_bot_secret
+from app.core.ratelimit import LOGIN_LIMIT, REGISTER_LIMIT, limiter
 from app.core.security import constant_time_equals, create_jwt, verify_password
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -39,7 +40,8 @@ INVALID_CREDENTIALS = "Invalid username or password"
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(data: RegisterRequest, session: DbSession):
+@limiter.limit(REGISTER_LIMIT)
+async def register(request: Request, data: RegisterRequest, session: DbSession):
     if not constant_time_equals(data.invite_code, settings.invite_code):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid invite code")
 
@@ -53,7 +55,8 @@ async def register(data: RegisterRequest, session: DbSession):
 
 
 @router.post("/login")
-async def login(data: LoginRequest, response: Response, session: DbSession):
+@limiter.limit(LOGIN_LIMIT)
+async def login(request: Request, data: LoginRequest, response: Response, session: DbSession):
     user = await authenticate_user(session, data.username, data.password)
     if user is None:
         logger.warning("Failed login attempt for username: %s", data.username)

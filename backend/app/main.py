@@ -5,6 +5,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
@@ -14,6 +17,7 @@ from app.api.password_reset import router as password_reset_router
 from app.api.recipes import router as recipes_router
 from app.core.config import settings
 from app.core.db import dispose_engine
+from app.core.ratelimit import limiter
 
 logging.basicConfig(
     level=settings.log_level.upper(),
@@ -30,6 +34,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Home Page API", lifespan=lifespan)
+
+# Rate limiting: лимитер + обработчик 429 + middleware (учитывает @limiter.limit)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
