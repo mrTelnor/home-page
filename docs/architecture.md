@@ -39,7 +39,7 @@
 - IP-whitelist middleware для админ-панелей (Traefik, Portainer) и Swagger UI
 
 ### Firewall
-- **firewalld** — порты 80/443/9922, PostgreSQL 5432 ограничен домашним IP через rich rule
+- **firewalld** — порты 80/443/9922; PostgreSQL 5432 публикуется только на `127.0.0.1` (доступ снаружи — через SSH-туннель `ssh -L 5432:localhost:5432 homepage`), поэтому прежнее rich-rule для домашнего IP убрано
 - Docker-подсеть (172.16.0.0/12) в trusted zone
 
 ### VPN для бота
@@ -122,7 +122,7 @@
 - `users.notifications_enabled`: управление уведомлениями через бота (default: true)
 - `recipes.glyph_kind` ∈ {`soup`, `noodles`, `eggs`, `pancakes`, `pelmeni`, `pie`, `pizza`, `salad`, `steak`, `chicken`, `toast`, `roast`, `shashlik`, `pot`, `bread`} — тип SVG-иконки. NULL → авто-выбор по хешу названия
 - `recipes.glyph_color` ∈ {`red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `cream`} — палитра иконки. NULL → авто-выбор
-- `recipes.image_url` — локальный путь фото (`/api/recipe-images/<id>.<ext>`). Backend скачивает фото по URL из формы (`photo_url`), хостит в Docker volume `recipe_images`, раздаёт через StaticFiles. NULL → показывается SVG-глиф (фолбэк также при ошибке загрузки `<img>`)
+- `recipes.image_url` — локальный путь фото (`/api/recipe-images/<id>-<суффикс>.<ext>`). Backend скачивает фото по URL из формы (`photo_url`), хостит в Docker volume `recipe_images`, раздаёт через StaticFiles. NULL → показывается SVG-глиф (фолбэк также при ошибке загрузки `<img>`). Скачивание защищено от SSRF: хост резолвится и отклоняется, если ведёт в приватный/loopback/link-local диапазон (проверка на каждом редирект-хопе), редиректы обрабатываются вручную, размер режется потоково (лимит 5 МБ)
 - `recipes.deleted_at` — soft-delete: рецепт, задействованный в истории меню, не удаляется физически (помечается `deleted_at`, ингредиенты и фото вычищаются), прячется из книги/поиска/новых меню, но сохраняет название для истории голосований. Неиспользуемый рецепт удаляется физически
 - Username нормализуется в lowercase (регистронезависимость)
 

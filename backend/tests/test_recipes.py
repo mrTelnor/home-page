@@ -359,13 +359,29 @@ async def test_update_recipe_replaces_photo_same_extension(authed_client: AsyncC
     from app.services import recipe_image
 
     monkeypatch.setattr(recipe_image.settings, "recipe_images_dir", str(tmp_path))
+    # отключаем реальную DNS-проверку и мокаем потоковую загрузку (код использует client.stream)
+    async def _noop(*a, **kw):
+        return None
 
-    async def fake_get(self, url, **kwargs):
-        request = httpx.Request("GET", url)
-        return httpx.Response(200, content=b"\xff\xd8" + url.encode(),
-                              headers={"content-type": "image/jpeg"}, request=request)
+    monkeypatch.setattr(recipe_image, "_ensure_public_host", _noop)
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", fake_get)
+    class _Stream:
+        def __init__(self, url):
+            self._resp = httpx.Response(
+                200, content=b"\xff\xd8" + url.encode(),
+                headers={"content-type": "image/jpeg"}, request=httpx.Request("GET", url),
+            )
+
+        async def __aenter__(self):
+            return self._resp
+
+        async def __aexit__(self, *exc):
+            return False
+
+    def fake_stream(self, method, url, **kwargs):
+        return _Stream(url)
+
+    monkeypatch.setattr(httpx.AsyncClient, "stream", fake_stream)
 
     create = await authed_client.post("/api/recipes", json={
         "title": "Замена фото", "servings": 2, "ingredients": [],
