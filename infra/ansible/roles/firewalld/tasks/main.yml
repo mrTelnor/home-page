@@ -39,12 +39,15 @@
     immediate: true
     state: enabled
 
-- name: Allow PostgreSQL only from home IP
+# PostgreSQL публикуется только на 127.0.0.1 (docker-compose), снаружи доступа нет —
+# прежнее rich-rule для домашнего IP больше не нужно и удаляется (state: disabled).
+# Доступ к БД снаружи — через SSH-туннель: ssh -L 5432:localhost:5432 homepage
+- name: Remove obsolete PostgreSQL home-IP rule (port now bound to 127.0.0.1)
   ansible.posix.firewalld:
     rich_rule: 'rule family="ipv4" source address="{{ vault_home_ip }}" port port="5432" protocol="tcp" accept'
     permanent: true
     immediate: true
-    state: enabled
+    state: disabled
 
 - name: Remove default SSH service (port 22)
   ansible.posix.firewalld:

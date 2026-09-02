@@ -58,7 +58,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      # Только localhost: доступ к БД снаружи — через SSH-туннель
+      # (`ssh -L 5432:localhost:5432 homepage`). Публикация на 0.0.0.0
+      # опасна — Docker вставляет правила в обход firewalld-зон.
+      - "127.0.0.1:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -163,6 +166,13 @@ services:
       - bot_data:/data
     networks:
       - web
+    healthcheck:
+      # /healthz реально дёргает Telegram get_me — ловит «HTTP жив, polling мёртв»
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     depends_on:
       backend:
         condition: service_healthy
