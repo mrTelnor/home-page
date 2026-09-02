@@ -1,3 +1,10 @@
+# Единая ротация логов: без max-size json-file растёт до заполнения диска.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 networks:
   web:
     name: web
@@ -12,10 +19,14 @@ volumes:
   recipe_images:
 
 services:
+  # mem_limit на каждом сервисе: ВМ всего 2 ГБ, без потолков один распухший
+  # процесс валит OOM-киллером всю машину вместе с ботом и постгресом.
   traefik:
     image: traefik:v3.6
     container_name: traefik
     restart: unless-stopped
+    mem_limit: 128m
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
@@ -40,6 +51,8 @@ services:
     image: postgres:16
     container_name: postgres
     restart: unless-stopped
+    mem_limit: 512m
+    logging: *default-logging
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -62,6 +75,8 @@ services:
       context: ./backend
     container_name: backend
     restart: unless-stopped
+    mem_limit: 384m
+    logging: *default-logging
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
@@ -108,6 +123,8 @@ services:
       context: ./cron
     container_name: cron
     restart: unless-stopped
+    mem_limit: 128m
+    logging: *default-logging
     environment:
       CRON_SECRET: ${CRON_SECRET}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -129,6 +146,8 @@ services:
       context: ./bot
     container_name: bot
     restart: unless-stopped
+    mem_limit: 256m
+    logging: *default-logging
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       BOT_SECRET: ${BOT_SECRET}
@@ -163,6 +182,8 @@ services:
         VITE_TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
     container_name: frontend
     restart: unless-stopped
+    mem_limit: 64m
+    logging: *default-logging
     networks:
       - web
     labels:
@@ -177,6 +198,8 @@ services:
     image: portainer/portainer-ce:2.40.0
     container_name: portainer
     restart: unless-stopped
+    mem_limit: 128m
+    logging: *default-logging
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - portainer_data:/data
