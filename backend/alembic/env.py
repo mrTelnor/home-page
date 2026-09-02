@@ -6,19 +6,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+# Импорт пакета целиком регистрирует ВСЕ модели: поимённый список однажды
+# отстал (PasswordResetToken), и autogenerate предложил бы DROP TABLE.
+import app.db.models  # noqa: F401
+from alembic import context
 from app.core.config import settings
 from app.db.base import Base
-from app.db.models import (  # noqa: F401 — imports trigger model registration
-    DailyMenu,
-    DailyMenuRecipe,
-    Ingredient,
-    Recipe,
-    User,
-    Vote,
-)
 
 config = context.config
 if config.config_file_name is not None:

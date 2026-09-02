@@ -13,11 +13,12 @@ from app.schemas.menu import (
     VoteRequest,
 )
 from app.services.menu import (
+    SuggestionLimitExceeded,
+    SuggestionsClosed,
     build_menu_response,
     cancel_vote,
     cast_vote,
     close_voting,
-    count_user_suggestions,
     create_daily_menu,
     delete_menu,
     finalize_menu,
@@ -42,7 +43,13 @@ async def create_daily(data: CreateDailyRequest, session: DbSession, _: CronOrAd
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Menu for this date already exists")
 
-    menu = await create_daily_menu(session, menu_date)
+    try:
+        menu = await create_daily_menu(session, menu_date)
+    except IntegrityError as exc:
+        # Гонка: конкурентный вызов создал меню между проверкой и вставкой (UNIQUE date)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Menu for this date already exists"
+        ) from exc
     return await build_menu_response(session, menu)
 
 
@@ -66,11 +73,18 @@ async def suggest(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recipe already in menu")
 
     max_suggestions = 3 if user.role == "admin" else 1
-    current = await count_user_suggestions(session, menu.id, user.id)
-    if current >= max_suggestions:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Suggestion limit reached")
-
-    await suggest_recipe(session, menu, data.recipe_id, user.id)
+    # Лимит и статус повторно проверяются в сервисе под FOR UPDATE,
+    # дубль рецепта ловит UNIQUE(menu_id, recipe_id) — гонки дают 400/409, а не 500
+    try:
+        await suggest_recipe(session, menu, data.recipe_id, user.id, max_suggestions)
+    except SuggestionLimitExceeded:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Suggestion limit reached") from None
+    except SuggestionsClosed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Menu is not accepting suggestions"
+        ) from None
+    except IntegrityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recipe already in menu") from exc
     menu = await get_menu_by_id(session, menu.id)
     return await build_menu_response(session, menu, user.id)
 

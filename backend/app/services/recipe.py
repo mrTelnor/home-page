@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models.menu import DailyMenu, DailyMenuRecipe
+from app.db.models.menu import DailyMenuRecipe
 from app.db.models.recipe import Ingredient, Recipe
 from app.services.recipe_image import delete_recipe_image, download_recipe_image
 
@@ -107,11 +107,14 @@ async def update_recipe(
     return recipe
 
 
-async def is_recipe_in_active_voting(session: AsyncSession, recipe_id: uuid.UUID) -> bool:
+async def is_recipe_used_in_menus(session: AsyncSession, recipe_id: uuid.UUID) -> bool:
+    """Рецепт задействован хоть в одном меню (любого статуса).
+
+    Проверка только по status == "voting" была неполной: рецепт из collecting-
+    или closed-меню упирался в FK (daily_menu_recipes/votes/winner) и давал 500.
+    """
     result = await session.execute(
-        select(DailyMenuRecipe)
-        .join(DailyMenu, DailyMenuRecipe.menu_id == DailyMenu.id)
-        .where(DailyMenuRecipe.recipe_id == recipe_id, DailyMenu.status == "voting")
+        select(DailyMenuRecipe.id).where(DailyMenuRecipe.recipe_id == recipe_id).limit(1)
     )
     return result.scalar_one_or_none() is not None
 

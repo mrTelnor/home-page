@@ -9,7 +9,7 @@ from app.services.recipe import (
     delete_recipe,
     get_all_recipes,
     get_recipe_by_id,
-    is_recipe_in_active_voting,
+    is_recipe_used_in_menus,
     search_recipes,
     update_recipe,
 )
@@ -87,7 +87,10 @@ async def delete(recipe_id: uuid.UUID, session: DbSession, user: CurrentUser):
     if recipe is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECIPE_NOT_FOUND)
     ensure_owner_or_admin(user, recipe.author_id)
-    if await is_recipe_in_active_voting(session, recipe_id):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Recipe is in active voting")
+    if await is_recipe_used_in_menus(session, recipe_id):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Recipe is used in a menu and cannot be deleted",
+        )
 
     await delete_recipe(session, recipe)

@@ -4,6 +4,7 @@ import uuid
 from datetime import date
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,6 +13,29 @@ from app.db.models.recipe import Recipe
 from app.schemas.menu import MenuRecipeResponse, MenuResponse
 
 logger = logging.getLogger(__name__)
+
+
+class SuggestionLimitExceeded(Exception):
+    """Пользователь исчерпал лимит предложений в это меню."""
+
+
+class SuggestionsClosed(Exception):
+    """Меню уже не в статусе collecting (закрылось между проверкой и вставкой)."""
+
+
+async def _lock_menu(session: AsyncSession, menu_id: uuid.UUID) -> DailyMenu:
+    """SELECT ... FOR UPDATE по строке меню: сериализует конкурентные мутации.
+
+    populate_existing — объект мог быть уже загружен в сессию с устаревшими
+    (или грязными) атрибутами; перечитываем состояние из БД принудительно.
+    """
+    result = await session.execute(
+        select(DailyMenu)
+        .where(DailyMenu.id == menu_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return result.scalar_one()
 
 
 async def get_menu_by_date(session: AsyncSession, menu_date: date) -> DailyMenu | None:
@@ -61,13 +85,34 @@ async def create_daily_menu(session: AsyncSession, menu_date: date) -> DailyMenu
 
 
 async def suggest_recipe(
-    session: AsyncSession, menu: DailyMenu, recipe_id: uuid.UUID, user_id: uuid.UUID
+    session: AsyncSession,
+    menu: DailyMenu,
+    recipe_id: uuid.UUID,
+    user_id: uuid.UUID,
+    max_suggestions: int = 1,
 ) -> DailyMenuRecipe:
+    """Добавить предложение. Лимит и статус проверяются под блокировкой меню —
+    два параллельных запроса не обойдут лимит; дубль рецепта ловит
+    UNIQUE(menu_id, recipe_id) → IntegrityError (роутер маппит в 409).
+    """
+    locked = await _lock_menu(session, menu.id)
+    if locked.status != "collecting":
+        await session.rollback()
+        raise SuggestionsClosed
+    current = await count_user_suggestions(session, menu.id, user_id)
+    if current >= max_suggestions:
+        await session.rollback()
+        raise SuggestionLimitExceeded
+
     menu_recipe = DailyMenuRecipe(
         id=uuid.uuid4(), menu_id=menu.id, recipe_id=recipe_id, source="user", added_by=user_id
     )
     session.add(menu_recipe)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise
     await session.refresh(menu_recipe)
     # Инвалидируем кэш menu, чтобы последующий get_menu_by_id вернул актуальную коллекцию
     await session.refresh(menu, ["menu_recipes"])
@@ -97,11 +142,16 @@ async def is_recipe_in_menu(session: AsyncSession, menu_id: uuid.UUID, recipe_id
 
 
 async def finalize_menu(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
-    menu.status = "voting"
+    locked = await _lock_menu(session, menu.id)
+    if locked.status != "collecting":
+        # Конкурентный вызов уже финализировал/закрыл — идемпотентно возвращаем как есть
+        await session.commit()
+        return await get_menu_by_id(session, menu.id)
+    locked.status = "voting"
     await session.commit()
-    await session.refresh(menu, ["menu_recipes"])
-    logger.info("Menu %s finalized, voting opened", menu.date)
-    return menu
+    await session.refresh(locked, ["menu_recipes"])
+    logger.info("Menu %s finalized, voting opened", locked.date)
+    return locked
 
 
 async def cast_vote(
@@ -134,35 +184,50 @@ async def cancel_vote(
 
 
 async def close_voting(session: AsyncSession, menu: DailyMenu) -> DailyMenu:
+    """Закрыть голосование и определить победителя.
+
+    Статус перечитывается под FOR UPDATE: конкурентный второй вызов дождётся
+    первого, увидит closed и НЕ пересчитает победителя. Голоса и состав меню
+    читаются внутри той же транзакции — голос, пришедший позже, не в счёте,
+    но и не потеряется из БД.
+    """
+    locked = await _lock_menu(session, menu.id)
+    if locked.status == "closed":
+        await session.commit()
+        return await get_menu_by_id(session, menu.id)
+
     result = await session.execute(
         select(Vote.recipe_id, func.count().label("cnt"))
-        .where(Vote.menu_id == menu.id)
+        .where(Vote.menu_id == locked.id)
         .group_by(Vote.recipe_id)
     )
     vote_counts = {row.recipe_id: row.cnt for row in result.all()}
 
-    menu_recipe_ids = [mr.recipe_id for mr in menu.menu_recipes]
+    result = await session.execute(
+        select(DailyMenuRecipe.recipe_id).where(DailyMenuRecipe.menu_id == locked.id)
+    )
+    menu_recipe_ids = [row[0] for row in result.all()]
 
     if not menu_recipe_ids:
-        menu.status = "closed"
+        locked.status = "closed"
         await session.commit()
-        await session.refresh(menu, ["menu_recipes"])
-        logger.info("Voting closed for %s: menu is empty, no winner", menu.date)
-        return menu
+        await session.refresh(locked, ["menu_recipes"])
+        logger.info("Voting closed for %s: menu is empty, no winner", locked.date)
+        return locked
 
     max_votes = max((vote_counts.get(rid, 0) for rid in menu_recipe_ids), default=0)
     candidates = [rid for rid in menu_recipe_ids if vote_counts.get(rid, 0) == max_votes]
     winner = secrets.choice(candidates)
 
-    menu.winner_recipe_id = winner
-    menu.status = "closed"
+    locked.winner_recipe_id = winner
+    locked.status = "closed"
     await session.commit()
-    await session.refresh(menu, ["menu_recipes"])
+    await session.refresh(locked, ["menu_recipes"])
     logger.info(
         "Voting closed for %s: winner %s with %d votes (%d candidates)",
-        menu.date, winner, max_votes, len(candidates),
+        locked.date, winner, max_votes, len(candidates),
     )
-    return menu
+    return locked
 
 
 async def get_votes_for_menu(session: AsyncSession, menu_id: uuid.UUID) -> dict[uuid.UUID, int]:

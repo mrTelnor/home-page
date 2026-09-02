@@ -123,7 +123,13 @@ async def telegram_verify(
     if existing and existing.id != user.id:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Telegram already linked to another user")
 
-    user = await set_telegram_id(session, user, data.id)
+    try:
+        user = await set_telegram_id(session, user, data.id)
+    except IntegrityError as exc:
+        # Гонка: тот же tg_id привязали между проверкой и UPDATE (UNIQUE users.tg_id)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Telegram already linked to another user"
+        ) from exc
     return user
 
 

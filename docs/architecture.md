@@ -113,7 +113,10 @@
 
 - `daily_menus.status`: `collecting` → `voting` → `closed`
 - `daily_menu_recipes.source`: `random` | `user`
-- `votes` — unique constraint (user_id, menu_id): один голос на меню
+- `votes` — unique constraint (user_id, menu_id): один голос на меню; `menu_id` — ON DELETE CASCADE (удаление меню админом уносит голоса)
+- `daily_menu_recipes` — unique constraint (menu_id, recipe_id): один рецепт в меню не дублируется даже при гонке двух suggest
+- Индексы по всем FK (Postgres их не создаёт сам): `votes(menu_id)`, `votes(recipe_id)`, `daily_menu_recipes(recipe_id)`, `ingredients(recipe_id)`, `recipes(author_id)`, `recipes(created_at)`, `daily_menus(winner_recipe_id)`
+- Конкурентные мутации меню (finalize/close-voting/suggest) сериализуются через `SELECT ... FOR UPDATE` по строке меню: статус перечитывается под блокировкой, победитель не пересчитывается вторым вызовом, лимит предложений не обходится гонкой
 - `users.gender`: `male` | `female` (для оповещений и склонений)
 - `users.is_volkov`: фамилия Волков/Волкова
 - `users.notifications_enabled`: управление уведомлениями через бота (default: true)

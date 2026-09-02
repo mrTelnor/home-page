@@ -17,17 +17,23 @@ class DailyMenu(Base, UUIDMixin, TimestampMixin):
 
     date: Mapped[date] = mapped_column(Date, unique=True)
     status: Mapped[str] = mapped_column(String(20), default="collecting")
-    winner_recipe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(RECIPE_FK))
+    winner_recipe_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(RECIPE_FK), index=True)
 
     menu_recipes: Mapped[list["DailyMenuRecipe"]] = relationship(back_populates="menu", cascade="all, delete-orphan")
 
 
 class DailyMenuRecipe(Base, UUIDMixin):
     __tablename__ = "daily_menu_recipes"
-    __table_args__ = {"schema": "dinner"}
+    # UNIQUE(menu_id, recipe_id): дубль предложения, проскочивший гонкой мимо
+    # проверки роутера, упирается в БД. Составной индекс заодно покрывает
+    # выборки по menu_id (selectinload, count_user_suggestions).
+    __table_args__ = (
+        UniqueConstraint("menu_id", "recipe_id", name="uq_menu_recipe"),
+        {"schema": "dinner"},
+    )
 
     menu_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(MENU_FK, ondelete="CASCADE"))
-    recipe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(RECIPE_FK))
+    recipe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(RECIPE_FK), index=True)
     source: Mapped[str] = mapped_column(String(10))
     added_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey(USER_FK))
 
@@ -42,5 +48,7 @@ class Vote(Base, UUIDMixin, TimestampMixin):
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(USER_FK))
-    menu_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(MENU_FK))
-    recipe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(RECIPE_FK))
+    # CASCADE: удаление меню админом должно уносить голоса, а не падать 500.
+    # index=True: uq(user_id, menu_id) не помогает выборкам по menu_id (ведущая колонка не та).
+    menu_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(MENU_FK, ondelete="CASCADE"), index=True)
+    recipe_id: Mapped[uuid.UUID] = mapped_column(ForeignKey(RECIPE_FK), index=True)
