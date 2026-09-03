@@ -16,6 +16,7 @@ from app.services.menu import (
     SuggestionLimitExceeded,
     SuggestionsClosed,
     build_menu_response,
+    build_menu_responses,
     cancel_vote,
     cast_vote,
     close_voting,
@@ -166,9 +167,14 @@ async def today(session: DbSession, user: CurrentUser):
 
 
 @router.get("", response_model=list[MenuResponse])
-async def list_all(session: DbSession, user: CurrentUser):
-    menus = await get_all_menus(session)
-    return [await build_menu_response(session, m, user.id) for m in menus]
+async def list_all(
+    session: DbSession,
+    user: CurrentUser,
+    limit: int | None = None,
+    offset: int = 0,
+):
+    menus = await get_all_menus(session, limit=limit, offset=offset)
+    return await build_menu_responses(session, menus, user.id)
 
 
 @router.get("/{menu_id}", response_model=MenuResponse)

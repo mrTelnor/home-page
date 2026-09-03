@@ -56,12 +56,17 @@ async def get_menu_by_id(session: AsyncSession, menu_id: uuid.UUID) -> DailyMenu
     return result.scalar_one_or_none()
 
 
-async def get_all_menus(session: AsyncSession) -> list[DailyMenu]:
-    result = await session.execute(
+async def get_all_menus(
+    session: AsyncSession, limit: int | None = None, offset: int = 0
+) -> list[DailyMenu]:
+    stmt = (
         select(DailyMenu)
         .options(selectinload(DailyMenu.menu_recipes))
         .order_by(DailyMenu.date.desc())
     )
+    if limit is not None:
+        stmt = stmt.limit(limit).offset(offset)
+    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
@@ -304,6 +309,92 @@ async def build_menu_response(
         user_voted_recipe_id=user_voted_recipe_id,
         total_votes=sum(vote_counts.values()),
     )
+
+
+async def build_menu_responses(
+    session: AsyncSession, menus: list[DailyMenu], user_id: uuid.UUID | None = None
+) -> list[MenuResponse]:
+    """Батч-версия build_menu_response для списка меню: константное число
+    запросов вместо ~4 на каждое меню (устраняет N+1 в GET /api/menus)."""
+    from app.db.models.user import User
+
+    if not menus:
+        return []
+
+    menu_ids = [m.id for m in menus]
+    recipe_ids = {mr.recipe_id for m in menus for mr in m.menu_recipes}
+
+    # Рецепты (включая soft-deleted — для названий в истории) одним запросом
+    recipes_by_id: dict[uuid.UUID, Recipe] = {}
+    if recipe_ids:
+        res = await session.execute(select(Recipe).where(Recipe.id.in_(recipe_ids)))
+        recipes_by_id = {r.id: r for r in res.scalars().all()}
+
+    # Счётчики голосов по (menu_id, recipe_id) — один GROUP BY на всю страницу
+    res = await session.execute(
+        select(Vote.menu_id, Vote.recipe_id, func.count().label("cnt"))
+        .where(Vote.menu_id.in_(menu_ids))
+        .group_by(Vote.menu_id, Vote.recipe_id)
+    )
+    counts: dict[uuid.UUID, dict[uuid.UUID, int]] = {}
+    for menu_id, recipe_id, cnt in res.all():
+        counts.setdefault(menu_id, {})[recipe_id] = cnt
+
+    # Голосовавшие (join users) одним запросом
+    res = await session.execute(
+        select(Vote.menu_id, Vote.recipe_id, User)
+        .join(User, User.id == Vote.user_id)
+        .where(Vote.menu_id.in_(menu_ids))
+        .order_by(User.first_name, User.username)
+    )
+    voters: dict[uuid.UUID, dict[uuid.UUID, list]] = {}
+    for menu_id, recipe_id, user in res.all():
+        voters.setdefault(menu_id, {}).setdefault(recipe_id, []).append(user)
+
+    # Голоса текущего пользователя по всем меню страницы — один запрос
+    user_votes: dict[uuid.UUID, uuid.UUID] = {}
+    if user_id is not None:
+        res = await session.execute(
+            select(Vote.menu_id, Vote.recipe_id).where(
+                Vote.menu_id.in_(menu_ids), Vote.user_id == user_id
+            )
+        )
+        user_votes = {menu_id: recipe_id for menu_id, recipe_id in res.all()}
+
+    responses = []
+    for menu in menus:
+        menu_counts = counts.get(menu.id, {})
+        menu_voters = voters.get(menu.id, {})
+        recipes = []
+        for mr in menu.menu_recipes:
+            recipe = recipes_by_id.get(mr.recipe_id)
+            recipes.append(
+                MenuRecipeResponse(
+                    id=mr.id,
+                    recipe_id=mr.recipe_id,
+                    title=recipe.title if recipe else "Deleted recipe",
+                    source=mr.source,
+                    added_by=mr.added_by,
+                    votes_count=menu_counts.get(mr.recipe_id, 0),
+                    voters=[
+                        {"id": v.id, "first_name": v.first_name, "username": v.username}
+                        for v in menu_voters.get(mr.recipe_id, [])
+                    ],
+                )
+            )
+        responses.append(
+            MenuResponse(
+                id=menu.id,
+                date=menu.date,
+                status=menu.status,
+                winner_recipe_id=menu.winner_recipe_id,
+                recipes=recipes,
+                created_at=menu.created_at,
+                user_voted_recipe_id=user_votes.get(menu.id),
+                total_votes=sum(menu_counts.values()),
+            )
+        )
+    return responses
 
 
 async def delete_menu(session: AsyncSession, menu: DailyMenu) -> None:
