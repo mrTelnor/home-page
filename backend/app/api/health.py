@@ -18,9 +18,7 @@ async def health():
         async with async_session() as session:
             await session.execute(text("SELECT 1"))
         return {"status": "ok"}
-    except (SQLAlchemyError, OSError) as e:
+    except (SQLAlchemyError, OSError):
+        # Детали (DSN/хост/юзер/имя БД) — только в лог; наружу эндпоинт публичный
         logger.exception("Health check failed")
-        return JSONResponse(
-            status_code=503,
-            content={"status": "error", "detail": str(e)},
-        )
+        return JSONResponse(status_code=503, content={"status": "error"})
