@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, String
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDMixin
@@ -21,3 +21,6 @@ class User(Base, UUIDMixin, TimestampMixin):
     gender: Mapped[str | None] = mapped_column(String(10))
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Версия токенов: JWT несёт её в claim "ver"; смена пароля инкрементит,
+    # обесценивая все ранее выданные токены (отзыв без таблицы сессий).
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)

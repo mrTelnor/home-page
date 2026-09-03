@@ -56,6 +56,7 @@ async def set_telegram_id(session: AsyncSession, user: User, tg_id: int | None) 
 async def update_password(session: AsyncSession, user: User, new_password: str) -> User:
     user.password_hash = hash_password(new_password)
     user.password_changed_at = datetime.now(UTC)
+    user.token_version += 1  # обесцениваем все ранее выданные токены
     await session.commit()
     await session.refresh(user)
     return user

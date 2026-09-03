@@ -45,6 +45,10 @@ async def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
+    # Отзыв: токен с устаревшей версией (после смены пароля) недействителен
+    if payload.get("ver", 0) != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token revoked")
+
     return user
 
 
@@ -97,7 +101,7 @@ async def verify_cron_or_admin(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
 
     user = await get_user_by_id(session, uuid.UUID(user_id))
-    if user is None or user.role != "admin":
+    if user is None or user.role != "admin" or payload.get("ver", 0) != user.token_version:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=NOT_ALLOWED)
 
     return user
