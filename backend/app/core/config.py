@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # None → ["https://{domain}"]; для разработки можно задать
     # CORS_ORIGINS='["https://telnor.ru","http://localhost:5173"]'
     cors_origins: list[str] | None = None
-    telegram_auth_max_age_seconds: int = 3600
+    telegram_auth_max_age_seconds: int = 300  # окно подписи Login Widget (было 3600) — уже окна меньше replay-риск
     rusender_api_key: str | None = None
     rusender_key_id: str | None = None
     email_from: str = "Telnor <noreply@telnor.ru>"

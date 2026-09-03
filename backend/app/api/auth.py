@@ -29,7 +29,7 @@ from app.services.auth import (
     update_password,
     update_profile,
 )
-from app.services.telegram import verify_telegram_auth
+from app.services.telegram import mark_telegram_auth_used, verify_telegram_auth
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 COOKIE_MAX_AGE = settings.jwt_expire_hours * 3600
 INVALID_CREDENTIALS = "Invalid username or password"
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+    )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -62,15 +73,8 @@ async def login(request: Request, data: LoginRequest, response: Response, sessio
         logger.warning("Failed login attempt for username: %s", data.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=INVALID_CREDENTIALS)
 
-    token = create_jwt(str(user.id))
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        max_age=COOKIE_MAX_AGE,
-        httponly=True,
-        secure=settings.cookie_secure,
-        samesite="lax",
-    )
+    token = create_jwt(str(user.id), user.token_version)
+    _set_auth_cookie(response, token)
     return {"message": "ok"}
 
 
@@ -122,6 +126,10 @@ async def telegram_verify(
     ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram signature")
 
+    # Replay-защита: одну и ту же подпись нельзя применить дважды в пределах окна
+    if not mark_telegram_auth_used(data.hash, settings.telegram_auth_max_age_seconds):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Telegram signature already used")
+
     existing = await get_user_by_tg_id(session, data.id)
     if existing and existing.id != user.id:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Telegram already linked to another user")
@@ -145,6 +153,7 @@ async def telegram_unlink(session: DbSession, user: CurrentUser):
 @router.post("/change-password")
 async def change_password(
     data: ChangePasswordRequest,
+    response: Response,
     session: DbSession,
     user: CurrentUser,
 ):
@@ -152,6 +161,9 @@ async def change_password(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid old password")
 
     await update_password(session, user, data.new_password)
+    # token_version изменилась — переставляем свежую cookie, чтобы текущее
+    # устройство не разлогинилось (остальные токены при этом отозваны)
+    _set_auth_cookie(response, create_jwt(str(user.id), user.token_version))
     return {"message": "ok"}
 
 
@@ -168,7 +180,7 @@ async def telegram_login(data: TelegramLoginRequest, session: DbSession):
             detail="User not found. Link Telegram on the website first.",
         )
 
-    token = create_jwt(str(user.id))
+    token = create_jwt(str(user.id), user.token_version)
     return TokenResponse(access_token=token)
 
 

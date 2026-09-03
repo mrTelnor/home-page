@@ -9,6 +9,23 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Дедуп использованных подписей Login Widget (защита от replay в пределах окна).
+# In-memory: один uvicorn-воркер; после рестарта очищается, что в пределах
+# минутного окна валидности несущественно.
+_used_auth_hashes: dict[str, float] = {}
+
+
+def mark_telegram_auth_used(auth_hash: str, ttl_seconds: int, now: float | None = None) -> bool:
+    """Отметить подпись использованной. False, если она уже применялась (replay)."""
+    ts = now if now is not None else time.time()
+    # прунинг протухших
+    for key in [k for k, exp in _used_auth_hashes.items() if exp <= ts]:
+        del _used_auth_hashes[key]
+    if auth_hash in _used_auth_hashes:
+        return False
+    _used_auth_hashes[auth_hash] = ts + ttl_seconds
+    return True
+
 
 def verify_telegram_auth(data: dict, bot_token: str, max_age_seconds: int = 3600) -> bool:
     """

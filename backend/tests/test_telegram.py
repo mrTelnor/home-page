@@ -11,12 +11,12 @@ BOT_TOKEN = "test-bot-token"
 BOT_SECRET = "test-bot-secret"
 
 
-def _make_telegram_payload(tg_id: int, bot_token: str = BOT_TOKEN) -> dict:
+def _make_telegram_payload(tg_id: int, bot_token: str = BOT_TOKEN, auth_date: int | None = None) -> dict:
     """Создать корректно подписанный payload от имитации Telegram."""
     payload = {
         "id": tg_id,
         "first_name": "Иван",
-        "auth_date": int(time.time()),
+        "auth_date": auth_date if auth_date is not None else int(time.time()),
     }
     check_string = "\n".join(f"{k}={payload[k]}" for k in sorted(payload.keys()))
     secret_key = hashlib.sha256(bot_token.encode()).digest()
@@ -54,6 +54,19 @@ def test_verify_telegram_auth_wrong_token():
     assert verify_telegram_auth(payload, BOT_TOKEN) is False
 
 
+def test_verify_telegram_auth_respects_short_window():
+    """Короткое окно валидности: подпись старше max_age отвергается."""
+    payload = _make_telegram_payload(12345, auth_date=int(time.time()) - 400)
+    assert verify_telegram_auth(payload, BOT_TOKEN, max_age_seconds=300) is False
+    assert verify_telegram_auth(payload, BOT_TOKEN, max_age_seconds=3600) is True
+
+
+def test_telegram_default_window_is_short():
+    """Дефолт окна подписи сокращён с часа до нескольких минут (защита от replay)."""
+    from app.core.config import settings
+    assert settings.telegram_auth_max_age_seconds <= 600
+
+
 # ---------- POST /api/auth/telegram-verify ----------
 
 async def test_telegram_verify_success(authed_client: AsyncClient):
@@ -69,6 +82,16 @@ async def test_telegram_verify_invalid_signature(authed_client: AsyncClient):
     payload["hash"] = "0" * 64
     response = await authed_client.post("/api/auth/telegram-verify", json=payload)
     assert response.status_code == 401
+
+
+async def test_telegram_verify_replay_rejected(authed_client: AsyncClient):
+    """Повторная отправка ТОЙ ЖЕ подписи (replay) отклоняется."""
+    payload = _make_telegram_payload(56565)
+    r1 = await authed_client.post("/api/auth/telegram-verify", json=payload)
+    assert r1.status_code == 200
+    # тот же payload/подпись ещё раз
+    r2 = await authed_client.post("/api/auth/telegram-verify", json=payload)
+    assert r2.status_code == 401
 
 
 async def test_telegram_verify_already_linked(
@@ -141,12 +164,13 @@ async def test_telegram_login_no_header(client: AsyncClient):
 
 
 async def test_telegram_verify_relink_same_user(authed_client: AsyncClient):
-    """Повторная привязка того же tg_id тем же пользователем — успех."""
-    payload = _make_telegram_payload(4444)
+    """Повторная привязка того же tg_id тем же пользователем — успех.
+    Реальная повторная авторизация даёт свежую подпись (другой auth_date)."""
+    payload = _make_telegram_payload(4444, auth_date=int(time.time()) - 5)
     r1 = await authed_client.post("/api/auth/telegram-verify", json=payload)
     assert r1.status_code == 200
 
-    payload2 = _make_telegram_payload(4444)
+    payload2 = _make_telegram_payload(4444, auth_date=int(time.time()))
     r2 = await authed_client.post("/api/auth/telegram-verify", json=payload2)
     assert r2.status_code == 200
     assert r2.json()["tg_id"] == 4444

@@ -127,9 +127,10 @@
 - Username нормализуется в lowercase (регистронезависимость)
 
 ### Авторизация
-- **JWT токены** с HS256 (python-jose), срок 7 дней
+- **JWT токены** с HS256 (python-jose), срок 7 дней. Несут claim `ver` = `users.token_version`; смена пароля инкрементит версию, обесценивая все ранее выданные токены (отзыв без таблицы сессий); change-password переставляет свежую cookie, чтобы текущее устройство не разлогинилось
 - **httpOnly cookie** для веба — cookie отправляется автоматически
 - **Bearer token** для бота — JWT в заголовке `Authorization: Bearer <token>`
+- **Telegram Login Widget**: окно валидности подписи 5 мин + in-memory дедуп по hash (replay в пределах окна отклоняется)
 - **Гостевой доступ** — `GET /api/recipes`, `GET /api/recipes/{id}`, `GET /api/recipes/search` открыты без авторизации (просмотр базы рецептов)
 - **Регистрация по инвайт-коду** (в Ansible Vault)
 - **Rate limiting** (slowapi, in-memory) на публичных auth-эндпоинтах по IP: login 10/мин, register 5/мин, password-reset/request 5/мин. Реальный IP — из `X-Real-Ip` (выставляет Traefik). Отключается флагом `RATE_LIMIT_ENABLED=false`
