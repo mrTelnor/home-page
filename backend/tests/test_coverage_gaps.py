@@ -62,7 +62,9 @@ async def test_health_returns_503_when_db_unavailable(
     assert response.status_code == 503
     data = response.json()
     assert data["status"] == "error"
-    assert "database is down" in data["detail"]
+    # детали ошибки БД наружу не отдаются (только status) — см. test_health.py
+    assert "detail" not in data
+    assert "database is down" not in response.text
 
 
 # ---------- app/main.py lifespan + app/core/db.py dispose_engine ----------
