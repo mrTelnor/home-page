@@ -48,6 +48,7 @@ export interface UpdateProfileData {
   is_volkov?: boolean;
   gender?: "male" | "female" | null;
   email?: string | null;
+  notifications_enabled?: boolean;
 }
 
 export function useUpdateProfile() {

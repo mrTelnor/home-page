@@ -59,6 +59,28 @@ describe("RecipeEditPage", () => {
     );
   });
 
+  it("у рецепта с фото доступна кнопка «Убрать фото», отправляет photo_url=''", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(
+      mockResponse({ body: makeRecipe({ image_url: "/api/recipe-images/recipe-1-abc.jpg" }) })
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByDisplayValue("Борщ")).toBeInTheDocument());
+    // раньше кнопка была недостижима — RecipeEditPage не передавал image_url в форму
+    const removeBtn = screen.getByRole("button", { name: "Убрать фото" });
+    await user.click(removeBtn);
+    await user.click(screen.getByRole("button", { name: "Сохранить изменения" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent("/recipes/recipe-1")
+    );
+    const putCall = fetchMock.mock.calls.find(
+      ([, options]) => (options as RequestInit)?.method === "PUT"
+    ) as [string, RequestInit];
+    expect(JSON.parse(putCall[1].body as string).photo_url).toBe("");
+  });
+
   it("сабмит шлёт PUT и ведёт на страницу рецепта", async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValue(mockResponse({ body: makeRecipe() }));

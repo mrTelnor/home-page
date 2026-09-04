@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { api } from "@/api/client";
+import { ApiError, api } from "@/api/client";
 import { endpoints } from "@/api/endpoints";
 import { type User } from "@/api/types";
 import { useAuthStore } from "@/store/auth";
@@ -16,12 +16,19 @@ export function useMe() {
         const user = await api.get<User>(endpoints.auth.me);
         setUser(user);
         return user;
-      } catch {
-        clearUser();
-        return null;
+      } catch (err) {
+        // Только 401 = «не авторизован». Сетевой сбой/500 не должны разлогинивать —
+        // пробрасываем как ошибку запроса (isError), сессию не трогаем.
+        if (err instanceof ApiError && err.status === 401) {
+          clearUser();
+          return null;
+        }
+        throw err;
       }
     },
-    retry: false,
+    // не ретраим 401 (это валидный ответ), но повторяем сетевые/5xx
+    retry: (count, err) =>
+      !(err instanceof ApiError && err.status < 500) && count < 2,
     staleTime: 1000 * 60 * 5,
   });
 }

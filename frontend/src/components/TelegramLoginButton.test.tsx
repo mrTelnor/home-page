@@ -80,4 +80,17 @@ describe("TelegramLoginButton", () => {
 
     expect(globalThis.onTelegramAuth).toBeUndefined();
   });
+
+  it("не дублирует <script> при повторных рендерах", () => {
+    const { Wrapper } = createWrapper();
+    const { container, rerender } = render(<TelegramLoginButton />, { wrapper: Wrapper });
+
+    // ре-рендеры того же элемента (раньше useEffect с dep на объект мутации
+    // добавлял новый <script> на каждый рендер, cleanup его не удалял)
+    for (let i = 0; i < 3; i++) {
+      rerender(<TelegramLoginButton />);
+    }
+
+    expect(container.querySelectorAll("script")).toHaveLength(1);
+  });
 });

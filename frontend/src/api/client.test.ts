@@ -9,6 +9,7 @@ interface MockResponseInit {
   statusText?: string;
   body?: unknown;
   jsonFails?: boolean;
+  headers?: Record<string, string>;
 }
 
 function mockResponse({
@@ -17,11 +18,13 @@ function mockResponse({
   statusText = "OK",
   body = {},
   jsonFails = false,
+  headers = { "content-type": "application/json" },
 }: MockResponseInit = {}) {
   return {
     ok,
     status,
     statusText,
+    headers: new Headers(headers),
     json: jsonFails ? () => Promise.reject(new Error("invalid json")) : () => Promise.resolve(body),
   };
 }
@@ -74,6 +77,38 @@ describe("api.get", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).status).toBe(500);
     expect((error as ApiError).message).toBe("Internal Server Error");
+  });
+
+  it("нормализует detail-массив валидации (422) в читаемую строку", async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({
+        ok: false,
+        status: 422,
+        body: {
+          detail: [
+            { loc: ["body", "password"], msg: "String should have at least 8 characters", type: "x" },
+            { loc: ["body", "email"], msg: "value is not a valid email", type: "y" },
+          ],
+        },
+      })
+    );
+
+    const error = await api.post("/auth/register", {}).catch((e: unknown) => e);
+
+    expect((error as ApiError).status).toBe(422);
+    expect((error as ApiError).message).toBe(
+      "String should have at least 8 characters; value is not a valid email"
+    );
+    expect((error as ApiError).message).not.toContain("[object Object]");
+  });
+
+  it("возвращает undefined на 200 с пустым телом (не парсит JSON)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({ status: 200, headers: { "content-length": "0" }, jsonFails: true })
+    );
+
+    const result = await api.post("/auth/logout");
+    expect(result).toBeUndefined();
   });
 });
 

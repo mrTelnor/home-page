@@ -46,6 +46,7 @@ interface MockResponseInit {
   status?: number;
   statusText?: string;
   body?: unknown;
+  headers?: Record<string, string>;
 }
 
 /** Минимальный Response-совместимый объект для мока fetch. */
@@ -54,11 +55,13 @@ export function mockResponse({
   status = 200,
   statusText = "OK",
   body = {},
+  headers = { "content-type": "application/json" },
 }: MockResponseInit = {}) {
   return {
     ok,
     status,
     statusText,
+    headers: new Headers(headers),
     json: () => Promise.resolve(body),
   };
 }
@@ -75,6 +78,7 @@ export function makeUser(overrides: Partial<User> = {}): User {
     is_volkov: false,
     gender: null,
     email: null,
+    notifications_enabled: true,
     ...overrides,
   };
 }

@@ -8,6 +8,21 @@ class ApiError extends Error {
   }
 }
 
+/** FastAPI detail: строка, либо массив ошибок валидации [{loc,msg,type}] (422). */
+function extractDetail(body: unknown): string | null {
+  if (body && typeof body === "object" && "detail" in body) {
+    const detail = (body as { detail: unknown }).detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      const msgs = detail
+        .map((d) => (d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : null))
+        .filter(Boolean);
+      if (msgs.length) return msgs.join("; ");
+    }
+  }
+  return null;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -19,11 +34,18 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, body.detail || res.statusText);
+    const body = await res.json().catch(() => null);
+    throw new ApiError(res.status, extractDetail(body) || res.statusText);
   }
 
-  if (res.status === 204) return undefined as T;
+  // Пустое тело (204 или 200 без контента) — не пытаемся парсить JSON
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
+  }
+  const contentType = res.headers.get("content-type");
+  if (contentType && !contentType.includes("application/json")) {
+    return undefined as T;
+  }
   return res.json();
 }
 

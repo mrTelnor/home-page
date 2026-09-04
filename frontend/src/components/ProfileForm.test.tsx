@@ -19,6 +19,7 @@ afterEach(() => {
 const baseUser: User = {
   id: "u1", username: "tester", role: "user", created_at: "2026-01-01T00:00:00Z",
   tg_id: null, first_name: null, birthday: null, is_volkov: false, gender: null, email: null,
+  notifications_enabled: true,
 };
 
 function renderForm(user: User = makeUser()) {
@@ -35,7 +36,7 @@ describe("ProfileForm", () => {
     expect(screen.getByLabelText("Имя")).toHaveValue("Ник");
     expect(screen.getByLabelText("День рождения")).toHaveValue("1990-05-01");
     expect(screen.getByRole("radio", { name: "Мужской" })).toBeChecked();
-    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /Волков/ })).toBeChecked();
   });
 
   it("при женском поле меняется подпись чекбокса", async () => {
@@ -60,7 +61,7 @@ describe("ProfileForm", () => {
     });
     fireEvent.change(screen.getByLabelText("День рождения"), { target: { value: "" } });
     await user.click(screen.getByRole("radio", { name: "Мужской" }));
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox", { name: /Волков/ }));
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() => expect(screen.getByText(/Сохранено/)).toBeInTheDocument());
@@ -74,6 +75,7 @@ describe("ProfileForm", () => {
       is_volkov: true,
       gender: "male",
       email: null,
+      notifications_enabled: true,
     });
   });
 
@@ -93,7 +95,21 @@ describe("ProfileForm", () => {
       is_volkov: false,
       gender: null,
       email: null,
+      notifications_enabled: true,
     });
+  });
+
+  it("переключатель уведомлений уходит в PATCH", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(mockResponse({ body: makeUser() }));
+    renderForm(makeUser({ notifications_enabled: true }));
+
+    await user.click(screen.getByLabelText("Получать уведомления от бота"));
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.notifications_enabled).toBe(false);
   });
 
   it("изменение поля скрывает индикатор 'Сохранено'", async () => {

@@ -11,10 +11,13 @@ declare global {
 export function TelegramLoginButton() {
   const containerRef = useRef<HTMLDivElement>(null);
   const verify = useTelegramVerify();
+  // mutate в react-query v5 стабилен между рендерами, поэтому эффект отработает
+  // один раз — виджет монтируется единожды, без накопления <script>
+  const mutate = verify.mutate;
 
   useEffect(() => {
     globalThis.onTelegramAuth = (user) => {
-      verify.mutate(user);
+      mutate(user);
     };
 
     const script = document.createElement("script");
@@ -25,12 +28,14 @@ export function TelegramLoginButton() {
     script.dataset.onauth = "onTelegramAuth(user)";
     script.dataset.requestAccess = "write";
 
-    containerRef.current?.appendChild(script);
+    const container = containerRef.current;
+    container?.appendChild(script);
 
     return () => {
       globalThis.onTelegramAuth = undefined;
+      script.remove(); // не копим <script> при перемонтировании
     };
-  }, [verify]);
+  }, [mutate]);
 
   return (
     <div>

@@ -34,6 +34,7 @@ export function RecipeEditPage() {
           ingredients: recipe.ingredients,
           glyph_kind: recipe.glyph_kind,
           glyph_color: recipe.glyph_color,
+          image_url: recipe.image_url,
         }}
         onSubmit={(data) => update.mutate(data)}
         isPending={update.isPending}

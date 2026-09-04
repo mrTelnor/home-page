@@ -16,6 +16,7 @@ export function ProfileForm({ user }: Readonly<Props>) {
   const [isVolkov, setIsVolkov] = useState(user.is_volkov);
   const [gender, setGender] = useState<"male" | "female" | "">(user.gender ?? "");
   const [email, setEmail] = useState(user.email ?? "");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(user.notifications_enabled);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const update = useUpdateProfile();
@@ -31,6 +32,7 @@ export function ProfileForm({ user }: Readonly<Props>) {
         is_volkov: isVolkov,
         gender: gender || null,
         email: email.trim() || null,
+        notifications_enabled: notificationsEnabled,
       },
       {
         onSuccess: () => setSaved(true),
@@ -126,6 +128,21 @@ export function ProfileForm({ user }: Readonly<Props>) {
         />
         <Label htmlFor="is-volkov" className="cursor-pointer">
           Я Волков{gender === "female" ? "а" : ""}
+        </Label>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          id="notifications-enabled"
+          type="checkbox"
+          checked={notificationsEnabled}
+          onChange={(e) => {
+            setNotificationsEnabled(e.target.checked);
+            setSaved(false);
+          }}
+        />
+        <Label htmlFor="notifications-enabled" className="cursor-pointer">
+          Получать уведомления от бота
         </Label>
       </div>
 
