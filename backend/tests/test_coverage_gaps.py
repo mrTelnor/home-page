@@ -80,6 +80,13 @@ async def test_dispose_engine_is_idempotent():
     await dispose_engine()
 
 
+def test_engine_has_pool_pre_ping():
+    """Пул проверяет соединение перед использованием (устойчивость к рестарту БД)."""
+    from app.core.db import engine
+
+    assert engine.pool._pre_ping is True
+
+
 # ---------- app/core/dependencies.py ----------
 
 async def test_get_db_yields_real_session():
