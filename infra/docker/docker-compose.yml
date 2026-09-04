@@ -117,6 +117,16 @@ services:
       - traefik.http.routers.backend-docs.tls.certresolver=letsencrypt
       - traefik.http.routers.backend-docs.middlewares=admin-ip@docker
       - traefik.http.routers.backend-docs.priority=30
+      # Bot-only эндпоинты (X-Bot-Secret): /telegram-login выдаёт JWT на любой tg_id,
+      # /users/* — списки пользователей. Бот ходит к backend по сети internal, минуя
+      # Traefik, поэтому публично их блокируем (deny-public = ipallowlist loopback → 403),
+      # чтобы утечка BOT_SECRET не давала захват аккаунтов снаружи.
+      - traefik.http.routers.backend-internal.rule=Host(`api.${DOMAIN}`) && (PathPrefix(`/api/auth/telegram-login`) || PathPrefix(`/api/auth/users/`))
+      - traefik.http.routers.backend-internal.entrypoints=websecure
+      - traefik.http.routers.backend-internal.tls.certresolver=letsencrypt
+      - traefik.http.routers.backend-internal.middlewares=deny-public@docker
+      - traefik.http.routers.backend-internal.priority=40
+      - traefik.http.middlewares.deny-public.ipallowlist.sourcerange=127.0.0.1/32
       # Service
       - traefik.http.services.backend.loadbalancer.server.port=8000
       - traefik.docker.network=web

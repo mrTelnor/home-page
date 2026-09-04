@@ -37,6 +37,7 @@
 - **Traefik v3.6** — reverse proxy с автообнаружением Docker-контейнеров через labels
 - **Let's Encrypt** — автоматическое получение и обновление SSL-сертификатов (HTTP challenge)
 - IP-whitelist middleware для админ-панелей (Traefik, Portainer) и Swagger UI
+- Bot-only эндпоинты (`/api/auth/telegram-login`, `/api/auth/users/*`) заблокированы публично на Traefik (роутер `backend-internal`, middleware `deny-public` = ipallowlist loopback → 403): бот вызывает их по внутренней сети `internal`, минуя Traefik, поэтому утечка `BOT_SECRET` не даёт захват аккаунтов снаружи
 
 ### Firewall
 - **firewalld** — порты 80/443/9922; PostgreSQL 5432 публикуется только на `127.0.0.1` (доступ снаружи — через SSH-туннель `ssh -L 5432:localhost:5432 homepage`), поэтому прежнее rich-rule для домашнего IP убрано
