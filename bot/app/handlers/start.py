@@ -3,6 +3,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
 from app.api_client import NOT_LINKED_MSG, api
+from app.helpers import SERVICE_UNAVAILABLE_MSG
 
 router = Router()
 
@@ -28,8 +29,12 @@ async def cmd_start(message: Message) -> None:
         await message.answer(f"Добро пожаловать!\n\n{NOT_LINKED_MSG}")
         return
 
+    if resp.status_code != 200:
+        await message.answer(SERVICE_UNAVAILABLE_MSG)
+        return
+
     user = resp.json()
-    name = user.get("first_name") or user["username"]
+    name = user.get("first_name") or user.get("username") or "друг"
     await message.answer(f"Привет, {name}!\n\n{HELP_TEXT}")
 
 

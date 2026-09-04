@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from app.api_client import NOT_LINKED_MSG, api
 from app.callbacks import CANCEL_VOTE, VOTE_PREFIX, pack, unpack
-from app.helpers import check_linked
+from app.helpers import check_linked, check_ok
 
 router = Router()
 
@@ -97,7 +97,7 @@ async def cb_cancel_vote(callback: CallbackQuery) -> None:
 
     menu_id = today_menu["id"]
     resp = await api.delete(f"/api/menus/{menu_id}/vote", tg_id)
-    if not await check_linked(resp, callback):
+    if not await check_ok(resp, callback):
         return
 
     menu = resp.json()
