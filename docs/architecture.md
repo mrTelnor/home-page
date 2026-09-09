@@ -19,6 +19,7 @@
 - **Селективный деплой через теги** — каждый сервис помечен тегом (`backend`, `frontend`, `bot`, `cron`), у каждого свой handler; `--tags bot` пересоздаёт только bot-контейнер. Без тегов — полный деплой
 - **Handler'ы вызывают `docker compose` напрямую** через shell-модуль (а не `community.docker.docker_compose_v2`) — модуль падает на post-action `compose images --format json` при `--build --force-recreate`. Прямой вызов стабилен
 - **Автоочистка dangling-образов** — `docker image prune -f` запускается с тегом `always` перед каждым деплоем, чтобы образы не копились на диске
+- **Smoke-тест после деплоя** — в конце роли `app` плейбук опрашивает `https://api.<domain>/api/health` и `https://bot.<domain>/healthz` (`uri`, 12×5 с ретраев): `compose up` рапортует успех даже при crash-loop контейнера, а так деплой честно падает, если прод мёртв
 
 ### Управление секретами
 | Место хранения | Назначение |
@@ -62,7 +63,7 @@
 ### Автоматизация (cron-контейнер)
 - **Alpine + curl + postgresql-client** — вызывает backend-эндпоинты по расписанию с заголовком `X-Cron-Secret`, затем `/notify` эндпоинт бота для рассылки уведомлений
 - Расписание (GMT+3):
-  - 03:00 — бэкап БД (`pg_dump -Fc -Z6`, без пайпа — статус pg_dump не маскируется) + tar.gz фото рецептов → Яндекс.Диск WebDAV с ретраями, ротация 14 дней; провал шага — алерт админам
+  - 03:00 — бэкап БД (`pg_dump -Fc -Z6`, без пайпа — статус pg_dump не маскируется) + tar.gz фото рецептов и `bot_data` → Яндекс.Диск WebDAV с ретраями, ротация 14 дней; провал шага — алерт админам; при полном успехе — heartbeat в `HEARTBEAT_URL` (healthchecks.io, dead-man's-switch)
   - 08:00 — `create-daily` + уведомление о меню для не-админов + утренний дайджест админам (расписание Google Calendar + меню)
   - 13:00 — `finalize` + `voting_opened`
   - 17:00 — `close-voting` + `voting_closed`

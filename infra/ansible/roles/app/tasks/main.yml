@@ -100,3 +100,28 @@
   register: compose_up
   changed_when: "'Recreated' in compose_up.stderr or 'Started' in compose_up.stderr or 'Built' in compose_up.stderr"
   tags: [always]
+
+# Smoke-тест после деплоя: `compose up` рапортует успех, даже если контейнер
+# затем упал в crash-loop. Опрашиваем публичные health-эндпоинты с ретраями
+# (контейнерам нужно время подняться) — плейбук честно падает, если прод мёртв.
+- name: Smoke test — backend /api/health
+  uri:
+    url: "https://api.{{ vault_domain }}/api/health"
+    status_code: 200
+    timeout: 10
+  register: smoke_backend
+  until: smoke_backend.status == 200
+  retries: 12
+  delay: 5
+  tags: [always]
+
+- name: Smoke test — bot /healthz
+  uri:
+    url: "https://bot.{{ vault_domain }}/healthz"
+    status_code: 200
+    timeout: 15
+  register: smoke_bot
+  until: smoke_bot.status == 200
+  retries: 12
+  delay: 5
+  tags: [always]

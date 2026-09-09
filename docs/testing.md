@@ -319,13 +319,13 @@ docker exec bot cat /data/sent_reminders.json
 
 ## 9. Бэкапы
 
-Ежедневно в 03:00 GMT+3 cron-контейнер делает `pg_dump -Fc` БД (custom format уже сжат, без отдельного gzip) и tar.gz-архив фото рецептов (том `recipe_images`), заливает оба файла на Яндекс.Диск через WebDAV в папку `/backups/` с ретраями. Файлы старше 14 дней удаляются (включая legacy `*.dump.gz`). Провал любого шага — алерт админам в Telegram.
+Ежедневно в 03:00 GMT+3 cron-контейнер делает `pg_dump -Fc` БД (custom format уже сжат, без отдельного gzip) , tar.gz-архивы фото рецептов (том `recipe_images`) и дедупа напоминаний бота (том `bot_data`), заливает файлы на Яндекс.Диск через WebDAV в папку `/backups/` с ретраями. Файлы старше 14 дней удаляются (включая legacy `*.dump.gz`). Провал любого шага — алерт админам в Telegram. При полном успехе пингуется `HEARTBEAT_URL` (healthchecks.io): если пинг не пришёл — монитор сам поднимет тревогу (dead-man's-switch на «тихую смерть» crond).
 
 ### Проверить вручную
 ```bash
 ssh homepage 'docker exec cron /usr/local/bin/backup.sh'
 ```
-После выполнения на Яндекс.Диске должны появиться файлы `homepage_YYYY-MM-DD.dump` и `recipe_images_YYYY-MM-DD.tar.gz`.
+После выполнения на Яндекс.Диске должны появиться файлы `homepage_YYYY-MM-DD.dump`, `recipe_images_YYYY-MM-DD.tar.gz` и `bot_data_YYYY-MM-DD.tar.gz`.
 
 ### Тесты backup.sh (локально, в том же alpine, что и прод)
 ```bash

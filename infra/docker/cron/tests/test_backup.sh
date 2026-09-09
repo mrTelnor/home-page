@@ -57,6 +57,10 @@ sed 's/\r$//' "$CRON_DIR/backup.sh" > "$WORK/backup.sh"
 
 # ---------- запуск и проверки ----------
 
+# Общий каталог bot_data (дедуп напоминаний бота) — бэкапится наравне с фото
+mkdir -p "$WORK/botdata" && echo '{}' > "$WORK/botdata/sent_reminders.json"
+HEARTBEAT="http://hc.example/ping/abc123"
+
 # run_backup <pg_dump_mode> <backup_dir> <images_src> [upload_fail_flag] [propfind_file]
 # Всё окружение передаётся явно через env — префиксные присваивания перед
 # вызовом функции в ash протекают в последующие тесты.
@@ -68,6 +72,8 @@ run_backup() {
         RECIPE_IMAGES_SRC="$3" \
         UPLOAD_FAIL_FLAG="${4:-}" \
         PROPFIND_FILE="${5:-}" \
+        BOT_DATA_SRC="${6:-$WORK/botdata}" \
+        HEARTBEAT_URL="$HEARTBEAT" \
         POSTGRES_USER=u POSTGRES_PASSWORD=p CRON_SECRET=s \
         YADISK_USER=y YADISK_APP_PASSWORD=ap \
         sh "$WORK/backup.sh"
@@ -94,6 +100,7 @@ run_backup fail "$WORK/b1" "$WORK/imgs_t1" > "$WORK/t1.out" 2>&1
 rc=$?
 [ "$rc" -ne 0 ]; check $? "t1: код возврата не 0 (получен $rc)"
 grep -q "/alert" "$CURL_LOG"; check $? "t1: отправлен алерт"
+! grep -q "hc.example/ping" "$CURL_LOG"; check $? "t1: heartbeat НЕ отправлен при провале (dead-man's-switch)"
 
 echo "== T2: recipe_images архивируются и загружаются =="
 CURL_LOG="$WORK/t2.curl"
@@ -123,6 +130,7 @@ cat > "$WORK/t4.propfind" <<EOF
 homepage_2020-01-01.dump.gz
 homepage_2020-01-02.dump
 recipe_images_2020-01-03.tar.gz
+bot_data_2020-01-04.tar.gz
 homepage_${TODAY}.dump
 recipe_images_${TODAY}.tar.gz
 </d:multistatus>
@@ -132,6 +140,7 @@ run_backup ok "$WORK/b4" "$WORK/imgs_t4" "" "$WORK/t4.propfind" > "$WORK/t4.out"
 grep -q "DELETE .*homepage_2020-01-01\.dump\.gz" "$CURL_LOG"; check $? "t4: удалён старый .dump.gz (legacy)"
 grep -q "DELETE .*homepage_2020-01-02\.dump" "$CURL_LOG"; check $? "t4: удалён старый .dump"
 grep -q "DELETE .*recipe_images_2020-01-03\.tar\.gz" "$CURL_LOG"; check $? "t4: удалён старый архив фото"
+grep -q "DELETE .*bot_data_2020-01-04\.tar\.gz" "$CURL_LOG"; check $? "t4: удалён старый архив bot_data"
 ! grep -q "DELETE .*${TODAY}" "$CURL_LOG"; check $? "t4: свежие файлы не удалены"
 
 echo "== T5: успешный прогон — без алертов, загрузка с ретраями =="
@@ -147,6 +156,9 @@ rc=$?
 ! grep -q "/alert" "$CURL_LOG"; check $? "t5: алертов нет"
 grep -q -- "-T .*homepage_${TODAY}\.dump" "$CURL_LOG"; check $? "t5: дамп загружен"
 grep " -T " "$CURL_LOG" | grep -q -- "--retry"; check $? "t5: загрузка идёт с --retry"
+grep -q "bot_data_${TODAY}\.tar\.gz" "$CURL_LOG"; check $? "t5: архив bot_data загружен"
+grep -q "hc.example/ping" "$CURL_LOG"; check $? "t5: heartbeat отправлен при успехе"
+grep -q "heartbeat sent" "$WORK/t5.out"; check $? "t5: успех heartbeat явно виден в логе"
 
 echo ""
 echo "passed: $PASS, failed: $FAIL"
