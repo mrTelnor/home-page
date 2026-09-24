@@ -154,8 +154,10 @@ async def test_cmd_mute_ok(monkeypatch):
 
     await notifications.cmd_mute(msg)
 
-    patch_mock.assert_awaited_once_with("/api/auth/me", 1, json={"notifications_enabled": False})
-    assert "Уведомления отключены" in msg.answer.await_args.args[0]
+    patch_mock.assert_awaited_once_with(
+        "/api/auth/me", 1, json={"notifications_enabled": False, "calendar_notifications_enabled": False}
+    )
+    assert "Все уведомления отключены" in msg.answer.await_args.args[0]
 
 
 async def test_cmd_unmute_ok(monkeypatch):
@@ -165,8 +167,10 @@ async def test_cmd_unmute_ok(monkeypatch):
 
     await notifications.cmd_unmute(msg)
 
-    patch_mock.assert_awaited_once_with("/api/auth/me", 1, json={"notifications_enabled": True})
-    assert "Уведомления включены" in msg.answer.await_args.args[0]
+    patch_mock.assert_awaited_once_with(
+        "/api/auth/me", 1, json={"notifications_enabled": True, "calendar_notifications_enabled": True}
+    )
+    assert "Все уведомления включены" in msg.answer.await_args.args[0]
 
 
 async def test_cmd_unmute_not_linked(monkeypatch):

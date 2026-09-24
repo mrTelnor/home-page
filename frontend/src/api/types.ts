@@ -14,6 +14,7 @@ export interface User {
   gender: "male" | "female" | null;
   email: string | null;
   notifications_enabled: boolean;
+  calendar_notifications_enabled: boolean;
 }
 
 /** backend/app/schemas/recipe.py :: IngredientResponse (id отсутствует в запросах) */

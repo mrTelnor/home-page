@@ -23,8 +23,9 @@ async def set_commands(bot: Bot) -> None:
         BotCommand(command="suggest", description="Предложить рецепт"),
         BotCommand(command="recipes", description="Список рецептов"),
         BotCommand(command="schedule", description="Расписание на сегодня и завтра"),
-        BotCommand(command="mute", description="Отключить уведомления"),
-        BotCommand(command="unmute", description="Включить уведомления"),
+        BotCommand(command="notifications", description="Настройки уведомлений"),
+        BotCommand(command="mute", description="Отключить все уведомления"),
+        BotCommand(command="unmute", description="Включить все уведомления"),
         BotCommand(command="help", description="Справка"),
     ])
 

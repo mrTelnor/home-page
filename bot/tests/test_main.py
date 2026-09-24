@@ -22,7 +22,7 @@ async def test_set_commands():
     bot.set_my_commands.assert_awaited_once()
     commands = bot.set_my_commands.await_args.args[0]
     assert [c.command for c in commands] == [
-        "menu", "vote", "suggest", "recipes", "schedule", "mute", "unmute", "help",
+        "menu", "vote", "suggest", "recipes", "schedule", "notifications", "mute", "unmute", "help",
     ]
     assert all(c.description for c in commands)
 

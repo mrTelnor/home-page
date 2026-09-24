@@ -15,7 +15,7 @@ beforeEach(() => {
     user: {
       id: "a1", username: "admin", role: "admin", created_at: "2026-01-01T00:00:00Z",
       tg_id: null, first_name: null, birthday: null, is_volkov: false, gender: null, email: null,
-      notifications_enabled: true,
+      notifications_enabled: true, calendar_notifications_enabled: true,
     },
   });
 });

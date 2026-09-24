@@ -10,6 +10,7 @@ RECIPE_PREFIX = "recipe:"
 RECIPES_PAGE_PREFIX = "recipes_page:"
 CANCEL_VOTE = "cancel_vote"
 SUGGEST_CANCEL = "suggest_cancel"
+NOTIF_PREFIX = "notif:"
 
 
 def pack(prefix: str, value: str | int) -> str:

@@ -27,7 +27,13 @@ from app.calendar_service import (
     select_reminders_to_send,
 )
 from app.config import settings
-from app.notify import EVENT_HANDLERS, notify_voting_closed, notify_voting_opened
+from app.notify import (
+    EVENT_HANDLERS,
+    notify_voting_closed,
+    notify_voting_opened,
+    wants_calendar,
+    wants_dinner,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,19 +142,22 @@ async def handle_uptime_alert(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
-async def _send_to_admins(bot: Bot, text: str) -> None:
-    admins = await api.get_admin_users()
-    for admin in admins:
+async def _send_to(bot: Bot, recipients: list[dict], text: str) -> None:
+    for user in recipients:
         try:
-            await bot.send_message(chat_id=admin["tg_id"], text=text)
+            await bot.send_message(chat_id=user["tg_id"], text=text)
         except TelegramAPIError:
-            logger.warning("Failed to send admin message to tg_id=%s", admin["tg_id"])
+            logger.warning("Failed to send admin message to tg_id=%s", user["tg_id"])
 
 
-async def _fetch_today_menu() -> dict | None:
+async def _send_to_admins(bot: Bot, text: str) -> None:
+    """Системные алерты — всем админам, переключатели уведомлений не действуют."""
+    await _send_to(bot, await api.get_admin_users(), text)
+
+
+async def _fetch_today_menu(admins: list[dict]) -> dict | None:
     """Fetch today's menu via API using any admin's tg_id for auth.
     Returns None if no admins are linked or menu not found."""
-    admins = await api.get_admin_users()
     if not admins:
         return None
     menu, _ = await api.get_today_menu(admins[0]["tg_id"])
@@ -176,9 +185,17 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
             return web.json_response({"ok": True, "skipped": "already_sent"})
         # Google API синхронный — в пул потоков, чтобы не морозить polling/healthz
         today_events, tomorrow_events = await asyncio.to_thread(fetch_digest_events)
-        menu = await _fetch_today_menu()
-        text = format_digest(today_events, tomorrow_events, menu=menu)
-        await _send_to_admins(bot, text)
+        admins = await api.get_admin_users()
+        menu = await _fetch_today_menu(admins)
+        # Дайджест — админам с включённым календарём; меню в нём — только тем,
+        # у кого включены и ужины (выключившим ужины оно не нужно и в дайджесте).
+        recipients = [a for a in admins if wants_calendar(a)]
+        with_menu = [a for a in recipients if wants_dinner(a)]
+        without_menu = [a for a in recipients if not wants_dinner(a)]
+        if with_menu:
+            await _send_to(bot, with_menu, format_digest(today_events, tomorrow_events, menu=menu))
+        if without_menu:
+            await _send_to(bot, without_menu, format_digest(today_events, tomorrow_events))
         return web.json_response({
             "ok": True,
             "today": len(today_events),
@@ -195,9 +212,10 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
     reminders, updated_sent = select_reminders_to_send(now, events)
     save_sent(updated_sent)
 
-    for event, label in reminders:
-        text = format_single_reminder(event, label)
-        await _send_to_admins(bot, text)
+    if reminders:
+        recipients = [a for a in await api.get_admin_users() if wants_calendar(a)]
+        for event, label in reminders:
+            await _send_to(bot, recipients, format_single_reminder(event, label))
 
     # Catch-up: переопросить статус меню. Если cron-вызов /notify пропал
     # (бот рестартил, сеть моргнула) — досылаем здесь. Дедуп в notify_*

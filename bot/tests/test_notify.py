@@ -107,7 +107,7 @@ async def test_broadcast_survives_telegram_error(monkeypatch):
     assert bot.send_message.await_count == 2
 
 
-async def test_broadcast_exclude_admins(monkeypatch):
+async def test_broadcast_exclude_digest_recipients(monkeypatch):
     monkeypatch.setattr(
         api_client.api,
         "get_notifiable_users",
@@ -118,7 +118,7 @@ async def test_broadcast_exclude_admins(monkeypatch):
     )
     bot = make_bot()
 
-    await notify.broadcast(bot, "текст", exclude_admins=True)
+    await notify.broadcast(bot, "текст", exclude_digest_recipients=True)
 
     bot.send_message.assert_awaited_once_with(chat_id=2, text="текст")
 

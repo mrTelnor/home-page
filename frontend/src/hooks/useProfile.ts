@@ -49,6 +49,7 @@ export interface UpdateProfileData {
   gender?: "male" | "female" | null;
   email?: string | null;
   notifications_enabled?: boolean;
+  calendar_notifications_enabled?: boolean;
 }
 
 export function useUpdateProfile() {

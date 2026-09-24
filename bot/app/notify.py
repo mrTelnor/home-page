@@ -17,6 +17,18 @@ logger = logging.getLogger(__name__)
 # продублировать рассылку, пока первый ещё шлёт (гонка через await).
 _event_notify_lock = asyncio.Lock()
 
+
+def wants_dinner(user: dict) -> bool:
+    """Рассылки об ужине (флаг notifications_enabled). Default True — на случай
+    backend без этого поля в ответе."""
+    return user.get("notifications_enabled", True)
+
+
+def wants_calendar(user: dict) -> bool:
+    """Напоминания и дайджест календаря (флаг calendar_notifications_enabled)."""
+    return user.get("calendar_notifications_enabled", True)
+
+
 STATUS_LABELS = {
     "collecting": "Сбор предложений",
     "voting": "Голосование",
@@ -54,14 +66,15 @@ async def broadcast(
     bot: Bot,
     text: str,
     *,
-    exclude_admins: bool = False,
+    exclude_digest_recipients: bool = False,
     parse_mode: str | None = None,
     dedup_prefix: str | None = None,
 ) -> None:
     """Send text to all notifiable users.
 
-    If exclude_admins=True, skip admin users (they receive a richer message
-    elsewhere — e.g., as part of the unified morning digest).
+    exclude_digest_recipients=True пропускает админов с включённым календарём:
+    меню они получают в составе утреннего дайджеста. Админ, выключивший
+    календарь, дайджест не получает — ему уходит обычное сообщение.
     parse_mode передаётся в Telegram только когда задан (например, "HTML").
 
     dedup_prefix включает пер-пользовательский дедуп "{prefix}:{tg_id}":
@@ -70,9 +83,9 @@ async def broadcast(
     """
     users = await api.get_notifiable_users()
     excluded_ids: set[int] = set()
-    if exclude_admins:
+    if exclude_digest_recipients:
         admins = await api.get_admin_users()
-        excluded_ids = {a["tg_id"] for a in admins}
+        excluded_ids = {a["tg_id"] for a in admins if wants_calendar(a)}
     extra = {"parse_mode": parse_mode} if parse_mode else {}
     for user in users:
         tg_id = user["tg_id"]
@@ -85,10 +98,10 @@ async def broadcast(
 
 
 async def notify_menu_created(bot: Bot) -> None:
-    """Notify non-admin users about new daily menu.
+    """Notify users about new daily menu.
 
-    Admins skip this — they get menu info as part of the unified morning
-    digest at 09:00 via /check-calendar?digest=true.
+    Админы с включённым календарём пропускаются — меню входит в их утренний
+    дайджест (08:00, /check-calendar?digest=true).
     """
     users = await api.get_notifiable_users()
     if not users:
@@ -102,7 +115,7 @@ async def notify_menu_created(bot: Bot) -> None:
     # и сырой "<" в названии рецепта валит отправку у всех получателей.
     recipes = "\n".join(f"  • {html_decoration.quote(r['title'])}" for r in menu["recipes"])
     text = f"🍽 Меню дня готово! Предлагайте свои варианты.\n\nРецепты:\n{recipes}\n\nИспользуйте /suggest"
-    await broadcast(bot, text, exclude_admins=True)
+    await broadcast(bot, text, exclude_digest_recipients=True)
 
 
 async def notify_voting_opened(bot: Bot) -> None:

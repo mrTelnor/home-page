@@ -42,6 +42,7 @@ class UserResponse(BaseModel):
     is_volkov: bool = False
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool = True
+    calendar_notifications_enabled: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -52,6 +53,7 @@ class UpdateProfileRequest(BaseModel):
     is_volkov: bool | None = None
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool | None = None
+    calendar_notifications_enabled: bool | None = None
     email: EmailStr | None = None
 
 
@@ -92,5 +94,10 @@ class NotifiableUserResponse(BaseModel):
     tg_id: int
     first_name: str | None = None
     username: str
+    # Флаги нужны боту в списке админов: алерты идут всем админам, календарь —
+    # только с calendar_notifications_enabled, меню в дайджесте — только
+    # с notifications_enabled.
+    notifications_enabled: bool = True
+    calendar_notifications_enabled: bool = True
 
     model_config = {"from_attributes": True}

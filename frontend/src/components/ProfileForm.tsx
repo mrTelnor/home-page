@@ -17,6 +17,9 @@ export function ProfileForm({ user }: Readonly<Props>) {
   const [gender, setGender] = useState<"male" | "female" | "">(user.gender ?? "");
   const [email, setEmail] = useState(user.email ?? "");
   const [notificationsEnabled, setNotificationsEnabled] = useState(user.notifications_enabled);
+  const [calendarEnabled, setCalendarEnabled] = useState(user.calendar_notifications_enabled);
+  // Уведомления календаря бот шлёт только админам — остальным переключатель не нужен
+  const isAdmin = user.role === "admin";
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const update = useUpdateProfile();
@@ -33,6 +36,7 @@ export function ProfileForm({ user }: Readonly<Props>) {
         gender: gender || null,
         email: email.trim() || null,
         notifications_enabled: notificationsEnabled,
+        ...(isAdmin && { calendar_notifications_enabled: calendarEnabled }),
       },
       {
         onSuccess: () => setSaved(true),
@@ -142,9 +146,26 @@ export function ProfileForm({ user }: Readonly<Props>) {
           }}
         />
         <Label htmlFor="notifications-enabled" className="cursor-pointer">
-          Получать уведомления от бота
+          Уведомления бота об ужинах
         </Label>
       </div>
+
+      {isAdmin && (
+        <div className="flex items-center gap-2">
+          <input
+            id="calendar-notifications-enabled"
+            type="checkbox"
+            checked={calendarEnabled}
+            onChange={(e) => {
+              setCalendarEnabled(e.target.checked);
+              setSaved(false);
+            }}
+          />
+          <Label htmlFor="calendar-notifications-enabled" className="cursor-pointer">
+            Уведомления бота о семейном календаре
+          </Label>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={update.isPending}>

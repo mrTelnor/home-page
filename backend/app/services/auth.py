@@ -70,7 +70,15 @@ async def get_user_by_tg_id(session: AsyncSession, tg_id: int) -> User | None:
 # Поля профиля, которые пользователь может менять через PATCH /auth/me.
 # Совпадает с UpdateProfileRequest; защита от setattr произвольных атрибутов.
 UPDATABLE_PROFILE_FIELDS = frozenset(
-    {"first_name", "birthday", "gender", "is_volkov", "notifications_enabled", "email"}
+    {
+        "first_name",
+        "birthday",
+        "gender",
+        "is_volkov",
+        "notifications_enabled",
+        "calendar_notifications_enabled",
+        "email",
+    }
 )
 
 # Эти поля можно явно сбросить в None (передав null), остальные None игнорируются

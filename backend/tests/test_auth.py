@@ -340,3 +340,52 @@ async def test_update_profile_notifications_enabled(authed_client: AsyncClient):
     )
     assert response.status_code == 200
     assert response.json()["notifications_enabled"] is True
+
+
+# ---------- CALENDAR_NOTIFICATIONS_ENABLED FIELD ----------
+
+async def _link_tg(client: AsyncClient, tg_id: int) -> None:
+    import hashlib
+    import hmac
+    import time
+
+    payload = {"id": tg_id, "first_name": "Admin", "auth_date": int(time.time())}
+    check_string = "\n".join(f"{k}={payload[k]}" for k in sorted(payload.keys()))
+    secret_key = hashlib.sha256(b"test-bot-token").digest()
+    payload["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+    resp = await client.post("/api/auth/telegram-verify", json=payload)
+    assert resp.status_code == 200
+
+
+async def test_update_profile_calendar_notifications_independent(authed_client: AsyncClient):
+    """calendar_notifications_enabled переключается отдельно от notifications_enabled."""
+    me = await authed_client.get("/api/auth/me")
+    assert me.json()["calendar_notifications_enabled"] is True
+
+    response = await authed_client.patch(
+        "/api/auth/me", json={"calendar_notifications_enabled": False}
+    )
+    assert response.status_code == 200
+    assert response.json()["calendar_notifications_enabled"] is False
+    assert response.json()["notifications_enabled"] is True
+
+
+async def test_admin_users_include_notification_flags(admin_client: AsyncClient):
+    """Админ с выключенным календарём остаётся в /users/admins (ему идут алерты),
+    а флаги позволяют боту отфильтровать календарные рассылки."""
+    await _link_tg(admin_client, 55555)
+    await admin_client.patch(
+        "/api/auth/me",
+        json={"calendar_notifications_enabled": False, "notifications_enabled": False},
+    )
+
+    response = await admin_client.get(
+        "/api/auth/users/admins",
+        headers={"X-Bot-Secret": "test-bot-secret"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["tg_id"] == 55555
+    assert data[0]["calendar_notifications_enabled"] is False
+    assert data[0]["notifications_enabled"] is False

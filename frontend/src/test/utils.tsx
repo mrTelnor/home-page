@@ -79,6 +79,7 @@ export function makeUser(overrides: Partial<User> = {}): User {
     gender: null,
     email: null,
     notifications_enabled: true,
+    calendar_notifications_enabled: true,
     ...overrides,
   };
 }

@@ -101,7 +101,8 @@ curl https://api.telnor.ru/api/auth/me -b cookies.txt
   "birthday": "1990-05-15",
   "is_volkov": true,
   "gender": "male",
-  "notifications_enabled": true
+  "notifications_enabled": true,
+  "calendar_notifications_enabled": true
 }
 ```
 
@@ -124,7 +125,8 @@ curl -X PATCH https://api.telnor.ru/api/auth/me \
 - `birthday`: string (ISO date `YYYY-MM-DD`) | null
 - `is_volkov`: boolean
 - `gender`: `"male"` | `"female"` | null
-- `notifications_enabled`: boolean (управление уведомлениями бота)
+- `notifications_enabled`: boolean (уведомления бота об ужине)
+- `calendar_notifications_enabled`: boolean (напоминания и дайджест Google Calendar; рассылаются только админам)
 
 Ответ (200): обновлённый `UserResponse`.
 
@@ -200,7 +202,8 @@ curl https://api.telnor.ru/api/auth/users/notifiable \
 Ответ (200):
 ```json
 [
-  {"tg_id": 123456, "first_name": "Никита", "username": "testuser"}
+  {"tg_id": 123456, "first_name": "Никита", "username": "testuser",
+   "notifications_enabled": true, "calendar_notifications_enabled": true}
 ]
 ```
 
@@ -209,7 +212,7 @@ curl https://api.telnor.ru/api/auth/users/notifiable \
 
 ### GET /api/auth/users/admins
 
-Список admin-пользователей с привязанным Telegram. Используется ботом для отправки алертов от HetrixTools.
+Список admin-пользователей с привязанным Telegram. Бот шлёт им алерты (всем, без учёта флагов), а также напоминания и дайджест календаря — только тем, у кого `calendar_notifications_enabled`; меню в дайджесте — только при `notifications_enabled`.
 
 ```bash
 curl https://api.telnor.ru/api/auth/users/admins \
@@ -219,7 +222,8 @@ curl https://api.telnor.ru/api/auth/users/admins \
 Ответ (200):
 ```json
 [
-  {"tg_id": 123456, "first_name": "Никита", "username": "admin"}
+  {"tg_id": 123456, "first_name": "Никита", "username": "admin",
+   "notifications_enabled": true, "calendar_notifications_enabled": false}
 ]
 ```
 

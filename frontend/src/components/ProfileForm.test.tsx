@@ -20,6 +20,7 @@ const baseUser: User = {
   id: "u1", username: "tester", role: "user", created_at: "2026-01-01T00:00:00Z",
   tg_id: null, first_name: null, birthday: null, is_volkov: false, gender: null, email: null,
   notifications_enabled: true,
+  calendar_notifications_enabled: true,
 };
 
 function renderForm(user: User = makeUser()) {
@@ -104,12 +105,32 @@ describe("ProfileForm", () => {
     fetchMock.mockResolvedValue(mockResponse({ body: makeUser() }));
     renderForm(makeUser({ notifications_enabled: true }));
 
-    await user.click(screen.getByLabelText("Получать уведомления от бота"));
+    await user.click(screen.getByLabelText("Уведомления бота об ужинах"));
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
     expect(body.notifications_enabled).toBe(false);
+  });
+
+  it("переключатель календаря скрыт у обычного пользователя", () => {
+    renderForm(makeUser({ role: "user" }));
+
+    expect(screen.queryByLabelText("Уведомления бота о семейном календаре")).not.toBeInTheDocument();
+  });
+
+  it("админ выключает календарь отдельно от ужинов", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(mockResponse({ body: makeUser({ role: "admin" }) }));
+    renderForm(makeUser({ role: "admin" }));
+
+    await user.click(screen.getByLabelText("Уведомления бота о семейном календаре"));
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.calendar_notifications_enabled).toBe(false);
+    expect(body.notifications_enabled).toBe(true);
   });
 
   it("изменение поля скрывает индикатор 'Сохранено'", async () => {

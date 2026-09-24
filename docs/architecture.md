@@ -52,7 +52,7 @@
 ### Telegram-бот
 - **Aiogram 3** (async) — polling mode, отдельный Docker-сервис
 - Общается с backend API через httpx (`http://backend:8000`) с JWT авторизацией
-- Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/schedule`, `/mute`, `/unmute`, `/start`, `/help`
+- Команды: `/menu`, `/vote`, `/suggest`, `/recipes`, `/schedule`, `/notifications`, `/mute`, `/unmute`, `/start`, `/help`
 - Aiohttp-сервер на `:8080`:
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
@@ -101,7 +101,8 @@
 Схема: auth
 ├── users          (id, tg_id, username, email, password_hash, role,
 │                   first_name, birthday, is_volkov, gender,
-│                   notifications_enabled, created_at)
+│                   notifications_enabled, calendar_notifications_enabled,
+│                   password_changed_at, token_version, created_at)
 └── sessions       (id, user_id, token, expires_at)
 
 Схема: dinner
@@ -121,7 +122,8 @@
 - Конкурентные мутации меню (finalize/close-voting/suggest) сериализуются через `SELECT ... FOR UPDATE` по строке меню: статус перечитывается под блокировкой, победитель не пересчитывается вторым вызовом, лимит предложений не обходится гонкой
 - `users.gender`: `male` | `female` (для оповещений и склонений)
 - `users.is_volkov`: фамилия Волков/Волкова
-- `users.notifications_enabled`: управление уведомлениями через бота (default: true)
+- `users.notifications_enabled`: рассылки бота об ужине — меню, открытие и итоги голосования (default: true)
+- `users.calendar_notifications_enabled`: напоминания и утренний дайджест Google Calendar (default: true, миграция 014). Календарь рассылается только админам: бот берёт `/users/admins` и фильтрует по флагу; меню входит в дайджест, только если у админа включены и ужины, а админу с выключенным календарём меню приходит обычным `menu_created`. Алерты (cron, HetrixTools) идут всем админам независимо от флагов. `/mute` и `/unmute` переключают оба флага
 - `recipes.glyph_kind` ∈ {`soup`, `noodles`, `eggs`, `pancakes`, `pelmeni`, `pie`, `pizza`, `salad`, `steak`, `chicken`, `toast`, `roast`, `shashlik`, `pot`, `bread`} — тип SVG-иконки. NULL → авто-выбор по хешу названия
 - `recipes.glyph_color` ∈ {`red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `cream`} — палитра иконки. NULL → авто-выбор
 - `recipes.image_url` — локальный путь фото (`/api/recipe-images/<id>-<суффикс>.<ext>`). Backend скачивает фото по URL из формы (`photo_url`), хостит в Docker volume `recipe_images`, раздаёт через StaticFiles. NULL → показывается SVG-глиф (фолбэк также при ошибке загрузки `<img>`). Скачивание защищено от SSRF: хост резолвится и отклоняется, если ведёт в приватный/loopback/link-local диапазон (проверка на каждом редирект-хопе), редиректы обрабатываются вручную, размер режется потоково (лимит 5 МБ)

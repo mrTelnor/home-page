@@ -19,7 +19,12 @@ class User(Base, UUIDMixin, TimestampMixin):
     birthday: Mapped[date | None] = mapped_column(Date)
     is_volkov: Mapped[bool] = mapped_column(Boolean, default=False)
     gender: Mapped[str | None] = mapped_column(String(10))
+    # Рассылки об ужине (меню, голосование, результаты)
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Напоминания и утренний дайджест Google Calendar (получают только админы)
+    calendar_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Версия токенов: JWT несёт её в claim "ver"; смена пароля инкрементит,
     # обесценивая все ранее выданные токены (отзыв без таблицы сессий).
