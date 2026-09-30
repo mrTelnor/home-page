@@ -237,6 +237,8 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 | `vault_vikunja_db_password` | Пароль роли `vikunja` в PostgreSQL | да |
 | `vault_vikunja_service_secret` | `VIKUNJA_SERVICE_SECRET` — подпись JWT трекера | да |
 | `vault_vikunja_webhook_secret` | `VIKUNJA_WEBHOOK_SECRET` — секрет подписи webhook'ов Vikunja → бот (тот же вписывается в webhook в Vikunja); пусто — `/vikunja-webhook` отклоняет всё | да |
+| `vault_vikunja_smtp_username` | Логин SMTP RuSender для почты трекера (`VIKUNJA_MAILER_USERNAME`) | да |
+| `vault_vikunja_smtp_password` | Пароль SMTP RuSender для почты трекера (`VIKUNJA_MAILER_PASSWORD`) | да |
 | `vault_wg_private_key` | WireGuard PrivateKey (для VPN бота) | да |
 | `vault_wg_public_key` | WireGuard PublicKey пира | да |
 | `vault_wg_preshared_key` | WireGuard PresharedKey | да |

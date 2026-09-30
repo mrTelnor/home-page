@@ -88,6 +88,7 @@
 - БД — отдельная база и роль `vikunja` в общем postgres (создаёт Ansible до старта сервиса), вложения — volume `vikunja_files`
 - Без IP-allowlist (вход из поездок): регистрация закрыта (`VIKUNJA_ENABLE_REGISTRATION`, по умолчанию `false`), локальные учётки, TOTP
 - Образ scratch без шелла — healthcheck нет, доступность проверяет smoke-тест деплоя `/api/v1/info`
+- Почта (уведомления о задачах, напоминания) — SMTP RuSender `smtp.rusender.ru:465`, неявный TLS (`VIKUNJA_MAILER_FORCESSL=true`); отправитель `Vikunja <noreply@telnor.ru>` (адрес берётся из `vault_email_from`, домен подтверждён в RuSender). Письма приходят на email учётки Vikunja. Проверка: `docker exec vikunja /app/vikunja/vikunja testmail <адрес>`
 - Уведомления в Telegram — webhook'и на уровне проектов (срабатывают и для дочерних: webhook на «Пет-проекты» покрывает все пет-проекты) → бот `/vikunja-webhook`. Webhook'и на уровне пользователя в Vikunja 2.6 бывают только для напоминаний/просрочек. Исходящие запросы Vikunja идут через SSRF-safe клиент: приватные адреса (включая `http://bot:8080` в docker-сети) блокируются, пока не задан `outgoingrequests.allownonroutableips`
 
 ---

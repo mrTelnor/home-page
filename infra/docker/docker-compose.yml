@@ -263,6 +263,15 @@ services:
       VIKUNJA_DATABASE_USER: vikunja
       VIKUNJA_DATABASE_PASSWORD: ${VIKUNJA_DB_PASSWORD}
       VIKUNJA_DATABASE_DATABASE: vikunja
+      # Почта (уведомления, напоминания) — SMTP RuSender, неявный TLS на 465.
+      # Отправитель: "Vikunja <FROMEMAIL>" — Vikunja сама добавляет имя.
+      VIKUNJA_MAILER_ENABLED: "true"
+      VIKUNJA_MAILER_HOST: smtp.rusender.ru
+      VIKUNJA_MAILER_PORT: "465"
+      VIKUNJA_MAILER_FORCESSL: "true"
+      VIKUNJA_MAILER_USERNAME: ${VIKUNJA_SMTP_USERNAME}
+      VIKUNJA_MAILER_PASSWORD: ${VIKUNJA_SMTP_PASSWORD}
+      VIKUNJA_MAILER_FROMEMAIL: ${VIKUNJA_MAILER_FROMEMAIL}
     volumes:
       # Вложения задач; процесс работает от uid 1000
       - vikunja_files:/app/vikunja/files
