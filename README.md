@@ -217,18 +217,18 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 |---|---|---|
 | `vault_server_ip` | IP-адрес ВМ | да |
 | `vault_ssh_key_path` | Путь к приватному SSH-ключу | да |
-| `vault_ansible_user` | Имя пользователя для подключения | нет |
+| `vault_ansible_user` | Имя пользователя для подключения | да |
 | `vault_home_ip` | Домашний IP (для IP-whitelist) | да |
 | `vault_postgres_user` | Пользователь PostgreSQL | да |
 | `vault_postgres_password` | Пароль PostgreSQL | да |
 | `vault_postgres_db` | Имя БД | да |
-| `vault_domain` | Домен проекта | нет |
-| `vault_acme_email` | Email для Let's Encrypt | нет |
+| `vault_domain` | Домен проекта | да |
+| `vault_acme_email` | Email для Let's Encrypt | да |
 | `vault_jwt_secret` | Секрет для подписи JWT | да |
 | `vault_invite_code` | Код для регистрации | да |
 | `vault_cron_secret` | Секрет для cron-запросов | да |
 | `vault_telegram_bot_token` | Токен Telegram-бота от BotFather | да |
-| `vault_telegram_bot_username` | Username Telegram-бота (без `@`) | нет |
+| `vault_telegram_bot_username` | Username Telegram-бота (без `@`) | да |
 | `vault_bot_secret` | Секрет для авторизации бота перед backend | да |
 | `vault_uptime_secret` | Секрет для webhook-алертов от HetrixTools | да |
 | `vault_yadisk_user` | Логин Яндекс.Диска для бэкапов | да |
@@ -243,7 +243,8 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 | `vault_wg_address` | Адрес WireGuard-клиента (`10.x.x.x/24`) | да |
 | `vault_wg_endpoint` | Endpoint WireGuard-сервера (`host:port`) | да |
 | `vault_google_service_account_b64` | JSON-ключ Google service account в base64 (для Calendar API) | да |
-| `vault_calendar_configs` | Список календарей: `[{label, id}, ...]` | нет |
+| `vault_calendar_configs` | Список календарей — JSON-строка `[{"label": ..., "id": ...}, ...]` (inline vault шифрует только строки; `env.j2` проверяет через `from_json`) | да |
+| `vault_vikunja_user_map` | Словарь для уведомлений трекера — JSON-строка `{"логин Vikunja": "логин telnor.ru"}` | да |
 
 Пароль vault хранится в `infra/ansible/.vault_pass` (не попадает в git).
 
@@ -291,7 +292,7 @@ Admin может выполнять эти действия и вручную (�
 - `POST /notify` (X-Cron-Secret) — рассылка уведомлений о меню, вызывается cron-контейнером
 - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
 - `POST /check-calendar` (X-Cron-Secret) — проверка Google Calendar и рассылка напоминаний; `?digest=true` — утренний дайджест на сегодня и завтра. На каждом 5-минутном тике также проверяется статус сегодняшнего меню — если cron-вызов `/notify` потерялся (бот рестартил, сеть моргнула), уведомление о voting/closed досылается с дедупом по `menu_id`
-- `POST /vikunja-webhook` (`X-Vikunja-Signature` — HMAC-SHA256 тела секретом `VIKUNJA_WEBHOOK_SECRET`) — уведомления трекера Vikunja в Telegram: назначение на задачу (назначенному) и новый комментарий (исполнителям задачи); автору действия не шлётся. Логин Vikunja → логин сайта — `VIKUNJA_USER_MAP` (переменная Ansible `vikunja_user_map`, дефолт в `env.j2`); получатели — `/users/tracker-notifiable`: отдельный переключатель «📋 Трекер» в `/notifications` (виден только пользователям из словаря), `/mute` выключает и его, переключатель ужинов не влияет
+- `POST /vikunja-webhook` (`X-Vikunja-Signature` — HMAC-SHA256 тела секретом `VIKUNJA_WEBHOOK_SECRET`) — уведомления трекера Vikunja в Telegram: назначение на задачу (назначенному) и новый комментарий (исполнителям задачи); автору действия не шлётся. Логин Vikunja → логин сайта — `VIKUNJA_USER_MAP` (`vault_vikunja_user_map` в vault); получатели — `/users/tracker-notifiable`: отдельный переключатель «📋 Трекер» в `/notifications` (виден только пользователям из словаря), `/mute` выключает и его, переключатель ужинов не влияет
 
 Необязательные env backend (дефолты сохраняют прежнее поведение): `LOG_LEVEL` (INFO), `CORS_ORIGINS` (JSON-список origins, по умолчанию `https://{DOMAIN}`), `TELEGRAM_AUTH_MAX_AGE_SECONDS` (3600).
 
