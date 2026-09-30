@@ -11,18 +11,25 @@
   changed_when: false
   check_mode: false
 
+- name: Check swap file
+  stat:
+    path: /swapfile
+  register: swapfile_stat
+
 - name: Create swap file
   command: fallocate -l 2G /swapfile
   args:
     creates: /swapfile
   when: "'/swapfile' not in swap_active.stdout"
 
+# В --check fallocate не выполняется — файла нет, и модуль file упал бы.
 - name: Restrict swap file permissions
   file:
     path: /swapfile
     owner: root
     group: root
     mode: "0600"
+  when: swapfile_stat.stat.exists or not ansible_check_mode
 
 - name: Format swap file
   command: mkswap /swapfile
