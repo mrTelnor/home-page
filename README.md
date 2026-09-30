@@ -236,6 +236,7 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 | `vault_heartbeat_url` | Ping-URL монитора healthchecks.io для dead-man's-switch бэкапа (опционально; пусто = выключено) | да |
 | `vault_vikunja_db_password` | Пароль роли `vikunja` в PostgreSQL | да |
 | `vault_vikunja_service_secret` | `VIKUNJA_SERVICE_SECRET` — подпись JWT трекера | да |
+| `vault_vikunja_webhook_secret` | `VIKUNJA_WEBHOOK_SECRET` — секрет подписи webhook'ов Vikunja → бот (тот же вписывается в webhook в Vikunja); пусто — `/vikunja-webhook` отклоняет всё | да |
 | `vault_wg_private_key` | WireGuard PrivateKey (для VPN бота) | да |
 | `vault_wg_public_key` | WireGuard PublicKey пира | да |
 | `vault_wg_preshared_key` | WireGuard PresharedKey | да |
@@ -290,6 +291,7 @@ Admin может выполнять эти действия и вручную (�
 - `POST /notify` (X-Cron-Secret) — рассылка уведомлений о меню, вызывается cron-контейнером
 - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
 - `POST /check-calendar` (X-Cron-Secret) — проверка Google Calendar и рассылка напоминаний; `?digest=true` — утренний дайджест на сегодня и завтра. На каждом 5-минутном тике также проверяется статус сегодняшнего меню — если cron-вызов `/notify` потерялся (бот рестартил, сеть моргнула), уведомление о voting/closed досылается с дедупом по `menu_id`
+- `POST /vikunja-webhook` (`X-Vikunja-Signature` — HMAC-SHA256 тела секретом `VIKUNJA_WEBHOOK_SECRET`) — уведомления трекера Vikunja в Telegram: назначение на задачу (назначенному) и новый комментарий (исполнителям задачи); автору действия не шлётся. Логин Vikunja → логин сайта — `VIKUNJA_USER_MAP` (переменная Ansible `vikunja_user_map`, дефолт в `env.j2`); `/mute` отключает и эти уведомления
 
 Необязательные env backend (дефолты сохраняют прежнее поведение): `LOG_LEVEL` (INFO), `CORS_ORIGINS` (JSON-список origins, по умолчанию `https://{DOMAIN}`), `TELEGRAM_AUTH_MAX_AGE_SECONDS` (3600).
 

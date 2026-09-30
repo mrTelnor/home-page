@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # Default reminders (минуты, через запятую) — применяются когда у события
     # нет explicit overrides (useDefault=true или поле отсутствует).
     calendar_default_reminders_min: str = "30"
+    # Трекер Vikunja: webhook /vikunja-webhook. Пустой секрет — все запросы отклоняются.
+    vikunja_webhook_secret: str = ""
+    # JSON {"логин Vikunja": "логин telnor.ru"}; tg_id берётся из backend по логину сайта.
+    vikunja_user_map: str = "{}"
+    vikunja_url: str = "https://tracker.telnor.ru"
 
     model_config = {"env_file": ".env"}
 

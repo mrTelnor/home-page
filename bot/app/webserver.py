@@ -1,9 +1,10 @@
-"""HTTP-endpoints бота (aiohttp): cron-уведомления, аптайм-алерты, календарь.
+"""HTTP-endpoints бота (aiohttp): cron-уведомления, аптайм-алерты, календарь, трекер Vikunja.
 
 Поднимается рядом с polling в main.py через create_app(bot).
 """
 import asyncio
 import hmac
+import json
 import logging
 from datetime import datetime, timedelta
 
@@ -34,6 +35,7 @@ from app.notify import (
     wants_calendar,
     wants_dinner,
 )
+from app.vikunja import build_notifications, signature_ok, user_map
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +144,46 @@ async def handle_uptime_alert(request: web.Request) -> web.Response:
     return web.json_response({"ok": True})
 
 
+async def handle_vikunja_webhook(request: web.Request) -> web.Response:
+    """Webhook трекера Vikunja: назначение на задачу и новый комментарий.
+
+    Получатель сопоставляется через VIKUNJA_USER_MAP (логин Vikunja → логин сайта),
+    tg_id — из /users/notifiable, поэтому /mute учитывается автоматически.
+    Всё, что не отправляем (чужое событие, логин не в словаре, /mute), — 200,
+    чтобы Vikunja не ретраила.
+    """
+    body = await request.read()
+    if not signature_ok(body, request.headers.get("X-Vikunja-Signature"), settings.vikunja_webhook_secret):
+        return web.json_response({"error": "invalid signature"}, status=401)
+
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        return web.json_response({"error": "invalid json"}, status=400)
+    if not isinstance(payload, dict):
+        return web.json_response({"error": "invalid payload"}, status=400)
+
+    notifications = build_notifications(payload)
+    if not notifications:
+        return web.json_response({"ok": True, "sent": 0})
+
+    logins = user_map()
+    tg_by_username = {u["username"]: u["tg_id"] for u in await api.get_notifiable_users()}
+    bot: Bot = request.app["bot"]
+    sent = 0
+    for vikunja_login, text in notifications:
+        tg_id = tg_by_username.get(logins.get(vikunja_login, ""))
+        if tg_id is None:
+            logger.info("vikunja: нет получателя для %s (не в словаре или /mute)", vikunja_login)
+            continue
+        try:
+            await bot.send_message(chat_id=tg_id, text=text)
+            sent += 1
+        except TelegramAPIError:
+            logger.warning("vikunja: не удалось отправить tg_id=%s", tg_id)
+    return web.json_response({"ok": True, "sent": sent})
+
+
 async def _send_to(bot: Bot, recipients: list[dict], text: str) -> None:
     for user in recipients:
         try:
@@ -237,4 +279,5 @@ def create_app(bot: Bot) -> web.Application:
     app.router.add_post("/notify", handle_notify)
     app.router.add_post("/uptime-alert", handle_uptime_alert)
     app.router.add_post("/check-calendar", handle_check_calendar)
+    app.router.add_post("/vikunja-webhook", handle_vikunja_webhook)
     return app

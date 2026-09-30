@@ -572,6 +572,30 @@ Webhook для HetrixTools. Секрет передаётся в query-пара�
 Ошибки:
 - 403 — неверный secret
 
+### POST /vikunja-webhook (бот)
+
+Webhook трекера Vikunja. Заголовок `X-Vikunja-Signature` — hex HMAC-SHA256 тела запроса секретом `VIKUNJA_WEBHOOK_SECRET` (задаётся и в webhook'е Vikunja). Обрабатываются события `task.assignee.created` (сообщение назначенному) и `task.comment.created` (сообщение исполнителям задачи, текст комментария без HTML, до 300 символов); автору действия (`doer`) не шлётся.
+
+Payload от Vikunja (сокращённо):
+```json
+{
+  "event_name": "task.comment.created",
+  "time": "2026-10-01T12:00:00+03:00",
+  "data": {
+    "task": {"id": 42, "title": "…", "assignees": [{"username": "telnor"}]},
+    "comment": {"comment": "<p>…</p>"},
+    "doer": {"username": "claude", "name": ""}
+  }
+}
+```
+
+Получатель: логин Vikunja → логин сайта по `VIKUNJA_USER_MAP` → `tg_id` из `/api/auth/users/notifiable` (`/mute` действует).
+
+Ответы:
+- 200 `{"ok": true, "sent": N}` — в том числе для неизвестных событий и получателей вне словаря/с `/mute` (чтобы Vikunja не ретраила)
+- 400 — тело не JSON-объект
+- 401 — нет/неверная подпись или секрет не настроен
+
 ### POST http://bot:8080/check-calendar
 
 Проверка Google Calendar и рассылка напоминаний админам. Доступен только из Docker-сети, защищён `X-Cron-Secret`. Вызывается cron-контейнером каждые 5 минут.

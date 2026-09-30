@@ -59,6 +59,7 @@
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
   - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
+  - `POST /vikunja-webhook` (`X-Vikunja-Signature`) — события трекера `task.assignee.created` и `task.comment.created` → Telegram назначенному/исполнителям (кроме автора действия); получатель — через словарь `VIKUNJA_USER_MAP` (логин Vikunja → логин сайта) и `/users/notifiable`, поэтому `/mute` действует
 - **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 08:00 (вместе с меню). Для событий с `useDefault=true` (рекуррентные, настройки уведомлений на уровне календаря — service account не видит реальные минуты) применяются дефолты из env `CALENDAR_DEFAULT_REMINDERS_MIN` (по умолчанию `30`, поддерживается список через запятую). Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`. Синхронный googleapiclient вызывается через `asyncio.to_thread` (не морозит polling/healthz), у HTTP-клиента задан таймаут 15 с (google-auth-httplib2)
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
 
@@ -87,6 +88,7 @@
 - БД — отдельная база и роль `vikunja` в общем postgres (создаёт Ansible до старта сервиса), вложения — volume `vikunja_files`
 - Без IP-allowlist (вход из поездок): регистрация закрыта (`VIKUNJA_ENABLE_REGISTRATION`, по умолчанию `false`), локальные учётки, TOTP
 - Образ scratch без шелла — healthcheck нет, доступность проверяет smoke-тест деплоя `/api/v1/info`
+- Уведомления в Telegram — webhook'и на уровне проектов (срабатывают и для дочерних: webhook на «Пет-проекты» покрывает все пет-проекты) → бот `/vikunja-webhook`. Webhook'и на уровне пользователя в Vikunja 2.6 бывают только для напоминаний/просрочек. Исходящие запросы Vikunja идут через SSRF-safe клиент: приватные адреса (включая `http://bot:8080` в docker-сети) блокируются, пока не задан `outgoingrequests.allownonroutableips`
 
 ---
 
@@ -152,6 +154,7 @@
 - Cron использует `X-Cron-Secret` вместо JWT
 - Бот использует `X-Bot-Secret` для получения JWT по `tg_id` (`POST /api/auth/telegram-login`) и списков пользователей (`/users/notifiable`, `/users/admins`)
 - HetrixTools использует общий секрет (`?secret=...` в URL webhook'а) для вызова `/uptime-alert` бота
+- Vikunja подписывает webhook'и: `X-Vikunja-Signature` = hex HMAC-SHA256 тела секретом `VIKUNJA_WEBHOOK_SECRET`, бот сверяет через `hmac.compare_digest`; пустой секрет — отказ всем запросам
 
 ### Фронтенд
 - **React 19** + **Vite** + **TypeScript**

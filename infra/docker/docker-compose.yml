@@ -177,6 +177,10 @@ services:
       CALENDAR_CONFIGS: ${CALENDAR_CONFIGS}
       REMINDERS_DATA_PATH: /data/sent_reminders.json
       CALENDAR_DEFAULT_REMINDERS_MIN: ${CALENDAR_DEFAULT_REMINDERS_MIN:-30}
+      # Webhook трекера (POST /vikunja-webhook): подпись HMAC и словарь логинов
+      VIKUNJA_WEBHOOK_SECRET: ${VIKUNJA_WEBHOOK_SECRET}
+      VIKUNJA_USER_MAP: ${VIKUNJA_USER_MAP}
+      VIKUNJA_URL: https://tracker.${DOMAIN}
     volumes:
       - bot_data:/data
     networks:
