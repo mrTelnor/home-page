@@ -59,7 +59,7 @@
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
   - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
-  - `POST /vikunja-webhook` (`X-Vikunja-Signature`) — события трекера `task.assignee.created` и `task.comment.created` → Telegram назначенному/исполнителям (кроме автора действия); получатель — через словарь `VIKUNJA_USER_MAP` (логин Vikunja → логин сайта) и `/users/notifiable`, поэтому `/mute` действует
+  - `POST /vikunja-webhook` (`X-Vikunja-Signature`) — события трекера `task.assignee.created` и `task.comment.created` → Telegram назначенному/исполнителям (кроме автора действия); получатель — через словарь `VIKUNJA_USER_MAP` (логин Vikunja → логин сайта) и `/users/tracker-notifiable` (флаг `tracker_notifications_enabled`, не зависит от ужинов; `/mute` выключает и его)
 - **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 08:00 (вместе с меню). Для событий с `useDefault=true` (рекуррентные, настройки уведомлений на уровне календаря — service account не видит реальные минуты) применяются дефолты из env `CALENDAR_DEFAULT_REMINDERS_MIN` (по умолчанию `30`, поддерживается список через запятую). Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`. Синхронный googleapiclient вызывается через `asyncio.to_thread` (не морозит polling/healthz), у HTTP-клиента задан таймаут 15 с (google-auth-httplib2)
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
 
@@ -112,6 +112,7 @@
 ├── users          (id, tg_id, username, email, password_hash, role,
 │                   first_name, birthday, is_volkov, gender,
 │                   notifications_enabled, calendar_notifications_enabled,
+│                   tracker_notifications_enabled,
 │                   password_changed_at, token_version, created_at)
 └── sessions       (id, user_id, token, expires_at)
 
@@ -133,7 +134,8 @@
 - `users.gender`: `male` | `female` (для оповещений и склонений)
 - `users.is_volkov`: фамилия Волков/Волкова
 - `users.notifications_enabled`: рассылки бота об ужине — меню, открытие и итоги голосования (default: true)
-- `users.calendar_notifications_enabled`: напоминания и утренний дайджест Google Calendar (default: true, миграция 014). Календарь рассылается только админам: бот берёт `/users/admins` и фильтрует по флагу; меню входит в дайджест, только если у админа включены и ужины, а админу с выключенным календарём меню приходит обычным `menu_created`. Алерты (cron, HetrixTools) идут всем админам независимо от флагов. `/mute` и `/unmute` переключают оба флага
+- `users.calendar_notifications_enabled`: напоминания и утренний дайджест Google Calendar (default: true, миграция 014). Календарь рассылается только админам: бот берёт `/users/admins` и фильтрует по флагу; меню входит в дайджест, только если у админа включены и ужины, а админу с выключенным календарём меню приходит обычным `menu_created`. Алерты (cron, HetrixTools) идут всем админам независимо от флагов. `/mute` и `/unmute` переключают все три флага
+- `users.tracker_notifications_enabled`: уведомления трекера Vikunja — назначение на задачу, новый комментарий (default: true, миграция 015). Бот берёт `/users/tracker-notifiable`; переключатель «📋 Трекер» в `/notifications` показывается только пользователям из `VIKUNJA_USER_MAP`, на сайте переключателя нет
 - `recipes.glyph_kind` ∈ {`soup`, `noodles`, `eggs`, `pancakes`, `pelmeni`, `pie`, `pizza`, `salad`, `steak`, `chicken`, `toast`, `roast`, `shashlik`, `pot`, `bread`} — тип SVG-иконки. NULL → авто-выбор по хешу названия
 - `recipes.glyph_color` ∈ {`red`, `orange`, `yellow`, `green`, `teal`, `blue`, `purple`, `pink`, `brown`, `cream`} — палитра иконки. NULL → авто-выбор
 - `recipes.image_url` — локальный путь фото (`/api/recipe-images/<id>-<суффикс>.<ext>`). Backend скачивает фото по URL из формы (`photo_url`), хостит в Docker volume `recipe_images`, раздаёт через StaticFiles. NULL → показывается SVG-глиф (фолбэк также при ошибке загрузки `<img>`). Скачивание защищено от SSRF: хост резолвится и отклоняется, если ведёт в приватный/loopback/link-local диапазон (проверка на каждом редирект-хопе), редиректы обрабатываются вручную, размер режется потоково (лимит 5 МБ)
@@ -152,7 +154,7 @@
 - **Роли:** `user` (по умолчанию), `admin`
 - **Привязка Telegram** через Login Widget на странице `/profile` (HMAC-проверка через `TELEGRAM_BOT_TOKEN`)
 - Cron использует `X-Cron-Secret` вместо JWT
-- Бот использует `X-Bot-Secret` для получения JWT по `tg_id` (`POST /api/auth/telegram-login`) и списков пользователей (`/users/notifiable`, `/users/admins`)
+- Бот использует `X-Bot-Secret` для получения JWT по `tg_id` (`POST /api/auth/telegram-login`) и списков пользователей (`/users/notifiable`, `/users/tracker-notifiable`, `/users/admins`)
 - HetrixTools использует общий секрет (`?secret=...` в URL webhook'а) для вызова `/uptime-alert` бота
 - Vikunja подписывает webhook'и: `X-Vikunja-Signature` = hex HMAC-SHA256 тела секретом `VIKUNJA_WEBHOOK_SECRET`, бот сверяет через `hmac.compare_digest`; пустой секрет — отказ всем запросам
 

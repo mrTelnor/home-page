@@ -5,15 +5,18 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from app.api_client import api
 from app.callbacks import NOTIF_PREFIX, pack, unpack
 from app.helpers import check_linked, check_ok
+from app.vikunja import user_map
 
 router = Router()
 
 # Вид уведомлений → поле профиля в backend
 DINNER = "dinner"
 CALENDAR = "calendar"
+TRACKER = "tracker"
 FIELDS = {
     DINNER: "notifications_enabled",
     CALENDAR: "calendar_notifications_enabled",
+    TRACKER: "tracker_notifications_enabled",
 }
 
 SETTINGS_TEXT = (
@@ -27,13 +30,18 @@ def _is_admin(user: dict) -> bool:
     return user.get("role") == "admin"
 
 
+def _is_tracker_user(user: dict) -> bool:
+    """Уведомления трекера получают только пользователи из VIKUNJA_USER_MAP."""
+    return user.get("username") in user_map().values()
+
+
 def _label(title: str, enabled: bool) -> str:
     return f"{title}: {'✅ вкл' if enabled else '🔇 выкл'}"
 
 
 def build_notifications_keyboard(user: dict) -> InlineKeyboardMarkup:
-    """Кнопки-переключатели. Календарь рассылается только админам —
-    остальным его кнопка не показывается."""
+    """Кнопки-переключатели. Календарь рассылается только админам, трекер —
+    только пользователям трекера; остальным их кнопки не показываются."""
     buttons = [[InlineKeyboardButton(
         text=_label("🍽 Ужины", user.get(FIELDS[DINNER], True)),
         callback_data=pack(NOTIF_PREFIX, DINNER),
@@ -42,6 +50,11 @@ def build_notifications_keyboard(user: dict) -> InlineKeyboardMarkup:
         buttons.append([InlineKeyboardButton(
             text=_label("📅 Календарь", user.get(FIELDS[CALENDAR], True)),
             callback_data=pack(NOTIF_PREFIX, CALENDAR),
+        )])
+    if _is_tracker_user(user):
+        buttons.append([InlineKeyboardButton(
+            text=_label("📋 Трекер", user.get(FIELDS[TRACKER], True)),
+            callback_data=pack(NOTIF_PREFIX, TRACKER),
         )])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -71,6 +84,9 @@ async def cb_toggle_notifications(callback: CallbackQuery) -> None:
     user = me_resp.json()
     if kind == CALENDAR and not _is_admin(user):
         await callback.answer("Календарь доступен только администраторам.")
+        return
+    if kind == TRACKER and not _is_tracker_user(user):
+        await callback.answer("Уведомления трекера недоступны.")
         return
 
     new_value = not user.get(field, True)

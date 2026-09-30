@@ -77,6 +77,7 @@ UPDATABLE_PROFILE_FIELDS = frozenset(
         "is_volkov",
         "notifications_enabled",
         "calendar_notifications_enabled",
+        "tracker_notifications_enabled",
         "email",
     }
 )
@@ -109,6 +110,14 @@ def email_lock_until(user: User) -> datetime | None:
 async def get_notifiable_users(session: AsyncSession) -> list[User]:
     result = await session.execute(
         select(User).where(User.tg_id.is_not(None), User.notifications_enabled.is_(True))
+    )
+    return list(result.scalars().all())
+
+
+async def get_tracker_notifiable_users(session: AsyncSession) -> list[User]:
+    """Получатели уведомлений трекера — независимо от переключателя ужинов."""
+    result = await session.execute(
+        select(User).where(User.tg_id.is_not(None), User.tracker_notifications_enabled.is_(True))
     )
     return list(result.scalars().all())
 

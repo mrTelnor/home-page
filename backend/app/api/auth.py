@@ -24,6 +24,7 @@ from app.services.auth import (
     email_lock_until,
     get_admin_users,
     get_notifiable_users,
+    get_tracker_notifiable_users,
     get_user_by_tg_id,
     set_telegram_id,
     update_password,
@@ -191,6 +192,15 @@ async def telegram_login(data: TelegramLoginRequest, session: DbSession):
 )
 async def notifiable_users(session: DbSession):
     return await get_notifiable_users(session)
+
+
+@router.get(
+    "/users/tracker-notifiable",
+    response_model=list[NotifiableUserResponse],
+    dependencies=[Depends(verify_bot_secret)],
+)
+async def tracker_notifiable_users(session: DbSession):
+    return await get_tracker_notifiable_users(session)
 
 
 @router.get(

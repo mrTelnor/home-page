@@ -120,6 +120,66 @@ async def test_toggle_calendar_rejected_for_non_admin(monkeypatch):
     cb.answer.assert_awaited_once_with("Календарь доступен только администраторам.")
 
 
+@pytest.fixture
+def tracker_map(monkeypatch):
+    from app import vikunja
+
+    monkeypatch.setattr(vikunja.settings, "vikunja_user_map", '{"telnor": "telnor"}')
+
+
+async def test_tracker_user_sees_tracker_toggle(monkeypatch, tracker_map):
+    user = {**ADMIN, "username": "telnor", "tracker_notifications_enabled": False}
+    monkeypatch.setattr(api_client.api, "get", AsyncMock(return_value=make_response(200, user)))
+    msg = make_message()
+
+    await notifications.cmd_notifications(msg)
+
+    markup = msg.answer.await_args.kwargs["reply_markup"]
+    assert button_texts(markup) == ["🍽 Ужины: ✅ вкл", "📅 Календарь: ✅ вкл", "📋 Трекер: 🔇 выкл"]
+    assert markup.inline_keyboard[2][0].callback_data == "notif:tracker"
+
+
+async def test_non_tracker_user_has_no_tracker_toggle(monkeypatch, tracker_map):
+    user = {**USER, "username": "someone"}
+    monkeypatch.setattr(api_client.api, "get", AsyncMock(return_value=make_response(200, user)))
+    msg = make_message()
+
+    await notifications.cmd_notifications(msg)
+
+    assert button_texts(msg.answer.await_args.kwargs["reply_markup"]) == ["🍽 Ужины: ✅ вкл"]
+
+
+async def test_toggle_tracker(monkeypatch, tracker_map):
+    user = {**USER, "username": "telnor", "notifications_enabled": False}
+    monkeypatch.setattr(api_client.api, "get", AsyncMock(return_value=make_response(200, user)))
+    updated = {**user, "tracker_notifications_enabled": False}
+    patch_mock = AsyncMock(return_value=make_response(200, updated))
+    monkeypatch.setattr(api_client.api, "patch", patch_mock)
+    cb = make_callback("notif:tracker")
+
+    await notifications.cb_toggle_notifications(cb)
+
+    patch_mock.assert_awaited_once_with("/api/auth/me", 1, json={"tracker_notifications_enabled": False})
+    assert button_texts(cb.message.edit_text.await_args.kwargs["reply_markup"]) == [
+        "🍽 Ужины: 🔇 выкл",
+        "📋 Трекер: 🔇 выкл",
+    ]
+    cb.answer.assert_awaited_once_with("Выключено.")
+
+
+async def test_toggle_tracker_rejected_for_non_tracker_user(monkeypatch, tracker_map):
+    user = {**USER, "username": "someone"}
+    monkeypatch.setattr(api_client.api, "get", AsyncMock(return_value=make_response(200, user)))
+    patch_mock = AsyncMock()
+    monkeypatch.setattr(api_client.api, "patch", patch_mock)
+    cb = make_callback("notif:tracker")
+
+    await notifications.cb_toggle_notifications(cb)
+
+    patch_mock.assert_not_awaited()
+    cb.answer.assert_awaited_once_with("Уведомления трекера недоступны.")
+
+
 async def test_toggle_unknown_kind(monkeypatch):
     get_mock = AsyncMock()
     monkeypatch.setattr(api_client.api, "get", get_mock)

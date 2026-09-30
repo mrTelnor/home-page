@@ -389,3 +389,57 @@ async def test_admin_users_include_notification_flags(admin_client: AsyncClient)
     assert data[0]["tg_id"] == 55555
     assert data[0]["calendar_notifications_enabled"] is False
     assert data[0]["notifications_enabled"] is False
+
+
+# ---------- TRACKER_NOTIFICATIONS_ENABLED FIELD ----------
+
+async def test_update_profile_tracker_notifications_independent(authed_client: AsyncClient):
+    """tracker_notifications_enabled переключается отдельно от ужинов и календаря."""
+    me = await authed_client.get("/api/auth/me")
+    assert me.json()["tracker_notifications_enabled"] is True
+
+    response = await authed_client.patch(
+        "/api/auth/me", json={"tracker_notifications_enabled": False}
+    )
+    assert response.status_code == 200
+    assert response.json()["tracker_notifications_enabled"] is False
+    assert response.json()["notifications_enabled"] is True
+    assert response.json()["calendar_notifications_enabled"] is True
+
+
+async def test_tracker_notifiable_ignores_dinner_flag(admin_client: AsyncClient):
+    """Выключенные ужины не отключают уведомления трекера."""
+    await _link_tg(admin_client, 66666)
+    await admin_client.patch("/api/auth/me", json={"notifications_enabled": False})
+
+    response = await admin_client.get(
+        "/api/auth/users/tracker-notifiable",
+        headers={"X-Bot-Secret": "test-bot-secret"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert [u["tg_id"] for u in data] == [66666]
+    assert data[0]["username"]
+
+
+async def test_tracker_notifiable_excludes_disabled_and_unlinked(
+    authed_client: AsyncClient, admin_client: AsyncClient
+):
+    """Выключенный трекер и пользователи без tg_id в список не попадают."""
+    await _link_tg(admin_client, 77777)
+    await admin_client.patch("/api/auth/me", json={"tracker_notifications_enabled": False})
+
+    response = await authed_client.get(
+        "/api/auth/users/tracker-notifiable",
+        headers={"X-Bot-Secret": "test-bot-secret"},
+    )
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_tracker_notifiable_wrong_secret(authed_client: AsyncClient):
+    response = await authed_client.get(
+        "/api/auth/users/tracker-notifiable",
+        headers={"X-Bot-Secret": "wrong"},
+    )
+    assert response.status_code == 403

@@ -43,6 +43,7 @@ class UserResponse(BaseModel):
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool = True
     calendar_notifications_enabled: bool = True
+    tracker_notifications_enabled: bool = True
 
     model_config = {"from_attributes": True}
 
@@ -54,6 +55,7 @@ class UpdateProfileRequest(BaseModel):
     gender: Literal["male", "female"] | None = None
     notifications_enabled: bool | None = None
     calendar_notifications_enabled: bool | None = None
+    tracker_notifications_enabled: bool | None = None
     email: EmailStr | None = None
 
 

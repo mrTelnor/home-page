@@ -116,6 +116,16 @@ class ApiClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_tracker_notifiable_users(self) -> list[dict]:
+        """Получатели уведомлений трекера Vikunja (флаг tracker_notifications_enabled)."""
+        resp = await self._request_with_retry(
+            "GET",
+            "/api/auth/users/tracker-notifiable",
+            headers={"X-Bot-Secret": settings.bot_secret},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_admin_users(self) -> list[dict]:
         resp = await self._request_with_retry(
             "GET",

@@ -148,9 +148,9 @@ async def handle_vikunja_webhook(request: web.Request) -> web.Response:
     """Webhook трекера Vikunja: назначение на задачу и новый комментарий.
 
     Получатель сопоставляется через VIKUNJA_USER_MAP (логин Vikunja → логин сайта),
-    tg_id — из /users/notifiable, поэтому /mute учитывается автоматически.
-    Всё, что не отправляем (чужое событие, логин не в словаре, /mute), — 200,
-    чтобы Vikunja не ретраила.
+    tg_id — из /users/tracker-notifiable (флаг «Трекер» в /notifications, /mute
+    его тоже выключает). Всё, что не отправляем (чужое событие, логин не в словаре,
+    трекер выключен), — 200, чтобы Vikunja не ретраила.
     """
     body = await request.read()
     if not signature_ok(body, request.headers.get("X-Vikunja-Signature"), settings.vikunja_webhook_secret):
@@ -168,13 +168,20 @@ async def handle_vikunja_webhook(request: web.Request) -> web.Response:
         return web.json_response({"ok": True, "sent": 0})
 
     logins = user_map()
-    tg_by_username = {u["username"]: u["tg_id"] for u in await api.get_notifiable_users()}
+    tg_by_username = {u["username"]: u["tg_id"] for u in await api.get_tracker_notifiable_users()}
     bot: Bot = request.app["bot"]
     sent = 0
     for vikunja_login, text in notifications:
-        tg_id = tg_by_username.get(logins.get(vikunja_login, ""))
+        site_login = logins.get(vikunja_login)
+        if site_login is None:
+            logger.info("vikunja: логина %s нет в VIKUNJA_USER_MAP", vikunja_login)
+            continue
+        tg_id = tg_by_username.get(site_login)
         if tg_id is None:
-            logger.info("vikunja: нет получателя для %s (не в словаре или /mute)", vikunja_login)
+            logger.info(
+                "vikunja: %s (сайт: %s) — трекер выключен или Telegram не привязан",
+                vikunja_login, site_login,
+            )
             continue
         try:
             await bot.send_message(chat_id=tg_id, text=text)

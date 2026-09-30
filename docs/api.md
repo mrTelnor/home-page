@@ -102,7 +102,8 @@ curl https://api.telnor.ru/api/auth/me -b cookies.txt
   "is_volkov": true,
   "gender": "male",
   "notifications_enabled": true,
-  "calendar_notifications_enabled": true
+  "calendar_notifications_enabled": true,
+  "tracker_notifications_enabled": true
 }
 ```
 
@@ -127,6 +128,7 @@ curl -X PATCH https://api.telnor.ru/api/auth/me \
 - `gender`: `"male"` | `"female"` | null
 - `notifications_enabled`: boolean (уведомления бота об ужине)
 - `calendar_notifications_enabled`: boolean (напоминания и дайджест Google Calendar; рассылаются только админам)
+- `tracker_notifications_enabled`: boolean (уведомления трекера Vikunja в Telegram; переключается из бота)
 
 Ответ (200): обновлённый `UserResponse`.
 
@@ -206,6 +208,13 @@ curl https://api.telnor.ru/api/auth/users/notifiable \
    "notifications_enabled": true, "calendar_notifications_enabled": true}
 ]
 ```
+
+Ошибки:
+- 403 — неверный секрет
+
+### GET /api/auth/users/tracker-notifiable
+
+Пользователи с привязанным Telegram и `tracker_notifications_enabled = true` — получатели уведомлений трекера Vikunja (`/vikunja-webhook` бота). Переключатель ужинов (`notifications_enabled`) не влияет. Формат ответа — как у `/users/notifiable`. Требует `X-Bot-Secret`; снаружи закрыт Traefik (внутренний маршрут `/api/auth/users/`).
 
 Ошибки:
 - 403 — неверный секрет
@@ -589,10 +598,10 @@ Payload от Vikunja (сокращённо):
 }
 ```
 
-Получатель: логин Vikunja → логин сайта по `VIKUNJA_USER_MAP` → `tg_id` из `/api/auth/users/notifiable` (`/mute` действует).
+Получатель: логин Vikunja → логин сайта по `VIKUNJA_USER_MAP` → `tg_id` из `/api/auth/users/tracker-notifiable` (переключатель «📋 Трекер» в `/notifications`; `/mute` выключает и его).
 
 Ответы:
-- 200 `{"ok": true, "sent": N}` — в том числе для неизвестных событий и получателей вне словаря/с `/mute` (чтобы Vikunja не ретраила)
+- 200 `{"ok": true, "sent": N}` — в том числе для неизвестных событий и получателей вне словаря/с выключенным трекером (чтобы Vikunja не ретраила)
 - 400 — тело не JSON-объект
 - 401 — нет/неверная подпись или секрет не настроен
 

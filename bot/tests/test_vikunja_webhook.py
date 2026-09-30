@@ -37,7 +37,7 @@ async def client(monkeypatch):
     monkeypatch.setattr(vikunja.settings, "vikunja_webhook_secret", SECRET)
     monkeypatch.setattr(vikunja.settings, "vikunja_user_map", json.dumps(USER_MAP))
     monkeypatch.setattr(vikunja.settings, "vikunja_url", "https://tracker.example")
-    monkeypatch.setattr(webserver.api, "get_notifiable_users", AsyncMock(return_value=NOTIFIABLE))
+    monkeypatch.setattr(webserver.api, "get_tracker_notifiable_users", AsyncMock(return_value=NOTIFIABLE))
     bot = MagicMock()
     bot.send_message = AsyncMock()
     app = create_app(bot)
@@ -157,8 +157,8 @@ async def test_login_not_in_map_skipped(client):
 
 
 async def test_muted_user_skipped(client, monkeypatch):
-    # /mute: backend не отдаёт пользователя в /users/notifiable
-    monkeypatch.setattr(webserver.api, "get_notifiable_users", AsyncMock(return_value=NOTIFIABLE[:1]))
+    # трекер выключен (/notifications или /mute): backend не отдаёт пользователя
+    monkeypatch.setattr(webserver.api, "get_tracker_notifiable_users", AsyncMock(return_value=NOTIFIABLE[:1]))
     payload = {
         "event_name": "task.assignee.created",
         "data": {"task": _task(["Руслана"]), "assignee": _user("Руслана"), "doer": _user("telnor")},
@@ -173,7 +173,7 @@ async def test_unknown_event_ignored(client):
     resp = await _post(client, payload)
     assert resp.status == 200
     assert (await resp.json())["sent"] == 0
-    webserver.api.get_notifiable_users.assert_not_awaited()
+    webserver.api.get_tracker_notifiable_users.assert_not_awaited()
 
 
 async def test_telegram_error_does_not_fail_webhook(client):
@@ -187,6 +187,18 @@ async def test_telegram_error_does_not_fail_webhook(client):
     resp = await _post(client, payload)
     assert resp.status == 200
     assert (await resp.json())["sent"] == 0
+
+
+async def test_log_distinguishes_not_in_map_and_disabled(client, monkeypatch, caplog):
+    monkeypatch.setattr(webserver.api, "get_tracker_notifiable_users", AsyncMock(return_value=[]))
+    payload = {
+        "event_name": "task.comment.created",
+        "data": {"task": _task(["telnor", "claude"]), "comment": {"comment": "x"}, "doer": _user("Руслана")},
+    }
+    with caplog.at_level("INFO", logger="app.webserver"):
+        await _post(client, payload)
+    assert "логина claude нет в VIKUNJA_USER_MAP" in caplog.text
+    assert "telnor (сайт: telnor) — трекер выключен или Telegram не привязан" in caplog.text
 
 
 def test_broken_user_map_is_empty(monkeypatch):

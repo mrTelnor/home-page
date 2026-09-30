@@ -25,6 +25,10 @@ class User(Base, UUIDMixin, TimestampMixin):
     calendar_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true", nullable=False
     )
+    # Уведомления трекера Vikunja: назначение на задачу, новый комментарий
+    tracker_notifications_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     password_changed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Версия токенов: JWT несёт её в claim "ver"; смена пароля инкрементит,
     # обесценивая все ранее выданные токены (отзыв без таблицы сессий).
