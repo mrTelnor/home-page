@@ -55,7 +55,7 @@ home-page/
 │   ├── app/              # Код (handlers, api_client, notify, config)
 │   └── Dockerfile
 ├── infra/
-│   ├── ansible/          # Playbooks, roles (docker, vpn, app, firewalld), inventory
+│   ├── ansible/          # Playbooks, roles (system, docker, vpn, app, firewalld), inventory
 │   ├── docker/
 │   │   ├── docker-compose.yml
 │   │   ├── cron/         # Cron-контейнер: расписание + бэкапы БД на Яндекс.Диск
@@ -156,6 +156,8 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot
 
 Доступные теги: `backend`, `frontend`, `bot`, `cron`. Можно комбинировать: `--tags bot,backend`.
 
+Тег `system` — подготовка ОС (роль `system`): swap-файл 2 ГБ, `vm.swappiness=10`, отключение `fwupd` и `multipathd`. Выполняется при полном деплое; отдельно: `--tags system`.
+
 | Изменение | Команда |
 |---|---|
 | Только код бота (Python в `bot/app/`) | `--tags bot` |
@@ -185,6 +187,8 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot --check
 ### Очистка Docker-образов
 
 При каждом деплое плейбук автоматически выполняет `docker image prune -f` (задача `Prune dangling Docker images` с тегом `always`). Это убирает «осиротевшие» образы после rebuild и не даёт диску переполняться.
+
+Кэш сборки `image prune` не трогает, поэтому следом идёт `docker builder prune -f --filter until=168h` (задача `Prune Docker build cache older than a week`, тоже `always`): кэш старше недели удаляется, свежий продолжает ускорять сборку.
 
 ### Внутренности handler-ов
 

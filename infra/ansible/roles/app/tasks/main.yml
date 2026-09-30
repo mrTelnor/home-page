@@ -7,6 +7,15 @@
   changed_when: "'Total reclaimed space: 0B' not in prune_result.stdout"
   tags: [always]
 
+# Кэш сборки `image prune` не трогает: образы собираются на ВМ, и кэш копился
+# с каждым деплоем (к 2026-09 — 12.7 ГБ из 29 ГБ диска). Держим только свежий
+# (неделя) — несменившиеся сервисы по-прежнему собираются из кэша.
+- name: Prune Docker build cache older than a week
+  command: docker builder prune -f --filter until=168h
+  register: builder_prune_result
+  changed_when: builder_prune_result.stdout is not search('Total:\s+0B')
+  tags: [always]
+
 - name: Create app directory
   file:
     path: /opt/home-page

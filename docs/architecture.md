@@ -31,7 +31,9 @@
 - **Docker** + **Docker Compose** — управление всеми сервисами
 - **Docker Swarm/Kubernetes** — не используется (избыточно для одной ВМ)
 - Образы собираются на ВМ (без push в registry)
-- **`mem_limit` у каждого сервиса** (postgres 512m, backend 384m, bot 256m, traefik/portainer/cron 128m, frontend 64m) — на ВМ с 2 ГБ один распухший процесс без потолка валит OOM-киллером всю машину
+- **`mem_limit` у каждого сервиса** (postgres 512m, backend 384m, bot 320m, traefik/portainer/cron 128m, frontend 64m) — на ВМ с 2 ГБ один распухший процесс без потолка валит OOM-киллером всю машину
+- **Кэш сборки** — `docker builder prune --filter until=168h` на каждом деплое: при сборке на ВМ кэш копится без ограничений (к 2026-09 дорос до 12.7 ГБ)
+- **Swap 2 ГБ** (`/swapfile`, `vm.swappiness=10`) и отключённые `fwupd`/`multipathd` — роль `system`, запас памяти под пики сверх `mem_limit`
 - **Ротация логов** — общий якорь `x-logging` (json-file, max-size 10m × 3 файла); без него json-file растёт до заполнения диска
 
 ### Reverse Proxy и SSL

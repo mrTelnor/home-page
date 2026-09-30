@@ -162,7 +162,7 @@ services:
       context: ./bot
     container_name: bot
     restart: unless-stopped
-    mem_limit: 256m
+    mem_limit: 320m
     logging: *default-logging
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}

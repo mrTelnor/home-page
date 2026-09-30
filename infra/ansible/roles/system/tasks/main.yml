@@ -1,0 +1,79 @@
+---
+# Подготовка ОС под нагрузку на ВМ 2 ГБ: swap как запас против OOM-киллера
+# и отключение служб, бесполезных на облачной ВМ.
+
+# --- Swap 2 ГБ ---
+# Файл создаём и форматируем, только если /swapfile ещё не подключён: mkswap по
+# активному swap-файлу испортил бы его.
+- name: Check active swap
+  command: swapon --show=NAME --noheadings
+  register: swap_active
+  changed_when: false
+  check_mode: false
+
+- name: Create swap file
+  command: fallocate -l 2G /swapfile
+  args:
+    creates: /swapfile
+  when: "'/swapfile' not in swap_active.stdout"
+
+- name: Restrict swap file permissions
+  file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Format swap file
+  command: mkswap /swapfile
+  when: "'/swapfile' not in swap_active.stdout"
+
+- name: Enable swap file
+  command: swapon /swapfile
+  when: "'/swapfile' not in swap_active.stdout"
+
+- name: Persist swap in fstab
+  ansible.posix.mount:
+    path: none
+    src: /swapfile
+    fstype: swap
+    opts: sw
+    state: present
+
+# swappiness 10: swap — страховка от пиков, а не штатная память.
+- name: Set vm.swappiness
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "10"
+    sysctl_file: /etc/sysctl.d/99-swap.conf
+    reload: true
+
+# --- Ненужные службы ---
+# multipathd нужен только для многопутевых SAN-хранилищ. Отключаем, лишь убедившись,
+# что multipath-устройств нет и корень не на /dev/mapper.
+- name: Check multipath devices
+  command: multipath -ll
+  register: multipath_ll
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Assert multipath is not in use
+  assert:
+    that:
+      - multipath_ll.stdout | trim == ''
+      - not ((ansible_mounts | selectattr('mount', 'equalto', '/') | first).device.startswith('/dev/mapper/'))
+    fail_msg: "multipath используется — multipathd не отключаем, разобраться вручную"
+
+# masked, а не просто disabled: fwupd поднимается по D-Bus, multipathd — через сокет.
+- name: Disable and mask unneeded services
+  systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+    masked: true
+  loop:
+    - fwupd-refresh.timer
+    - fwupd.service
+    - multipathd.socket
+    - multipathd.service
