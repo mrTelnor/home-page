@@ -95,6 +95,52 @@
     mode: "0600"
   tags: [always]
 
+# Vikunja живёт в общем postgres, но в своей базе и под своей ролью. Роль и база
+# должны существовать до старта vikunja, поэтому postgres поднимаем заранее
+# (на работающем проде — no-op) и ждём healthcheck.
+- name: Ensure postgres is up before creating Vikunja database
+  command: docker compose up -d --wait postgres
+  args:
+    chdir: /opt/home-page
+  become_user: "{{ ansible_user }}"
+  register: postgres_up
+  changed_when: "'Started' in postgres_up.stderr or 'Recreated' in postgres_up.stderr"
+  tags: [always, vikunja]
+
+# Идемпотентно: CREATE — только если нет (\gexec), пароль синхронизируется с vault
+# каждый прогон. SQL идёт через stdin, чтобы пароль не светился в ps и логах.
+- name: Ensure Vikunja role and database
+  command: >-
+    docker exec -i postgres
+    psql -U {{ vault_postgres_user }} -d {{ vault_postgres_db }} -v ON_ERROR_STOP=1
+  args:
+    stdin: |
+      SELECT 'CREATE ROLE vikunja LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'vikunja')\gexec
+      ALTER ROLE vikunja WITH LOGIN PASSWORD '{{ vault_vikunja_db_password | replace("'", "''") }}';
+      SELECT 'CREATE DATABASE vikunja OWNER vikunja' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'vikunja')\gexec
+  register: vikunja_db
+  changed_when: "'CREATE ROLE' in vikunja_db.stdout or 'CREATE DATABASE' in vikunja_db.stdout"
+  no_log: true
+  tags: [always, vikunja]
+
+# Vikunja работает от uid 1000, а свежий named volume принадлежит root — сервис
+# падает в restart-loop с «permission denied» на /app/vikunja/files. Образ scratch
+# (нет chown), поэтому правим владельца одноразовым alpine. Volume создаём через
+# `compose create`, а не `docker volume create`, чтобы он был с метками compose.
+- name: Ensure Vikunja files volume is owned by uid 1000
+  shell: |
+    set -e
+    docker compose create --no-recreate vikunja > /dev/null
+    vol=$(docker volume ls -q --filter label=com.docker.compose.volume=vikunja_files)
+    docker run --rm -v "$vol":/f alpine:3.21 sh -c \
+      '[ "$(stat -c %u /f)" = 1000 ] || { chown 1000 /f && echo CHANGED; }'
+  args:
+    chdir: /opt/home-page
+  become_user: "{{ ansible_user }}"
+  register: vikunja_files_owner
+  changed_when: "'CHANGED' in vikunja_files_owner.stdout"
+  tags: [always, vikunja]
+
 # Единый шаг развёртывания: --build пересобирает изменившиеся образы
 # (код вшивается в образ, поэтому без сборки изменения не применяются),
 # Docker-кэш делает несменившиеся сервисы near-instant, --remove-orphans
@@ -132,5 +178,18 @@
   register: smoke_bot
   until: smoke_bot.status == 200
   retries: 12
+  delay: 5
+  tags: [always]
+
+# Первый старт дольше: vikunja прогоняет миграции своей БД, а Traefik
+# получает сертификат для tracker.<domain>.
+- name: Smoke test — tracker /api/v1/info
+  uri:
+    url: "https://tracker.{{ vault_domain }}/api/v1/info"
+    status_code: 200
+    timeout: 10
+  register: smoke_tracker
+  until: smoke_tracker.status == 200
+  retries: 24
   delay: 5
   tags: [always]

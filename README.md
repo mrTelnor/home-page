@@ -21,7 +21,7 @@
 - 🔐 **Авторизация** — регистрация по инвайт-коду, JWT в httpOnly cookie (веб) и Bearer token (бот)
 - 👁 **Гостевой доступ** — публичный просмотр базы рецептов без авторизации (без возможности редактировать/голосовать)
 - 👤 **Личный кабинет** — личные данные (имя, день рождения, пол, фамилия Волков/Волкова), смена пароля, привязка Telegram через Login Widget
-- 💾 **Бэкапы** — ежедневный `pg_dump` БД + архивы фото рецептов и дедупа бота (`bot_data`) с ротацией 14 дней на Яндекс.Диск через WebDAV (загрузка с ретраями); при провале дампа, архивации или загрузки админы получают алерт в Telegram; при успехе — heartbeat в healthchecks.io (dead-man's-switch)
+- 💾 **Бэкапы** — ежедневный `pg_dump` БД + архивы фото рецептов, дедупа бота (`bot_data`) и вложений трекера Vikunja, дамп БД `vikunja`, с ротацией 14 дней на Яндекс.Диск через WebDAV (загрузка с ретраями); при провале дампа, архивации или загрузки админы получают алерт в Telegram; при успехе — heartbeat в healthchecks.io (dead-man's-switch)
 - 📡 **Мониторинг** — HetrixTools отслеживает доступность `telnor.ru` и `api.telnor.ru`, алерты админам в Telegram; у бота есть `GET /healthz`, проверяющий реальную связность с Telegram API
 - 🌐 **Веб-интерфейс** — адаптивный UI с переключением светлой/тёмной темы, тёплая cream-палитра в духе кулинарной книги, маскот-волк (фамилия Волковы), валидация форм с подсветкой ошибок
 
@@ -77,6 +77,7 @@ home-page/
 | `bot.telnor.ru` | Telegram-бот (HTTP endpoints для `/notify` и `/uptime-alert`) | публично |
 | `traefik.telnor.ru` | Traefik dashboard | только с домашнего IP |
 | `portainer.telnor.ru` | Portainer UI | только с домашнего IP |
+| `tracker.telnor.ru` | Трекер задач Vikunja (для совместной работы с ИИ-агентами) | публично: закрытая регистрация, пароль + TOTP |
 
 DNS-записи домена управляются через **Cloudflare** (бесплатный тариф) — глобальные NS, устойчивее к блокировкам.
 
@@ -158,6 +159,8 @@ ansible-playbook -i inventory/hosts.yml playbooks/setup.yml --tags bot
 
 Тег `system` — подготовка ОС (роль `system`): swap-файл 2 ГБ, `vm.swappiness=10`, отключение `fwupd` и `multipathd`. Выполняется при полном деплое; отдельно: `--tags system`.
 
+Тег `vikunja` — трекер задач: идемпотентное создание роли и базы `vikunja` в общем postgres (пароль синхронизируется с vault). Первое развёртывание — только полным деплоем (копируется `docker-compose.yml`). Регистрация в трекере по умолчанию закрыта; открыть на время заведения учёток: `-e vikunja_enable_registration=true`, затем повторный деплой без флага.
+
 | Изменение | Команда |
 |---|---|
 | Только код бота (Python в `bot/app/`) | `--tags bot` |
@@ -231,6 +234,8 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 | `vault_yadisk_user` | Логин Яндекс.Диска для бэкапов | да |
 | `vault_yadisk_app_password` | Пароль приложения Яндекс.Диска (WebDAV) | да |
 | `vault_heartbeat_url` | Ping-URL монитора healthchecks.io для dead-man's-switch бэкапа (опционально; пусто = выключено) | да |
+| `vault_vikunja_db_password` | Пароль роли `vikunja` в PostgreSQL | да |
+| `vault_vikunja_service_secret` | `VIKUNJA_SERVICE_SECRET` — подпись JWT трекера | да |
 | `vault_wg_private_key` | WireGuard PrivateKey (для VPN бота) | да |
 | `vault_wg_public_key` | WireGuard PublicKey пира | да |
 | `vault_wg_preshared_key` | WireGuard PresharedKey | да |
@@ -265,7 +270,7 @@ Cron-контейнер вызывает backend-эндпоинты по рас�
 
 Admin может выполнять эти действия и вручную (эндпоинты идемпотентны). Уведомления рассылаются через `/notify` эндпоинт бота.
 
-Ежедневно в **03:00 GMT+3** тот же cron выполняет `pg_dump -Fc` БД, tar.gz-архивы фото рецептов и `bot_data`, заливает файлы на Яндекс.Диск через WebDAV (с ретраями) и удаляет бэкапы старше 14 дней. Остальные cron-задачи вызывают backend/бот с `curl --fail` и ретраями; провал любого шага — алерт админам в Telegram.
+Ежедневно в **03:00 GMT+3** тот же cron выполняет `pg_dump -Fc` БД, БД `homepage` и `vikunja`, tar.gz-архивы фото рецептов, `bot_data` и вложений Vikunja (`vikunja_files`), заливает файлы на Яндекс.Диск через WebDAV (с ретраями) и удаляет бэкапы старше 14 дней. Остальные cron-задачи вызывают backend/бот с `curl --fail` и ретраями; провал любого шага — алерт админам в Telegram.
 
 ## Мониторинг
 

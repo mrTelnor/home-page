@@ -59,9 +59,11 @@ sed 's/\r$//' "$CRON_DIR/backup.sh" > "$WORK/backup.sh"
 
 # Общий каталог bot_data (дедуп напоминаний бота) — бэкапится наравне с фото
 mkdir -p "$WORK/botdata" && echo '{}' > "$WORK/botdata/sent_reminders.json"
+# Вложения Vikunja — тоже общий каталог для всех тестов
+mkdir -p "$WORK/vikunjafiles" && echo att > "$WORK/vikunjafiles/1"
 HEARTBEAT="http://hc.example/ping/abc123"
 
-# run_backup <pg_dump_mode> <backup_dir> <images_src> [upload_fail_flag] [propfind_file]
+# run_backup <pg_dump_mode> <backup_dir> <images_src> [upload_fail_flag] [propfind_file] [bot_data_src] [vikunja_files_src]
 # Всё окружение передаётся явно через env — префиксные присваивания перед
 # вызовом функции в ash протекают в последующие тесты.
 run_backup() {
@@ -73,6 +75,7 @@ run_backup() {
         UPLOAD_FAIL_FLAG="${4:-}" \
         PROPFIND_FILE="${5:-}" \
         BOT_DATA_SRC="${6:-$WORK/botdata}" \
+        VIKUNJA_FILES_SRC="${7:-$WORK/vikunjafiles}" \
         HEARTBEAT_URL="$HEARTBEAT" \
         POSTGRES_USER=u POSTGRES_PASSWORD=p CRON_SECRET=s \
         YADISK_USER=y YADISK_APP_PASSWORD=ap \
@@ -131,6 +134,8 @@ homepage_2020-01-01.dump.gz
 homepage_2020-01-02.dump
 recipe_images_2020-01-03.tar.gz
 bot_data_2020-01-04.tar.gz
+vikunja_2020-01-05.dump
+vikunja_files_2020-01-06.tar.gz
 homepage_${TODAY}.dump
 recipe_images_${TODAY}.tar.gz
 </d:multistatus>
@@ -141,6 +146,8 @@ grep -q "DELETE .*homepage_2020-01-01\.dump\.gz" "$CURL_LOG"; check $? "t4: уд
 grep -q "DELETE .*homepage_2020-01-02\.dump" "$CURL_LOG"; check $? "t4: удалён старый .dump"
 grep -q "DELETE .*recipe_images_2020-01-03\.tar\.gz" "$CURL_LOG"; check $? "t4: удалён старый архив фото"
 grep -q "DELETE .*bot_data_2020-01-04\.tar\.gz" "$CURL_LOG"; check $? "t4: удалён старый архив bot_data"
+grep -q "DELETE .*vikunja_2020-01-05\.dump" "$CURL_LOG"; check $? "t4: удалён старый дамп vikunja"
+grep -q "DELETE .*vikunja_files_2020-01-06\.tar\.gz" "$CURL_LOG"; check $? "t4: удалён старый архив вложений vikunja"
 ! grep -q "DELETE .*${TODAY}" "$CURL_LOG"; check $? "t4: свежие файлы не удалены"
 
 echo "== T5: успешный прогон — без алертов, загрузка с ретраями =="
@@ -157,8 +164,19 @@ rc=$?
 grep -q -- "-T .*homepage_${TODAY}\.dump" "$CURL_LOG"; check $? "t5: дамп загружен"
 grep " -T " "$CURL_LOG" | grep -q -- "--retry"; check $? "t5: загрузка идёт с --retry"
 grep -q "bot_data_${TODAY}\.tar\.gz" "$CURL_LOG"; check $? "t5: архив bot_data загружен"
+grep -q -- "-T .*vikunja_${TODAY}\.dump" "$CURL_LOG"; check $? "t5: дамп vikunja загружен"
+grep -q "vikunja_files_${TODAY}\.tar\.gz" "$CURL_LOG"; check $? "t5: архив вложений vikunja загружен"
 grep -q "hc.example/ping" "$CURL_LOG"; check $? "t5: heartbeat отправлен при успехе"
 grep -q "heartbeat sent" "$WORK/t5.out"; check $? "t5: успех heartbeat явно виден в логе"
+
+echo "== T6: вложения vikunja не смонтированы -> провал и алерт =="
+CURL_LOG="$WORK/t6.curl"
+: > "$CURL_LOG"
+mkdir -p "$WORK/imgs_t6" && echo x > "$WORK/imgs_t6/a.jpg"
+run_backup ok "$WORK/b6" "$WORK/imgs_t6" "" "" "$WORK/botdata" "$WORK/no_such_dir" > "$WORK/t6.out" 2>&1
+rc=$?
+[ "$rc" -ne 0 ]; check $? "t6: код возврата не 0 (получен $rc)"
+grep "/alert" "$CURL_LOG" | grep -q "vikunja_files"; check $? "t6: в алерте указан vikunja_files"
 
 echo ""
 echo "passed: $PASS, failed: $FAIL"

@@ -17,6 +17,7 @@ volumes:
   portainer_data:
   bot_data:
   recipe_images:
+  vikunja_files:
 
 services:
   # mem_limit на каждом сервисе: ВМ всего 2 ГБ, без потолков один распухший
@@ -148,9 +149,10 @@ services:
       # Dead-man's-switch (healthchecks.io); пусто → heartbeat пропускается
       HEARTBEAT_URL: ${HEARTBEAT_URL:-}
     volumes:
-      # Фото рецептов и дедуп напоминаний бота попадают в ежедневный бэкап (read-only)
+      # Фото рецептов, дедуп напоминаний бота и вложения Vikunja попадают в ежедневный бэкап (read-only)
       - recipe_images:/backup-src/recipe_images:ro
       - bot_data:/backup-src/bot_data:ro
+      - vikunja_files:/backup-src/vikunja_files:ro
     networks:
       - web
       - internal
@@ -235,3 +237,41 @@ services:
       - traefik.http.routers.portainer.tls.certresolver=letsencrypt
       - traefik.http.routers.portainer.middlewares=admin-ip@docker
       - traefik.http.services.portainer.loadbalancer.server.port=9000
+
+  # Трекер задач (tracker.<domain>). БД — отдельная база vikunja в общем postgres
+  # (роль и база создаются Ansible). Образ scratch, без шелла — healthcheck нет,
+  # доступность проверяет smoke-тест деплоя (/api/v1/info).
+  # Без IP-allowlist: вход из поездок; защита — закрытая регистрация, пароли, TOTP.
+  vikunja:
+    image: vikunja/vikunja:2.6.0
+    container_name: vikunja
+    restart: unless-stopped
+    mem_limit: 192m
+    logging: *default-logging
+    environment:
+      VIKUNJA_SERVICE_PUBLICURL: https://tracker.${DOMAIN}/
+      VIKUNJA_SERVICE_SECRET: ${VIKUNJA_SERVICE_SECRET}
+      VIKUNJA_SERVICE_TIMEZONE: Europe/Moscow
+      # true — только на время заведения учёток (-e vikunja_enable_registration=true)
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: ${VIKUNJA_ENABLE_REGISTRATION:-false}
+      VIKUNJA_DATABASE_TYPE: postgres
+      VIKUNJA_DATABASE_HOST: postgres
+      VIKUNJA_DATABASE_USER: vikunja
+      VIKUNJA_DATABASE_PASSWORD: ${VIKUNJA_DB_PASSWORD}
+      VIKUNJA_DATABASE_DATABASE: vikunja
+    volumes:
+      # Вложения задач; процесс работает от uid 1000
+      - vikunja_files:/app/vikunja/files
+    networks:
+      - web
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vikunja.rule=Host(`tracker.${DOMAIN}`)
+      - traefik.http.routers.vikunja.entrypoints=websecure
+      - traefik.http.routers.vikunja.tls.certresolver=letsencrypt
+      - traefik.http.services.vikunja.loadbalancer.server.port=3456
+      - traefik.docker.network=web

@@ -31,7 +31,7 @@
 - **Docker** + **Docker Compose** — управление всеми сервисами
 - **Docker Swarm/Kubernetes** — не используется (избыточно для одной ВМ)
 - Образы собираются на ВМ (без push в registry)
-- **`mem_limit` у каждого сервиса** (postgres 512m, backend 384m, bot 320m, traefik/portainer/cron 128m, frontend 64m) — на ВМ с 2 ГБ один распухший процесс без потолка валит OOM-киллером всю машину
+- **`mem_limit` у каждого сервиса** (postgres 512m, backend 384m, bot 320m, vikunja 192m, traefik/portainer/cron 128m, frontend 64m) — на ВМ с 2 ГБ один распухший процесс без потолка валит OOM-киллером всю машину
 - **Кэш сборки** — `docker builder prune --filter until=168h` на каждом деплое: при сборке на ВМ кэш копится без ограничений (к 2026-09 дорос до 12.7 ГБ)
 - **Swap 2 ГБ** (`/swapfile`, `vm.swappiness=10`) и отключённые `fwupd`/`multipathd` — роль `system`, запас памяти под пики сверх `mem_limit`
 - **Ротация логов** — общий якорь `x-logging` (json-file, max-size 10m × 3 файла); без него json-file растёт до заполнения диска
@@ -65,7 +65,7 @@
 ### Автоматизация (cron-контейнер)
 - **Alpine + curl + postgresql-client** — вызывает backend-эндпоинты по расписанию с заголовком `X-Cron-Secret`, затем `/notify` эндпоинт бота для рассылки уведомлений
 - Расписание (GMT+3):
-  - 03:00 — бэкап БД (`pg_dump -Fc -Z6`, без пайпа — статус pg_dump не маскируется) + tar.gz фото рецептов и `bot_data` → Яндекс.Диск WebDAV с ретраями, ротация 14 дней; провал шага — алерт админам; при полном успехе — heartbeat в `HEARTBEAT_URL` (healthchecks.io, dead-man's-switch)
+  - 03:00 — бэкап БД `homepage` и `vikunja` (`pg_dump -Fc -Z6`, без пайпа — статус pg_dump не маскируется) + tar.gz фото рецептов, `bot_data` и вложений Vikunja (`vikunja_files`) → Яндекс.Диск WebDAV с ретраями, ротация 14 дней; провал шага — алерт админам; при полном успехе — heartbeat в `HEARTBEAT_URL` (healthchecks.io, dead-man's-switch)
   - 08:00 — `create-daily` + уведомление о меню для не-админов + утренний дайджест админам (расписание Google Calendar + меню)
   - 13:00 — `finalize` + `voting_opened`
   - 17:00 — `close-voting` + `voting_closed`
@@ -81,6 +81,12 @@
 
 ### Управление
 - **Portainer CE** — веб-UI для управления Docker-контейнерами, ограничен по IP
+
+### Трекер задач (Vikunja)
+- **Vikunja 2.6.0** (`vikunja/vikunja`, один Go-бинарник: API + веб-UI, порт 3456) на `tracker.<domain>` — задачи для совместной работы с ИИ-агентами
+- БД — отдельная база и роль `vikunja` в общем postgres (создаёт Ansible до старта сервиса), вложения — volume `vikunja_files`
+- Без IP-allowlist (вход из поездок): регистрация закрыта (`VIKUNJA_ENABLE_REGISTRATION`, по умолчанию `false`), локальные учётки, TOTP
+- Образ scratch без шелла — healthcheck нет, доступность проверяет smoke-тест деплоя `/api/v1/info`
 
 ---
 
@@ -296,3 +302,4 @@ home-page/
 | Catch-up voting-уведомлений | Идемпотентный poll в `/check-calendar` | Retry в curl, очередь, webhook | Self-healing при пропуске разового cron-вызова, дедуп по menu_id предотвращает дубли |
 | Дефолтные напоминания календаря | Env `CALENDAR_DEFAULT_REMINDERS_MIN` для событий с `useDefault=true` | Per-user calendarList.defaultReminders, domain-wide delegation | Service account видит чужие default reminders как пустые; domain-delegation требует Google Workspace; глобальный дефолт «30» покрывает 95% семейных кейсов |
 | Регенерация `.env` | Task с `tags: [always]` | Тег для каждого сервиса; рукотворный hook | `.env` влияет на все контейнеры; при `--tags bot/cron` обновление vault-переменных должно подхватываться автоматически. Handler срабатывает только при реальном изменении содержимого |
+| Трекер задач | Vikunja self-hosted, локальные учётки | Яндекс Трекер; SSO через backend как OIDC-провайдер; Keycloak/Authelia | Бесплатно, свой домен, неограниченно учёток для агентов; OIDC — отдельная задача с кодом, критичным для безопасности, агентам всё равно нужны локальные учётки и API-токены; Keycloak не влезает в 2 ГБ (2026-09-30) |

@@ -1,5 +1,6 @@
 #!/bin/sh
-# Дамп PostgreSQL-БД + архив фото рецептов, загрузка на Я.Диск (WebDAV) и ротация.
+# Дампы PostgreSQL-БД (homepage, vikunja) + архивы фото рецептов, bot_data и
+# вложений Vikunja, загрузка на Я.Диск (WebDAV) и ротация.
 # RETENTION_DAYS — сколько дней хранить (по умолчанию 14).
 # При любом провале шлёт алерт админам через бот (POST /alert, X-Cron-Secret).
 set -e
@@ -8,9 +9,10 @@ DATE=$(date +%Y-%m-%d)
 BACKUP_DIR="${BACKUP_DIR:-/tmp/backups}"
 YADISK_DIR="backups"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
-DATABASES="homepage"
+DATABASES="homepage vikunja"
 RECIPE_IMAGES_SRC="${RECIPE_IMAGES_SRC:-/backup-src/recipe_images}"
 BOT_DATA_SRC="${BOT_DATA_SRC:-/backup-src/bot_data}"
+VIKUNJA_FILES_SRC="${VIKUNJA_FILES_SRC:-/backup-src/vikunja_files}"
 # Dead-man's-switch: URL внешнего монитора (healthchecks.io), пингуем ТОЛЬКО при
 # полном успехе. Если пинг не пришёл — монитор сам поднимет тревогу: так ловим
 # «тихую смерть» crond/контейнера, а не только явный провал. Пусто → пропуск.
@@ -130,7 +132,7 @@ rotate_old() {
       return
     fi
 
-    # Все наши форматы: <db>_<дата>.dump, legacy <db>_<дата>.dump.gz, <recipe_images|bot_data>_<дата>.tar.gz
+    # Все наши форматы: <db>_<дата>.dump, legacy <db>_<дата>.dump.gz, <recipe_images|bot_data|vikunja_files>_<дата>.tar.gz
     echo "$listing" \
       | grep -oE "[a-z_]+_[0-9]{4}-[0-9]{2}-[0-9]{2}\.(dump(\.gz)?|tar\.gz)" \
       | sort -u \
@@ -153,6 +155,7 @@ done
 
 backup_dir "$RECIPE_IMAGES_SRC" recipe_images "recipe images" || FAILURES="${FAILURES} recipe_images"
 backup_dir "$BOT_DATA_SRC" bot_data "bot data (дедуп напоминаний)" || FAILURES="${FAILURES} bot_data"
+backup_dir "$VIKUNJA_FILES_SRC" vikunja_files "vikunja files (вложения)" || FAILURES="${FAILURES} vikunja_files"
 
 if [ -n "$FAILURES" ]; then
     alert "💾❌ Бэкап провалился:${FAILURES}. Подробности: docker logs cron"
