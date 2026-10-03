@@ -254,6 +254,7 @@ ADMINS = [
 @pytest.fixture
 async def client(monkeypatch):
     monkeypatch.setattr(webserver.api, "get_admin_users", AsyncMock(return_value=ADMINS))
+    monkeypatch.setattr(webserver, "_digest_catchup_due", lambda now: False)
     bot = MagicMock()
     bot.send_message = AsyncMock()
     async with TestClient(TestServer(create_app(bot))) as c:
@@ -282,7 +283,6 @@ async def test_reminders_skip_admins_without_calendar(client, monkeypatch):
 
 
 async def test_digest_menu_only_for_dinner_subscribers(client, monkeypatch):
-    monkeypatch.setattr(webserver, "mark_digest_sent", MagicMock(return_value=True))
     monkeypatch.setattr(webserver, "fetch_digest_events", MagicMock(return_value=([make_event()], [])))
     menu = {"status": "collecting", "recipes": [{"recipe_id": "r1", "title": "Борщ"}]}
     monkeypatch.setattr(webserver.api, "get_today_menu", AsyncMock(return_value=(menu, None)))

@@ -6,7 +6,7 @@ import asyncio
 import hmac
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 import httpx
 from aiogram import Bot
@@ -23,13 +23,15 @@ from app.calendar_service import (
     fetch_events,
     format_digest,
     format_single_reminder,
-    mark_digest_sent,
+    has_event_sent,
+    mark_event_sent,
     save_sent,
     select_reminders_to_send,
 )
 from app.config import settings
 from app.notify import (
     EVENT_HANDLERS,
+    _send_to_user,
     notify_voting_closed,
     notify_voting_opened,
     wants_calendar,
@@ -38,6 +40,15 @@ from app.notify import (
 from app.vikunja import build_notifications, signature_ok, user_map
 
 logger = logging.getLogger(__name__)
+
+# Досылка утреннего дайджеста */5-тиком. Начало — после штатной рассылки (cron, 08:00),
+# чтобы тик не опередил создание меню; позже полудня «доброе утро» уже не нужно.
+DIGEST_CATCHUP_FROM = time(8, 5)
+DIGEST_CATCHUP_UNTIL = time(12, 0)
+# По умолчанию aiogram ждёт Telegram 60 с — дольше, чем `curl -m 60` в cron.
+DIGEST_SEND_TIMEOUT_SEC = 20
+# Штатный вызов и тик могут совпасть; маркер ставится после отправки — без замка был бы дубль.
+_digest_lock = asyncio.Lock()
 
 
 def _secret_ok(provided: str | None, expected: str) -> bool:
@@ -213,11 +224,68 @@ async def _fetch_today_menu(admins: list[dict]) -> dict | None:
     return menu
 
 
+def _digest_catchup_due(now: datetime) -> bool:
+    return DIGEST_CATCHUP_FROM <= now.time() < DIGEST_CATCHUP_UNTIL
+
+
+async def _send_digest(bot: Bot, *, force: bool = False) -> dict:
+    """Утренний дайджест тем, кому он сегодня ещё не доставлен.
+
+    Маркер "digest:<дата>:<tg_id>" ставится ПОСЛЕ успешной отправки, поэтому
+    повторный вызов (retry в cron, catch-up тиком) дошлёт только тем, кому не дошло.
+    """
+    async with _digest_lock:
+        today = datetime.now(CALENDAR_TZ).date().isoformat()
+        admins = await api.get_admin_users()
+        # Дайджест — админам с включённым календарём; меню в нём — только тем,
+        # у кого включены и ужины (выключившим ужины оно не нужно и в дайджесте).
+        recipients = [a for a in admins if wants_calendar(a)]
+        if not recipients:
+            return {"ok": True, "skipped": "no_recipients"}
+        if force:
+            pending = recipients
+        elif has_event_sent(f"digest:{today}"):
+            # Legacy-маркер (до перехода на пер-пользовательский дедуп): разослан целиком.
+            pending = []
+        else:
+            pending = [a for a in recipients if not has_event_sent(f"digest:{today}:{a['tg_id']}")]
+        if not pending:
+            return {"ok": True, "skipped": "already_sent"}
+
+        # Google API синхронный — в пул потоков, чтобы не морозить polling/healthz
+        today_events, tomorrow_events = await asyncio.to_thread(fetch_digest_events)
+        menu = await _fetch_today_menu(admins)
+        text_with_menu = format_digest(today_events, tomorrow_events, menu=menu)
+        text_plain = format_digest(today_events, tomorrow_events)
+
+        async def deliver(user: dict) -> bool:
+            text = text_with_menu if wants_dinner(user) else text_plain
+            extra = {"request_timeout": DIGEST_SEND_TIMEOUT_SEC}
+            if not await _send_to_user(bot, user["tg_id"], text, extra):
+                return False
+            mark_event_sent(f"digest:{today}:{user['tg_id']}")
+            return True
+
+        # Параллельно: при недоступном Telegram ждём один таймаут, а не по одному на получателя
+        delivered = await asyncio.gather(*(deliver(u) for u in pending))
+        sent = sum(delivered)
+        return {
+            "ok": sent > 0,
+            "today": len(today_events),
+            "tomorrow": len(tomorrow_events),
+            "menu_included": menu is not None,
+            "forced": force,
+            "sent": sent,
+            "failed": len(pending) - sent,
+        }
+
+
 async def handle_check_calendar(request: web.Request) -> web.Response:
     """Cron-driven calendar check.
 
     Query params:
       ?digest=true     — отправить утренний дайджест на сегодня и завтра
+                          (503, если не доставлен никому)
       ?force=true      — игнорировать дедупликацию (для дайджеста — отправить
                           даже если уже был сегодня)
     """
@@ -229,29 +297,10 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
     force = request.query.get("force") == "true"
 
     if is_digest:
-        today = datetime.now(CALENDAR_TZ).date()
-        if not force and not mark_digest_sent(today):
-            return web.json_response({"ok": True, "skipped": "already_sent"})
-        # Google API синхронный — в пул потоков, чтобы не морозить polling/healthz
-        today_events, tomorrow_events = await asyncio.to_thread(fetch_digest_events)
-        admins = await api.get_admin_users()
-        menu = await _fetch_today_menu(admins)
-        # Дайджест — админам с включённым календарём; меню в нём — только тем,
-        # у кого включены и ужины (выключившим ужины оно не нужно и в дайджесте).
-        recipients = [a for a in admins if wants_calendar(a)]
-        with_menu = [a for a in recipients if wants_dinner(a)]
-        without_menu = [a for a in recipients if not wants_dinner(a)]
-        if with_menu:
-            await _send_to(bot, with_menu, format_digest(today_events, tomorrow_events, menu=menu))
-        if without_menu:
-            await _send_to(bot, without_menu, format_digest(today_events, tomorrow_events))
-        return web.json_response({
-            "ok": True,
-            "today": len(today_events),
-            "tomorrow": len(tomorrow_events),
-            "menu_included": menu is not None,
-            "forced": force,
-        })
+        result = await _send_digest(bot, force=force)
+        # Не дошло никому — 5xx, чтобы curl в cron повторил и поднял алерт.
+        # Дошло хотя бы одному — 200: остальным дошлёт тик.
+        return web.json_response(result, status=200 if result["ok"] else 503)
 
     # Per-event reminders: fetch events in next ~24h, decide which to send now
     now = datetime.now(CALENDAR_TZ)
@@ -265,6 +314,14 @@ async def handle_check_calendar(request: web.Request) -> web.Response:
         recipients = [a for a in await api.get_admin_users() if wants_calendar(a)]
         for event, label in reminders:
             await _send_to(bot, recipients, format_single_reminder(event, label))
+
+    # Catch-up дайджеста: утром Telegram мог быть недоступен — досылаем тем,
+    # кому не дошло. Маркер ставится после отправки, дублей не будет.
+    if _digest_catchup_due(now):
+        try:
+            await _send_digest(bot)
+        except (httpx.HTTPError, TelegramAPIError):
+            logger.exception("digest catch-up failed")
 
     # Catch-up: переопросить статус меню. Если cron-вызов /notify пропал
     # (бот рестартил, сеть моргнула) — досылаем здесь. Дедуп в notify_*

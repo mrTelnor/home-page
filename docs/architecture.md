@@ -58,7 +58,7 @@
 - Aiohttp-сервер на `:8080`:
   - `POST /notify` (X-Cron-Secret) — рассылка уведомлений меню, вызывается cron
   - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам
-  - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра; `?force=true` — игнорировать дедупликацию. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
+  - `POST /check-calendar` (X-Cron-Secret) — почасовые напоминания и встроенные reminders из Google Calendar; `?digest=true` — утренний дайджест на сегодня и завтра (маркер дедупа — по получателю и после успешной отправки; 503, если не дошёл никому); `?force=true` — игнорировать дедупликацию. Тик с 08:05 до 12:00 GMT+3 досылает недоставленный дайджест. Каждый тик также проверяет статус сегодняшнего меню и досылает `voting_opened`/`voting_closed`, если разовый cron-вызов `/notify` пропал — дедуп по menu_id предотвращает дубли
   - `POST /vikunja-webhook` (`X-Vikunja-Signature`) — события трекера `task.assignee.created` и `task.comment.created` → Telegram назначенному/исполнителям (кроме автора действия); получатель — через словарь `VIKUNJA_USER_MAP` (логин Vikunja → логин сайта) и `/users/tracker-notifiable` (флаг `tracker_notifications_enabled`, не зависит от ужинов; `/mute` выключает и его)
 - **Google Calendar** через service account (`google-api-python-client`): чтение нескольких календарей, рассылка админам почасовых напоминаний, встроенных reminders из событий, дайджеста в 08:00 (вместе с меню). Для событий с `useDefault=true` (рекуррентные, настройки уведомлений на уровне календаря — service account не видит реальные минуты) применяются дефолты из env `CALENDAR_DEFAULT_REMINDERS_MIN` (по умолчанию `30`, поддерживается список через запятую). Дедуп через persistent JSON-файл в Docker volume `bot_data:/data`. Синхронный googleapiclient вызывается через `asyncio.to_thread` (не морозит polling/healthz), у HTTP-клиента задан таймаут 15 с (google-auth-httplib2)
 - JWT кэшируется в памяти (dict `{tg_id: token}`), обновляется при 401
@@ -70,7 +70,7 @@
   - 08:00 — `create-daily` + уведомление о меню для не-админов + утренний дайджест админам (расписание Google Calendar + меню)
   - 13:00 — `finalize` + `voting_opened`
   - 17:00 — `close-voting` + `voting_closed`
-  - каждые 5 минут — `/check-calendar` (часовые reminders, custom reminders, catch-up для voting-уведомлений)
+  - каждые 5 минут — `/check-calendar` (часовые reminders, custom reminders, catch-up для voting-уведомлений и утреннего дайджеста)
 
 ### Мониторинг
 - **HetrixTools** (бесплатный тариф) — внешний uptime-мониторинг + blacklist-мониторинг

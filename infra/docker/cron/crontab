@@ -13,8 +13,10 @@
 # Утренний цикл (8:00 GMT+3 = 05:00 UTC):
 # 1. Создать меню на сегодня
 # 2. Не-админам — короткое уведомление о меню
-# 3. Админам — единый дайджест: расписание из Google Calendar + меню дня
-0 5 * * * { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://backend:8000/api/menus/create-daily -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' || { /usr/local/bin/cron-alert.sh "⏰❌ create-daily провалился — меню не создано"; false; }; } >> /var/log/cron.log 2>&1 && { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://bot:8080/notify -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"event":"menu_created"}' || /usr/local/bin/cron-alert.sh "⏰❌ уведомление menu_created провалилось"; } >> /var/log/cron.log 2>&1 && { curl -sS -f --retry 3 --retry-connrefused -m 60 -X POST "http://bot:8080/check-calendar?digest=true" -H "X-Cron-Secret: $CRON_SECRET" || /usr/local/bin/cron-alert.sh "⏰❌ утренний дайджест провалился"; } >> /var/log/cron.log 2>&1
+# 3. Админам — единый дайджест: расписание из Google Calendar + меню дня.
+#    Бот отвечает 503, если дайджест не дошёл никому; недоставленное он сам
+#    досылает */5-тиком до 12:00 GMT+3.
+0 5 * * * { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://backend:8000/api/menus/create-daily -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' || { /usr/local/bin/cron-alert.sh "⏰❌ create-daily провалился — меню не создано"; false; }; } >> /var/log/cron.log 2>&1 && { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://bot:8080/notify -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"event":"menu_created"}' || /usr/local/bin/cron-alert.sh "⏰❌ уведомление menu_created провалилось"; } >> /var/log/cron.log 2>&1 && { curl -sS -f --retry 3 --retry-connrefused -m 60 -X POST "http://bot:8080/check-calendar?digest=true" -H "X-Cron-Secret: $CRON_SECRET" || /usr/local/bin/cron-alert.sh "⏰❌ утренний дайджест провалился (бот дошлёт catch-up'ом до 12:00)"; } >> /var/log/cron.log 2>&1
 
 # Финализировать список (13:00 GMT+3 = 10:00 UTC)
 0 10 * * * { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://backend:8000/api/menus/finalize -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' || { /usr/local/bin/cron-alert.sh "⏰❌ finalize провалился — голосование не открыто"; false; }; } >> /var/log/cron.log 2>&1 && { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://bot:8080/notify -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"event":"voting_opened"}' || /usr/local/bin/cron-alert.sh "⏰❌ уведомление voting_opened провалилось (бот дошлёт catch-up'ом)"; } >> /var/log/cron.log 2>&1
@@ -22,7 +24,8 @@
 # Закрыть голосование (17:00 GMT+3 = 14:00 UTC)
 0 14 * * * { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://backend:8000/api/menus/close-voting -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{}' || { /usr/local/bin/cron-alert.sh "⏰❌ close-voting провалился — победитель не определён"; false; }; } >> /var/log/cron.log 2>&1 && { curl -sS -f --retry 3 --retry-connrefused -m 30 -X POST http://bot:8080/notify -H "X-Cron-Secret: $CRON_SECRET" -H "Content-Type: application/json" -d '{"event":"voting_closed"}' || /usr/local/bin/cron-alert.sh "⏰❌ уведомление voting_closed провалилось (бот дошлёт catch-up'ом)"; } >> /var/log/cron.log 2>&1
 
-# Календарь: проверка часовых напоминаний и встроенных reminders каждые 5 минут.
+# Календарь: проверка часовых напоминаний и встроенных reminders каждые 5 минут;
+# с 08:05 до 12:00 GMT+3 тик также досылает недоставленный утренний дайджест.
 # Без алерта при провале: тик повторяется через 5 минут, а рестарт бота
 # превращал бы каждую пропущенную минуту в спам админам.
 */5 * * * * curl -sS -f -m 60 -X POST http://bot:8080/check-calendar -H "X-Cron-Secret: $CRON_SECRET" >> /var/log/cron.log 2>&1

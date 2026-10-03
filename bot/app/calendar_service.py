@@ -240,17 +240,6 @@ def select_reminders_to_send(now: datetime, events: list[CalendarEvent]) -> tupl
     return to_send, sent
 
 
-def mark_digest_sent(target_date: date) -> bool:
-    """Returns True if digest for `target_date` was not yet sent and now is recorded."""
-    sent = _prune_old(_load_sent())
-    key = f"digest:{target_date.isoformat()}"
-    if key in sent:
-        return False
-    sent[key] = datetime.now(TZ).isoformat()
-    _save_sent(sent)
-    return True
-
-
 def mark_event_sent(key: str) -> bool:
     """Generic single-shot marker. Returns True if not yet sent (and records it)."""
     sent = _prune_old(_load_sent())

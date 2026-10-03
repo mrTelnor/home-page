@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from aiogram.exceptions import TelegramAPIError
+from aiogram.exceptions import TelegramAPIError, TelegramNetworkError
 from aiohttp.test_utils import TestClient, TestServer
 
 from app import webserver
-from app.calendar_service import TZ, CalendarEvent
+from app.calendar_service import TZ, CalendarEvent, has_event_sent, mark_event_sent
 from app.webserver import create_app
 
 CRON_HEADERS = {"X-Cron-Secret": "test-cron-secret"}
@@ -31,8 +31,19 @@ def make_event(event_id: str = "e1") -> CalendarEvent:
     )
 
 
+def digest_key(tg_id: int) -> str:
+    return f"digest:{datetime.now(TZ).date().isoformat()}:{tg_id}"
+
+
+def network_error() -> TelegramNetworkError:
+    return TelegramNetworkError(method=MagicMock(), message="Request timeout error")
+
+
 @pytest.fixture
-async def client():
+async def client(monkeypatch):
+    # Досылка дайджеста зависит от времени суток — по умолчанию выключена, чтобы
+    # тесты тика не зависели от часа запуска; включается в тестах досылки.
+    monkeypatch.setattr(webserver, "_digest_catchup_due", lambda now: False)
     bot = MagicMock()
     bot.get_me = AsyncMock()
     bot.send_message = AsyncMock()
@@ -202,20 +213,37 @@ async def test_check_calendar_does_not_block_event_loop(client, admins, monkeypa
     assert ticks_at_return >= 10, f"event loop блокировался: ticks={ticks_at_return}"
 
 
-async def test_check_calendar_digest_already_sent(client, monkeypatch):
-    monkeypatch.setattr(webserver, "mark_digest_sent", MagicMock(return_value=False))
-    fetch = MagicMock()
+@pytest.fixture
+def digest_data(monkeypatch):
+    """Дайджест с одним событием и без меню."""
+    fetch = MagicMock(return_value=([make_event()], []))
     monkeypatch.setattr(webserver, "fetch_digest_events", fetch)
+    monkeypatch.setattr(webserver.api, "get_today_menu", AsyncMock(return_value=(None, "not_found")))
+    return fetch
+
+
+async def test_check_calendar_digest_already_sent(client, admins, digest_data):
+    mark_event_sent(digest_key(111))
 
     resp = await client.post("/check-calendar?digest=true", headers=CRON_HEADERS)
 
     assert resp.status == 200
     assert (await resp.json())["skipped"] == "already_sent"
-    fetch.assert_not_called()
+    digest_data.assert_not_called()
+    client.bot.send_message.assert_not_awaited()
+
+
+async def test_check_calendar_digest_legacy_marker_counts_as_sent(client, admins, digest_data):
+    """Маркер старого формата (без tg_id) — дайджест уже разослан целиком."""
+    mark_event_sent(f"digest:{datetime.now(TZ).date().isoformat()}")
+
+    resp = await client.post("/check-calendar?digest=true", headers=CRON_HEADERS)
+
+    assert (await resp.json())["skipped"] == "already_sent"
+    client.bot.send_message.assert_not_awaited()
 
 
 async def test_check_calendar_digest_ok_with_menu(client, admins, monkeypatch):
-    monkeypatch.setattr(webserver, "mark_digest_sent", MagicMock(return_value=True))
     monkeypatch.setattr(
         webserver, "fetch_digest_events", MagicMock(return_value=([make_event()], []))
     )
@@ -226,17 +254,66 @@ async def test_check_calendar_digest_ok_with_menu(client, admins, monkeypatch):
 
     assert resp.status == 200
     body = await resp.json()
-    assert body == {"ok": True, "today": 1, "tomorrow": 0, "menu_included": True, "forced": False}
-    text = client.bot.send_message.await_args.kwargs["text"]
-    assert "Врач" in text
-    assert "Борщ" in text
+    assert body == {
+        "ok": True, "today": 1, "tomorrow": 0, "menu_included": True,
+        "forced": False, "sent": 1, "failed": 0,
+    }
+    kwargs = client.bot.send_message.await_args.kwargs
+    assert "Врач" in kwargs["text"]
+    assert "Борщ" in kwargs["text"]
+    # Короткий таймаут: недоступный Telegram не должен держать запрос cron дольше его -m
+    assert kwargs["request_timeout"] == webserver.DIGEST_SEND_TIMEOUT_SEC
+    assert has_event_sent(digest_key(111))
 
 
-async def test_check_calendar_digest_force_skips_dedup(client, admins, monkeypatch):
-    mark = MagicMock(return_value=False)
-    monkeypatch.setattr(webserver, "mark_digest_sent", mark)
-    monkeypatch.setattr(webserver, "fetch_digest_events", MagicMock(return_value=([], [])))
-    monkeypatch.setattr(webserver.api, "get_today_menu", AsyncMock(return_value=(None, "not_found")))
+async def test_check_calendar_digest_failure_is_503_and_retried(client, admins, digest_data):
+    """Регресс (2026-10-03): Telegram был недоступен, а маркер ставился до отправки —
+    повтор curl получал already_sent, дайджест терялся без алерта."""
+    client.bot.send_message.side_effect = network_error()
+
+    resp = await client.post("/check-calendar?digest=true", headers=CRON_HEADERS)
+
+    assert resp.status == 503
+    body = await resp.json()
+    assert body["ok"] is False
+    assert (body["sent"], body["failed"]) == (0, 1)
+    assert not has_event_sent(digest_key(111))
+
+    client.bot.send_message.side_effect = None
+    resp = await client.post("/check-calendar?digest=true", headers=CRON_HEADERS)
+
+    assert resp.status == 200
+    assert (await resp.json())["sent"] == 1
+
+
+async def test_check_calendar_digest_partial_failure_resends_only_failed(
+    client, monkeypatch, digest_data
+):
+    monkeypatch.setattr(
+        webserver.api, "get_admin_users", AsyncMock(return_value=[{"tg_id": 111}, {"tg_id": 222}])
+    )
+
+    async def fail_for_222(chat_id, **kwargs):
+        if chat_id == 222:
+            raise network_error()
+
+    client.bot.send_message.side_effect = fail_for_222
+
+    resp = await client.post("/check-calendar?digest=true", headers=CRON_HEADERS)
+
+    assert resp.status == 200  # кому-то дошло — остальным дошлёт тик
+    body = await resp.json()
+    assert (body["sent"], body["failed"]) == (1, 1)
+
+    client.bot.send_message.reset_mock(side_effect=True)
+    resp = await client.post("/check-calendar?digest=true", headers=CRON_HEADERS)
+
+    assert (await resp.json())["sent"] == 1
+    assert [c.kwargs["chat_id"] for c in client.bot.send_message.await_args_list] == [222]
+
+
+async def test_check_calendar_digest_force_skips_dedup(client, admins, digest_data):
+    mark_event_sent(digest_key(111))
 
     resp = await client.post("/check-calendar?digest=true&force=true", headers=CRON_HEADERS)
 
@@ -244,19 +321,72 @@ async def test_check_calendar_digest_force_skips_dedup(client, admins, monkeypat
     body = await resp.json()
     assert body["forced"] is True
     assert body["menu_included"] is False
-    mark.assert_not_called()
+    assert body["sent"] == 1
 
 
-async def test_check_calendar_digest_no_admins(client, monkeypatch):
-    monkeypatch.setattr(webserver, "mark_digest_sent", MagicMock(return_value=True))
-    monkeypatch.setattr(webserver, "fetch_digest_events", MagicMock(return_value=([], [])))
+async def test_check_calendar_digest_no_admins(client, monkeypatch, digest_data):
     monkeypatch.setattr(webserver.api, "get_admin_users", AsyncMock(return_value=[]))
 
     resp = await client.post("/check-calendar?digest=true", headers=CRON_HEADERS)
 
     assert resp.status == 200
-    assert (await resp.json())["menu_included"] is False
+    assert (await resp.json())["skipped"] == "no_recipients"
     client.bot.send_message.assert_not_awaited()
+
+
+# --- досылка дайджеста тиком ---
+
+
+@pytest.fixture
+def quiet_tick(monkeypatch):
+    """Тик без напоминаний и voting-досылки."""
+    monkeypatch.setattr(webserver, "fetch_events", MagicMock(return_value=[]))
+    monkeypatch.setattr(webserver, "select_reminders_to_send", MagicMock(return_value=([], {})))
+    monkeypatch.setattr(webserver, "save_sent", MagicMock())
+    monkeypatch.setattr(webserver, "notify_voting_opened", AsyncMock())
+    monkeypatch.setattr(webserver, "notify_voting_closed", AsyncMock())
+
+
+@pytest.mark.parametrize(
+    ("hhmm", "due"),
+    [("08:00", False), ("08:05", True), ("11:55", True), ("12:00", False), ("23:00", False)],
+)
+def test_digest_catchup_window(hhmm, due):
+    hour, minute = map(int, hhmm.split(":"))
+    now = datetime(2026, 10, 3, hour, minute, tzinfo=TZ)
+    assert webserver._digest_catchup_due(now) is due
+
+
+async def test_tick_catches_up_undelivered_digest(client, admins, digest_data, quiet_tick, monkeypatch):
+    monkeypatch.setattr(webserver, "_digest_catchup_due", lambda now: True)
+
+    resp = await client.post("/check-calendar", headers=CRON_HEADERS)
+
+    assert resp.status == 200
+    assert "Расписание на сегодня" in client.bot.send_message.await_args.kwargs["text"]
+    assert has_event_sent(digest_key(111))
+
+    client.bot.send_message.reset_mock()
+    await client.post("/check-calendar", headers=CRON_HEADERS)
+    client.bot.send_message.assert_not_awaited()  # следующий тик не дублирует
+
+
+async def test_tick_outside_window_does_not_send_digest(client, admins, digest_data, quiet_tick):
+    resp = await client.post("/check-calendar", headers=CRON_HEADERS)
+
+    assert resp.status == 200
+    client.bot.send_message.assert_not_awaited()
+
+
+async def test_tick_digest_catchup_error_swallowed(client, quiet_tick, monkeypatch):
+    monkeypatch.setattr(webserver, "_digest_catchup_due", lambda now: True)
+    monkeypatch.setattr(
+        webserver.api, "get_admin_users", AsyncMock(side_effect=httpx.ConnectError("down"))
+    )
+
+    resp = await client.post("/check-calendar", headers=CRON_HEADERS)
+
+    assert resp.status == 200
 
 
 async def test_check_calendar_tick_sends_reminders(client, admins, monkeypatch):

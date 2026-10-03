@@ -4,7 +4,7 @@ Google API мокается (build/credentials), файл состояния —
 """
 import base64
 import json
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -340,13 +340,7 @@ def test_select_reminders_outside_window(state_path):
     assert to_send == []
 
 
-# --- mark_digest_sent / mark_event_sent / has_event_sent ---
-
-
-def test_mark_digest_sent_once(state_path):
-    target = date(2026, 6, 11)
-    assert cs.mark_digest_sent(target) is True
-    assert cs.mark_digest_sent(target) is False
+# --- mark_event_sent / has_event_sent ---
 
 
 def test_mark_event_sent_once(state_path):
