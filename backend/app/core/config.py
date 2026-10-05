@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     log_level: str = "INFO"
     recipe_images_dir: str = "/app/recipe_images"
-    # None → ["https://{domain}"]; для разработки можно задать
+    # None → ["https://{domain}", "https://wiki.{domain}"]; для разработки можно задать
     # CORS_ORIGINS='["https://telnor.ru","http://localhost:5173"]'
     cors_origins: list[str] | None = None
     telegram_auth_max_age_seconds: int = 300  # окно подписи Login Widget (было 3600) — уже окна меньше replay-риск
@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     reset_token_ttl_minutes: int = 60
     email_change_lock_days: int = 7
     rate_limit_enabled: bool = True
+    # Строка подключения к базе знаний (Supabase, роль wiki_reader, пулер).
+    # Пустая строка — вики выключена: /api/wiki/* отвечает 503, health — disabled.
+    wiki_database_url: str = ""
 
     model_config = {"env_file": ".env"}
 

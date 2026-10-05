@@ -23,6 +23,9 @@ os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 # Дефолт /app/recipe_images недоступен в CI/локально (нет прав на /app);
 # app.main делает makedirs на импорте — направляем в временную папку.
 os.environ.setdefault("RECIPE_IMAGES_DIR", os.path.join(tempfile.gettempdir(), "test_recipe_images"))
+# Вики: тесты не должны ходить в Supabase — строку подключения сбрасываем жёстко
+# (не setdefault), слой данных в тестах вики подменяется.
+os.environ["WIKI_DATABASE_URL"] = ""
 
 from collections.abc import AsyncGenerator
 from uuid import uuid4

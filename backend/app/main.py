@@ -15,9 +15,11 @@ from app.api.menus import router as menus_router
 from app.api.password_reset import admin_router as password_reset_admin_router
 from app.api.password_reset import router as password_reset_router
 from app.api.recipes import router as recipes_router
+from app.api.wiki import router as wiki_router
 from app.core.config import settings
 from app.core.db import dispose_engine
 from app.core.ratelimit import limiter
+from app.core.wiki_db import dispose_wiki_engine
 
 logging.basicConfig(
     level=settings.log_level.upper(),
@@ -31,6 +33,7 @@ async def lifespan(app: FastAPI):
     logger.info("Home Page API started")
     yield
     await dispose_engine()
+    await dispose_wiki_engine()
 
 
 app = FastAPI(title="Home Page API", lifespan=lifespan)
@@ -42,7 +45,8 @@ app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins or [f"https://{settings.domain}"],
+    # По умолчанию — сайт и вики (wiki.<domain> ходит в тот же API)
+    allow_origins=settings.cors_origins or [f"https://{settings.domain}", f"https://wiki.{settings.domain}"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,3 +65,4 @@ app.include_router(password_reset_router, prefix="/api")
 app.include_router(password_reset_admin_router, prefix="/api")
 app.include_router(recipes_router, prefix="/api")
 app.include_router(menus_router, prefix="/api")
+app.include_router(wiki_router, prefix="/api")

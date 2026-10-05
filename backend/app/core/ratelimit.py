@@ -29,3 +29,5 @@ limiter = Limiter(key_func=client_ip, enabled=settings.rate_limit_enabled)
 LOGIN_LIMIT = "10/minute"
 REGISTER_LIMIT = "5/minute"
 PASSWORD_RESET_LIMIT = "5/minute"
+# Общий лимит на все эндпоинты /api/wiki/*, кроме health (один счётчик на IP)
+WIKI_LIMIT = "120/minute"
