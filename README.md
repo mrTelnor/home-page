@@ -239,6 +239,10 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 | `vault_vikunja_webhook_secret` | `VIKUNJA_WEBHOOK_SECRET` — секрет подписи webhook'ов Vikunja → бот (тот же вписывается в webhook в Vikunja); пусто — `/vikunja-webhook` отклоняет всё | да |
 | `vault_vikunja_smtp_username` | Логин SMTP RuSender для почты трекера (`VIKUNJA_MAILER_USERNAME`) | да |
 | `vault_vikunja_smtp_password` | Пароль SMTP RuSender для почты трекера (`VIKUNJA_MAILER_PASSWORD`) | да |
+| `vault_wiki_db_host` | Хост пулера Supabase для вики (session pooler; опционально — без четырёх `vault_wiki_db_*` вики выключена) | да |
+| `vault_wiki_db_port` | Порт пулера Supabase (session) | да |
+| `vault_wiki_db_user` | Пользователь пулера — `wiki_reader.<ref проекта Supabase>` | да |
+| `vault_wiki_db_password` | Пароль роли `wiki_reader` (только чтение базы знаний); задаётся через `\password`, см. `infra/supabase/wiki_reader.sql` | да |
 | `vault_wg_private_key` | WireGuard PrivateKey (для VPN бота) | да |
 | `vault_wg_public_key` | WireGuard PublicKey пира | да |
 | `vault_wg_preshared_key` | WireGuard PresharedKey | да |

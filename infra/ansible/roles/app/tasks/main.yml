@@ -86,6 +86,34 @@
       - "--exclude=.pytest_cache"
   tags: [bot]
 
+# Вики читает базу знаний (Supabase) через пулер под ролью wiki_reader. Все четыре
+# переменные не заданы или пусты — вики выключена (WIKI_DATABASE_URL пустой).
+# Заданы частично или с символами, ломающими URL и .env compose, — деплой
+# останавливается здесь, а не падает backend на старте. Пароль в URL кодируется
+# в env.j2, поэтому для него запрещены только пробельные символы (в т.ч. перевод
+# строки в конце значения).
+- name: Assert wiki pooler variables are consistent
+  assert:
+    that:
+      - (wiki_db_values | select | list | length) in [0, 4]
+      - wiki_db_values[0] is match('^[A-Za-z0-9.-]*\\Z')
+      - wiki_db_values[1] is match('^[0-9]*\\Z')
+      - wiki_db_values[2] is match('^[A-Za-z0-9._-]*\\Z')
+      - wiki_db_values[3] is match('^\\S*\\Z')
+    fail_msg: >-
+      Переменные вики (vault_wiki_db_host, vault_wiki_db_port, vault_wiki_db_user,
+      vault_wiki_db_password) заданы не все или содержат недопустимые символы:
+      host — буквы, цифры, точка, дефис; port — цифры; user — буквы, цифры,
+      точка, дефис, подчёркивание; password — без пробельных символов.
+  vars:
+    wiki_db_values:
+      - "{{ vault_wiki_db_host | default('') }}"
+      - "{{ vault_wiki_db_port | default('') | string }}"
+      - "{{ vault_wiki_db_user | default('') }}"
+      - "{{ vault_wiki_db_password | default('') }}"
+  no_log: true
+  tags: [always]
+
 - name: Generate .env from vault variables
   template:
     src: env.j2

@@ -92,6 +92,8 @@ services:
       RUSENDER_API_KEY: ${RUSENDER_API_KEY}
       RUSENDER_KEY_ID: ${RUSENDER_KEY_ID}
       EMAIL_FROM: ${EMAIL_FROM}
+      # Пусто = вики выключена
+      WIKI_DATABASE_URL: ${WIKI_DATABASE_URL}
       RECIPE_IMAGES_DIR: /app/recipe_images
     volumes:
       - recipe_images:/app/recipe_images
