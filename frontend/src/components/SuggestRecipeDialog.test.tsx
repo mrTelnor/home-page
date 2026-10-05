@@ -49,6 +49,49 @@ describe("SuggestRecipeDialog", () => {
     await waitFor(() => expect(screen.getByText("Все рецепты уже в меню")).toBeInTheDocument());
   });
 
+  const titles = () => screen.getAllByText(/^(Айва|Ёжики|Пицца|Яблоки)$/).map((el) => el.textContent);
+
+  const manyRecipes = [
+    makeRecipe({ id: "r2", title: "Пицца" }),
+    makeRecipe({ id: "r3", title: "Яблоки" }),
+    makeRecipe({ id: "r4", title: "Айва" }),
+    makeRecipe({ id: "r5", title: "Ёжики" }),
+  ];
+
+  it("по умолчанию сортирует по алфавиту, кнопка разворачивает порядок", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(mockResponse({ body: manyRecipes }));
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByText("Пицца")).toBeInTheDocument());
+    expect(titles()).toEqual(["Айва", "Ёжики", "Пицца", "Яблоки"]);
+
+    await user.click(screen.getByRole("button", { name: "Сортировка: от А до Я" }));
+
+    expect(titles()).toEqual(["Яблоки", "Пицца", "Ёжики", "Айва"]);
+    expect(screen.getByRole("button", { name: "Сортировка: от Я до А" })).toBeInTheDocument();
+  });
+
+  it("поиск фильтрует по названию без учёта регистра и ё/е", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValue(mockResponse({ body: manyRecipes }));
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByText("Пицца")).toBeInTheDocument());
+
+    const search = screen.getByRole("searchbox", { name: "Поиск рецепта" });
+    await user.type(search, "ежи");
+    expect(titles()).toEqual(["Ёжики"]);
+
+    await user.clear(search);
+    await user.type(search, "ПИЦ");
+    expect(titles()).toEqual(["Пицца"]);
+
+    await user.clear(search);
+    await user.type(search, "нет такого");
+    expect(screen.getByText("Ничего не найдено")).toBeInTheDocument();
+  });
+
   it("клик по рецепту предлагает его и закрывает диалог", async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValue(mockResponse({ body: [makeRecipe({ id: "r2", title: "Пицца" })] }));
