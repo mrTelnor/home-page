@@ -43,7 +43,7 @@ describe("Layout", () => {
 
     expect(screen.getByRole("link", { name: "Войти" })).toBeInTheDocument();
     expect(screen.queryByText("Выйти")).not.toBeInTheDocument();
-    expect(screen.queryByText("Открыть книгу")).not.toBeInTheDocument();
+    expect(screen.queryByText("Книга рецептов")).not.toBeInTheDocument();
     expect(screen.getByText("Контент страницы")).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
   });
@@ -55,7 +55,9 @@ describe("Layout", () => {
 
     expect(screen.getByText("Меню дня")).toBeInTheDocument();
     expect(screen.getByText("Добавить рецепт")).toBeInTheDocument();
-    expect(screen.getByText("Открыть книгу")).toBeInTheDocument();
+    expect(screen.getByText("Книга рецептов")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Трекер" })).toHaveAttribute("href", "https://tracker.telnor.ru");
+    expect(screen.getByRole("link", { name: "Вики" })).toHaveAttribute("href", "https://wiki.telnor.ru");
     expect(screen.getByRole("link", { name: "Профиль" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "nikita" })).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -73,11 +75,13 @@ describe("Layout", () => {
     await user.click(screen.getByRole("button", { name: "Меню" }));
 
     const panel = screen.getByTestId("mobile-nav");
-    expect(within(panel).getByText("Открыть книгу")).toBeInTheDocument();
+    expect(within(panel).getByText("Книга рецептов")).toBeInTheDocument();
     expect(within(panel).getByText("Добавить рецепт")).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: "Трекер" })).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: "Вики" })).toBeInTheDocument();
 
     // клик по ссылке закрывает панель
-    await user.click(within(panel).getByText("Открыть книгу"));
+    await user.click(within(panel).getByText("Книга рецептов"));
     expect(screen.queryByTestId("mobile-nav")).not.toBeInTheDocument();
   });
 

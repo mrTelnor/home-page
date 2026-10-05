@@ -24,7 +24,13 @@ export function Layout() {
   const navLinks = [
     { to: "/vote", label: voteLabel },
     { to: "/recipes/new", label: "Добавить рецепт" },
-    { to: "/recipes", label: "Открыть книгу" },
+    { to: "/recipes", label: "Книга рецептов" },
+  ];
+
+  // Отдельные сервисы на своих поддоменах — обычные ссылки, не маршруты SPA
+  const externalLinks = [
+    { href: "https://tracker.telnor.ru", label: "Трекер" },
+    { href: "https://wiki.telnor.ru", label: "Вики" },
   ];
 
   return (
@@ -51,6 +57,17 @@ export function Layout() {
                 >
                   {l.label}
                 </Link>
+              ))}
+              {externalLinks.map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 text-xl font-normal text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
+                >
+                  {l.label}
+                </a>
               ))}
             </div>
           )}
@@ -109,6 +126,18 @@ export function Layout() {
               >
                 {l.label}
               </Link>
+            ))}
+            {externalLinks.map((l) => (
+              <a
+                key={l.href}
+                href={l.href}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => setMenuOpen(false)}
+                className="px-3 py-2 text-lg text-foreground/80 hover:text-foreground rounded-md hover:bg-accent transition-colors"
+              >
+                {l.label}
+              </a>
             ))}
           </div>
         )}
