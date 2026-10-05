@@ -1,0 +1,259 @@
+/* Текст заметки вики: типографика Markdown и подсветка кода в cream-палитре сайта.
+   Подключается только из чанка вики. */
+
+.wiki-md {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  --wiki-code-bg: var(--muted);
+  --hl-comment: #8a826c;
+  --hl-keyword: #a23a22;
+  --hl-string: #56682f;
+  --hl-number: #9a6a12;
+  --hl-title: #5e4391;
+  --hl-attr: #2f6570;
+}
+
+.dark .wiki-md {
+  --hl-comment: #8f8870;
+  --hl-keyword: #e37b61;
+  --hl-string: #a9c07c;
+  --hl-number: #e0a94a;
+  --hl-title: #b9a1e6;
+  --hl-attr: #7fc1cc;
+}
+
+.wiki-md > :first-child {
+  margin-top: 0;
+}
+
+.wiki-md > :last-child {
+  margin-bottom: 0;
+}
+
+.wiki-md h1,
+.wiki-md h2,
+.wiki-md h3,
+.wiki-md h4,
+.wiki-md h5,
+.wiki-md h6 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.6em 0 0.6em;
+}
+
+.wiki-md h1 {
+  font-size: 1.9rem;
+}
+
+.wiki-md h2 {
+  font-size: 1.45rem;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid var(--border);
+}
+
+.wiki-md h3 {
+  font-size: 1.2rem;
+}
+
+.wiki-md h4,
+.wiki-md h5,
+.wiki-md h6 {
+  font-size: 1rem;
+}
+
+.wiki-md p,
+.wiki-md ul,
+.wiki-md ol,
+.wiki-md blockquote,
+.wiki-md pre,
+.wiki-md .wiki-md-table {
+  margin: 0 0 1em;
+}
+
+.wiki-md ul,
+.wiki-md ol {
+  padding-left: 1.5em;
+}
+
+.wiki-md ul {
+  list-style: disc;
+}
+
+.wiki-md ol {
+  list-style: decimal;
+}
+
+.wiki-md li {
+  margin: 0.25em 0;
+}
+
+.wiki-md li > ul,
+.wiki-md li > ol {
+  margin-bottom: 0;
+}
+
+.wiki-md ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.25em;
+}
+
+.wiki-md input[type="checkbox"] {
+  margin-right: 0.4em;
+}
+
+.wiki-md a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.wiki-md a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.wiki-md .wiki-link-unresolved {
+  color: var(--muted-foreground);
+  border-bottom: 1px dashed var(--muted-foreground);
+  cursor: help;
+}
+
+.wiki-md blockquote {
+  padding: 0.5em 1em;
+  border-left: 3px solid var(--primary);
+  background: var(--secondary);
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: var(--muted-foreground);
+}
+
+.wiki-md blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.wiki-md hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.wiki-md img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+.wiki-md code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--wiki-code-bg);
+  padding: 0.15em 0.35em;
+  border-radius: 0.35rem;
+}
+
+.wiki-md pre {
+  background: var(--wiki-code-bg);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+  overflow-wrap: normal;
+  line-height: 1.5;
+}
+
+.wiki-md pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85rem;
+  white-space: pre;
+}
+
+.wiki-md .wiki-md-table {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+}
+
+.wiki-md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  overflow-wrap: normal;
+}
+
+.wiki-md th,
+.wiki-md td {
+  padding: 0.5em 0.75em;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  min-width: 6em;
+}
+
+.wiki-md th:last-child,
+.wiki-md td:last-child {
+  border-right: 0;
+}
+
+.wiki-md tr:last-child > td {
+  border-bottom: 0;
+}
+
+.wiki-md th {
+  background: var(--secondary);
+  font-weight: 600;
+}
+
+/* Подсветка кода (классы highlight.js) */
+.wiki-md .hljs-comment,
+.wiki-md .hljs-quote,
+.wiki-md .hljs-meta {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.wiki-md .hljs-keyword,
+.wiki-md .hljs-selector-tag,
+.wiki-md .hljs-literal,
+.wiki-md .hljs-built_in,
+.wiki-md .hljs-type,
+.wiki-md .hljs-deletion {
+  color: var(--hl-keyword);
+}
+
+.wiki-md .hljs-string,
+.wiki-md .hljs-regexp,
+.wiki-md .hljs-addition,
+.wiki-md .hljs-symbol,
+.wiki-md .hljs-bullet {
+  color: var(--hl-string);
+}
+
+.wiki-md .hljs-number,
+.wiki-md .hljs-variable,
+.wiki-md .hljs-template-variable {
+  color: var(--hl-number);
+}
+
+.wiki-md .hljs-title,
+.wiki-md .hljs-section,
+.wiki-md .hljs-name,
+.wiki-md .hljs-selector-id,
+.wiki-md .hljs-selector-class {
+  color: var(--hl-title);
+}
+
+.wiki-md .hljs-attr,
+.wiki-md .hljs-attribute,
+.wiki-md .hljs-property,
+.wiki-md .hljs-params,
+.wiki-md .hljs-subst {
+  color: var(--hl-attr);
+}
+
+.wiki-md .hljs-emphasis {
+  font-style: italic;
+}
+
+.wiki-md .hljs-strong {
+  font-weight: 700;
+}

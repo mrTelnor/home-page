@@ -79,3 +79,49 @@ export interface Menu {
   user_voted_recipe_id: string | null;
   total_votes: number;
 }
+
+/** backend/app/schemas/wiki.py :: WikiNotebookNode */
+export interface WikiNotebookNode {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id: string | null;
+  /** Заметок непосредственно в блокноте */
+  note_count: number;
+  /** Заметок в блокноте и во всех вложенных */
+  total_note_count: number;
+  children: WikiNotebookNode[];
+}
+
+/** backend/app/schemas/wiki.py :: WikiNoteSummary */
+export interface WikiNoteSummary {
+  id: string;
+  slug: string;
+  title: string;
+  notebook_id: string | null;
+  metadata: Record<string, unknown>;
+  tags: string[];
+  updated_at: string;
+}
+
+/** backend/app/schemas/wiki.py :: WikiNoteLink (в links — цель, в backlinks — источник) */
+export interface WikiNoteLink {
+  slug: string;
+  title: string;
+  alias: string | null;
+}
+
+/** backend/app/schemas/wiki.py :: WikiNoteDetail */
+export interface WikiNoteDetail {
+  id: string;
+  slug: string;
+  title: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  notebook: { id: string; name: string; slug: string } | null;
+  tags: string[];
+  links: WikiNoteLink[];
+  backlinks: WikiNoteLink[];
+  created_at: string;
+  updated_at: string;
+}

@@ -5,6 +5,7 @@ import { AuthAwareRoute } from "@/components/AuthAwareRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { isWikiHost } from "@/lib/wikiHost";
 
 // Code splitting: каждая страница — отдельный чанк (пейджи — named exports,
 // поэтому оборачиваем в { default }). Гость ради списка рецептов больше не
@@ -24,6 +25,8 @@ const AdminUsersPage = lazy(() => import("@/pages/AdminUsersPage").then((m) => (
 const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage").then((m) => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage").then((m) => ({ default: m.ResetPasswordPage })));
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })));
+// Вики (wiki.<domain>) — свой набор маршрутов в отдельном чанке; сайт рецептов её код не качает
+const WikiApp = lazy(() => import("@/wiki/WikiApp"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +43,21 @@ function RouteFallback() {
 }
 
 export default function App() {
+  // Тот же бандл отвечает на двух адресах: на хосте вики показываем вики с корня
+  if (isWikiHost()) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <ErrorBoundary>
+            <Suspense fallback={<RouteFallback />}>
+              <WikiApp />
+            </Suspense>
+          </ErrorBoundary>
+        </BrowserRouter>
+      </QueryClientProvider>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
