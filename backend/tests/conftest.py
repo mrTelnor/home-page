@@ -36,6 +36,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.core import wiki_db
 from app.core.config import settings
 from app.core.dependencies import get_db
 from app.core.security import hash_password
@@ -83,6 +84,14 @@ async def clean_tables():
             "RESTART IDENTITY CASCADE"
         ))
     yield
+
+
+@pytest.fixture(autouse=True)
+def clean_wiki_health_cache():
+    """Кэш health вики живёт в памяти процесса — между тестами его нужно забывать."""
+    wiki_db.reset_wiki_health_cache()
+    yield
+    wiki_db.reset_wiki_health_cache()
 
 
 async def _override_get_db():

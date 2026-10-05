@@ -9,12 +9,11 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.dependencies import get_admin_user
 from app.core.ratelimit import WIKI_LIMIT, limiter
-from app.core.wiki_db import WikiDisabledError, WikiUnavailableError, wiki_connection
+from app.core.wiki_db import WikiDisabledError, WikiUnavailableError, get_wiki_health, wiki_connection
 from app.schemas.wiki import WikiHealthResponse, WikiNotebookNode, WikiNoteDetail, WikiNoteSummary
 from app.services import wiki as wiki_service
 
@@ -69,15 +68,10 @@ async def health():
     """Публичная проверка связи с базой знаний: всегда 200 и только статус.
 
     Пауза Supabase не должна валить smoke-тест деплоя, поэтому не 503.
+    Лимита нет, поэтому в базу ходит не каждый запрос: результат проверки
+    кэшируется на несколько секунд (см. `get_wiki_health`).
     """
-    try:
-        async with wiki_connection() as conn:
-            await conn.execute(text("select 1"))
-    except WikiDisabledError:
-        return {"status": "disabled"}
-    except WikiUnavailableError:
-        return {"status": "unavailable"}
-    return {"status": "ok"}
+    return {"status": await get_wiki_health()}
 
 
 @admin_router.get("/notebooks", response_model=list[WikiNotebookNode])
