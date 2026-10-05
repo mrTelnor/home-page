@@ -221,3 +221,58 @@
   retries: 24
   delay: 5
   tags: [always]
+
+# Вики: /api/wiki/health всегда отвечает 200, состояние — в поле status тела
+# (ok / unavailable / disabled), поэтому смотрим на тело, а не на код ответа.
+# Ожидаем ok, если переменные пулера заданы в vault, иначе disabled.
+# Пауза между повторами больше 10 с: backend отдаёт результат проверки из памяти
+# 10 секунд, более частый повтор получил бы тот же ответ, а не новую проверку.
+# ignore_errors: исход разбирают две следующие задачи.
+- name: Smoke test — wiki /api/wiki/health
+  uri:
+    url: "https://api.{{ vault_domain }}/api/wiki/health"
+    status_code: 200
+    return_content: true
+    timeout: 15
+  register: smoke_wiki
+  until: >-
+    smoke_wiki.status == 200 and
+    ((smoke_wiki.json | default({})).status | default('')) == wiki_expected_status
+  retries: 4
+  delay: 15
+  ignore_errors: true
+  vars:
+    wiki_expected_status: "{{ 'ok' if (vault_wiki_db_host | default('')) else 'disabled' }}"
+  tags: [always]
+
+# Деплой падает, если эндпоинт не ответил 200 с известным статусом или статус
+# противоречит настройке (disabled при заданных переменных — WIKI_DATABASE_URL
+# не дошёл до backend).
+- name: Smoke test — wiki health status matches configuration
+  assert:
+    that:
+      - smoke_wiki.status == 200
+      - wiki_status in [wiki_expected_status, 'unavailable']
+    fail_msg: >-
+      /api/wiki/health: код {{ smoke_wiki.status }}, status
+      «{{ wiki_status }}», ожидался «{{ wiki_expected_status }}».
+    quiet: true
+  vars:
+    wiki_expected_status: "{{ 'ok' if (vault_wiki_db_host | default('')) else 'disabled' }}"
+    wiki_status: "{{ (smoke_wiki.json | default({})).status | default('') }}"
+  # В --check модуль uri не выполняется: ответа нет, разбирать нечего
+  when: smoke_wiki is not skipped
+  tags: [always]
+
+# unavailable — база знаний (Supabase) не отвечает, например проект на паузе.
+# Это не поломка выкатки, поэтому деплой не падает, но предупреждение остаётся в выводе.
+- name: Smoke test — warn when wiki database is unavailable
+  debug:
+    msg: >-
+      ВНИМАНИЕ: /api/wiki/health отвечает status «unavailable» — backend не
+      достучался до базы знаний (Supabase). Вики покажет ошибку вместо заметок.
+      Проверь, не на паузе ли проект Supabase, и `docker logs backend`.
+  when:
+    - smoke_wiki is not skipped
+    - ((smoke_wiki.json | default({})).status | default('')) == 'unavailable'
+  tags: [always]

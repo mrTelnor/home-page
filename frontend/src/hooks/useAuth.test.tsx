@@ -44,6 +44,18 @@ describe("useMe", () => {
   });
 });
 
+describe("useMe: enabled", () => {
+  it("enabled: false — запрос «кто я» не уходит", async () => {
+    const { Wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useMe({ enabled: false }), { wrapper: Wrapper });
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.data).toBeUndefined();
+  });
+});
+
 describe("useLogin", () => {
   it("после успеха инвалидирует me и ведёт на главную", async () => {
     fetchMock.mockResolvedValue(mockResponse({ body: makeUser() }));
@@ -60,6 +72,35 @@ describe("useLogin", () => {
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain("/api/auth/login");
     expect(options.body).toBe(JSON.stringify({ username: "nikita", password: "secret123" }));
+  });
+
+  it("onLoggedIn заменяет переход на главную", async () => {
+    fetchMock.mockResolvedValue(mockResponse({ body: makeUser() }));
+    const { Wrapper, queryClient } = createWrapper({ route: "/login" });
+    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
+    const onLoggedIn = vi.fn();
+
+    const { result } = renderHook(() => useLogin({ onLoggedIn }), { wrapper: Wrapper });
+    result.current.mutate({ username: "nikita", password: "secret123" });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["me"] });
+    expect(onLoggedIn).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("location")).toHaveTextContent("/login");
+  });
+
+  it("при ошибке входа onLoggedIn не вызывается", async () => {
+    fetchMock.mockResolvedValueOnce(
+      mockResponse({ ok: false, status: 401, body: { detail: "Bad credentials" } })
+    );
+    const { Wrapper } = createWrapper({ route: "/login" });
+    const onLoggedIn = vi.fn();
+
+    const { result } = renderHook(() => useLogin({ onLoggedIn }), { wrapper: Wrapper });
+    result.current.mutate({ username: "nikita", password: "wrong" });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(onLoggedIn).not.toHaveBeenCalled();
   });
 
   it("при ошибке остаётся на месте и отдаёт error", async () => {

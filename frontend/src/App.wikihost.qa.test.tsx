@@ -1,6 +1,8 @@
-// QA: на хосте вики (под админом) маршрутов сайта рецептов нет, а `next` на странице
-// входа не уводит на чужой адрес. Рендерим настоящий App с BrowserRouter: открытый
-// редирект в React Router проявляется только с настоящей историей браузера.
+// QA: на хосте вики (под админом) маршрутов сайта рецептов нет, а старый адрес
+// `/login?next=…` не уводит на чужой адрес. Рендерим настоящий App с BrowserRouter:
+// открытый редирект в React Router проявляется только с настоящей историей браузера.
+// Гость на хосте вики (уход на вход основного сайта) — в App.wiki.test.tsx: клиент
+// запросов у App один на файл, после админа гостя здесь уже не показать.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import App from "./App";
@@ -115,8 +117,8 @@ describe("QA App на хосте вики: маршрутов сайта рец�
   });
 });
 
-describe("QA App на хосте вики: next на странице входа не уводит наружу", () => {
-  // Админ уже вошёл: страница входа сразу уходит по next — самый короткий путь к редиректу
+describe("QA App на хосте вики: /login?next=… не уводит наружу", () => {
+  // Страницы входа у вики больше нет: next никто не читает, /login — неизвестная страница
   it.each([
     "//evil.example",
     "//evil.example/n/a",
@@ -148,9 +150,7 @@ describe("QA App на хосте вики: next на странице входа
 
     render(<App />);
 
-    // Приложение либо осталось в вики (шапка с поиском), либо показало экран ошибки.
-    // Экран ошибки на управляющих символах в next — дефект, он описан отдельным тестом
-    // в wiki-defects.qa.test.tsx; здесь проверяется только отсутствие ухода наружу.
+    // Приложение либо осталось в вики (шапка с поиском), либо показало экран ошибки
     await waitFor(
       () =>
         expect(
@@ -162,24 +162,11 @@ describe("QA App на хосте вики: next на странице входа
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(navigationAttempts).toEqual([]);
     expect(window.location.host).toBe("localhost:3000");
-    if (!/[\t\n\r]/.test(next)) {
-      expect(screen.getByRole("searchbox", { name: "Поиск по заметкам" })).toBeInTheDocument();
-      expect(window.location.pathname).not.toBe("/login");
-      expect(screen.queryByText("Вход в вики")).not.toBeInTheDocument();
-    }
-  });
-
-  it.each([
-    ["/n/a/b", "/n/a/b", ""],
-    ["/search?q=x&tag=k8s", "/search", "?q=x&tag=k8s"],
-    ["/b/11111111-2222-3333-4444-555555555555", "/b/11111111-2222-3333-4444-555555555555", ""],
-  ])("законный next=%s возвращает на страницу вики", async (next, pathname, search) => {
-    window.history.replaceState(null, "", `/login?next=${encodeURIComponent(next)}`);
-
-    render(<App />);
-
-    await waitFor(() => expect(window.location.pathname).toBe(pathname), ASYNC);
-    expect(window.location.search).toBe(search);
-    expect(navigationAttempts).toEqual([]);
+    expect(screen.queryByText("Что-то пошло не так")).not.toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Поиск по заметкам" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Страница не найдена" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Пароль")).not.toBeInTheDocument();
+    // Адрес никто не переписал: next не разбирается и никуда не подставляется
+    expect(window.location.pathname).toBe("/login");
   });
 });

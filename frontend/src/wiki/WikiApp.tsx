@@ -11,7 +11,6 @@ const WikiHomePage = lazy(() => import("./pages/WikiHomePage").then((m) => ({ de
 const WikiNotebookPage = lazy(() => import("./pages/WikiNotebookPage").then((m) => ({ default: m.WikiNotebookPage })));
 const WikiNotePage = lazy(() => import("./pages/WikiNotePage").then((m) => ({ default: m.WikiNotePage })));
 const WikiSearchPage = lazy(() => import("./pages/WikiSearchPage").then((m) => ({ default: m.WikiSearchPage })));
-const WikiLoginPage = lazy(() => import("./pages/WikiLoginPage").then((m) => ({ default: m.WikiLoginPage })));
 
 /** Вики закрытая: просим поисковики её не индексировать. */
 function useNoIndex() {
@@ -43,7 +42,6 @@ export default function WikiApp() {
   useNoIndex();
   return (
     <Routes>
-      <Route path="/login" element={<WikiLoginPage />} />
       <Route element={<WikiGate />}>
         <Route element={<WikiLayout />}>
           <Route path="/" element={<WikiHomePage />} />

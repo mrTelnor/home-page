@@ -5,12 +5,13 @@ import { endpoints } from "@/api/endpoints";
 import { type User } from "@/api/types";
 import { useAuthStore } from "@/store/auth";
 
-export function useMe() {
+export function useMe({ enabled = true }: { enabled?: boolean } = {}) {
   const setUser = useAuthStore((s) => s.setUser);
   const clearUser = useAuthStore((s) => s.clearUser);
 
   return useQuery({
     queryKey: ["me"],
+    enabled,
     queryFn: async () => {
       try {
         const user = await api.get<User>(endpoints.auth.me);
@@ -33,7 +34,8 @@ export function useMe() {
   });
 }
 
-export function useLogin() {
+/** `onLoggedIn` заменяет переход на главную после входа (возврат на вики — см. LoginPage). */
+export function useLogin({ onLoggedIn }: { onLoggedIn?: () => void } = {}) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -42,7 +44,8 @@ export function useLogin() {
       api.post(endpoints.auth.login, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["me"] });
-      navigate("/");
+      if (onLoggedIn) onLoggedIn();
+      else navigate("/");
     },
   });
 }

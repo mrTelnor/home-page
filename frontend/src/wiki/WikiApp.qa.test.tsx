@@ -7,6 +7,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { type WikiNoteDetail, type WikiNoteSummary, type WikiNotebookNode } from "@/api/types";
+import { redirectTo } from "@/lib/redirect";
 import { useAuthStore } from "@/store/auth";
 import { createQueryClient, makeUser, mockResponse } from "@/test/utils";
 import WikiApp from "./WikiApp";
@@ -20,7 +21,20 @@ const RETRY_WINDOW_MS = 1300;
 type Reply = Parameters<typeof mockResponse>[0];
 type Handler = Reply | (() => Reply | Promise<never>);
 
+// Переход на другой origin (вход — на основном сайте) jsdom выполнить не может — перехватываем
+vi.mock("@/lib/redirect", () => ({ redirectTo: vi.fn() }));
+// Вики на поддомене wiki.: адрес основного сайта известен
+vi.mock("@/lib/wikiHost", () => ({
+  isWikiHost: () => true,
+  mainSiteUrl: () => "https://example.test",
+}));
+
 const fetchMock = vi.fn();
+const redirectMock = vi.mocked(redirectTo);
+
+/** Страница входа сайта с возвратом на страницу вики (тесты открыты на http://localhost:3000). */
+const siteLogin = (path: string) =>
+  `https://example.test/login?next=${encodeURIComponent(window.location.origin + path)}`;
 
 const NOTEBOOK_ID = "11111111-2222-3333-4444-555555555555";
 
@@ -128,6 +142,7 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 beforeEach(() => {
   configure({ asyncUtilTimeout: LAZY_ASYNC_TIMEOUT });
+  redirectMock.mockReset();
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   useAuthStore.setState({ user: null });
@@ -139,20 +154,23 @@ afterEach(() => {
 });
 
 describe("QA вики: гейт на внутренних страницах", () => {
-  it.each([
-    ["/n/a/b", "/login?next=%2Fn%2Fa%2Fb"],
-    [`/b/${NOTEBOOK_ID}`, `/login?next=%2Fb%2F${NOTEBOOK_ID}`],
-    ["/search?q=traefik&tag=k8s", "/login?next=%2Fsearch%3Fq%3Dtraefik%26tag%3Dk8s"],
-    ["/recipes", "/login?next=%2Frecipes"],
-  ])("гость на %s → вход с возвратом, запросов к API вики нет", async (route, expected) => {
-    routeApi({ "/api/auth/me": unauthorized });
-    renderWiki(route);
+  it.each(["/n/a/b", `/b/${NOTEBOOK_ID}`, "/search?q=traefik&tag=k8s", "/recipes"])(
+    "гость на %s → вход основного сайта с возвратом, запросов к API вики нет",
+    async (route) => {
+      routeApi({ "/api/auth/me": unauthorized });
+      renderWiki(route);
 
-    expect(await screen.findByText("Вход в вики")).toBeInTheDocument();
-    expect(screen.getByTestId("where")).toHaveTextContent(expected);
-    await pause(100);
-    expect(wikiCalls()).toEqual([]);
-  });
+      expect(await screen.findByRole("link", { name: "Войти на сайте" })).toHaveAttribute(
+        "href",
+        siteLogin(route)
+      );
+      expect(redirectMock).toHaveBeenCalledWith(siteLogin(route));
+      expect(screen.getByTestId("where")).toHaveTextContent(route);
+      await pause(100);
+      expect(redirectMock).toHaveBeenCalledTimes(1);
+      expect(wikiCalls()).toEqual([]);
+    }
+  );
 
   it.each(["/", "/n/a/b", `/b/${NOTEBOOK_ID}`, "/search?q=traefik", "/no-such-page"])(
     "обычный пользователь на %s → «Нет доступа», запросов к API вики нет",
@@ -174,43 +192,34 @@ describe("QA вики: гейт на внутренних страницах", (
     }
   );
 
-  it("обычный пользователь после входа на вики получает отказ, а не заметку", async () => {
-    let loggedIn = false;
+  it("обычный пользователь, вернувшись с входа сайта на вики, получает отказ, а не заметку", async () => {
+    // Вход теперь на основном сайте; на вики он возвращается уже вошедшим (сессия общая)
     routeApi({
       ...adminApi(),
-      "/api/auth/login": () => {
-        loggedIn = true;
-        return { body: { message: "ok" } };
-      },
-      "/api/auth/me": () => (loggedIn ? plainUser : unauthorized),
+      "/api/auth/me": plainUser,
       "/api/wiki/notes/": { body: makeNote("a/b") },
     });
-    renderWiki("/login?next=%2Fn%2Fa%2Fb");
-
-    await userEvent.type(await screen.findByLabelText("Имя пользователя"), "vasya");
-    await userEvent.type(screen.getByLabelText("Пароль"), "secret-pass");
-    await userEvent.click(screen.getByRole("button", { name: "Войти" }));
+    renderWiki("/n/a/b");
 
     expect(await screen.findByRole("heading", { name: "Нет доступа" })).toBeInTheDocument();
     expect(screen.getByTestId("where")).toHaveTextContent("/n/a/b");
+    await pause(100);
+    // На вход его не возвращает: иначе сайт тут же вернул бы обратно — и так по кругу
+    expect(redirectMock).not.toHaveBeenCalled();
     expect(wikiCalls()).toEqual([]);
-  }, 15000);
+  });
 
-  it("неверный пароль: сообщение об ошибке, остаёмся на входе", async () => {
-    routeApi({
-      "/api/auth/me": unauthorized,
-      "/api/auth/login": { ok: false, status: 401, body: { detail: "Invalid credentials" } },
-    });
+  it("формы входа на вики нет: гость на /login уходит на вход сайта, пароль здесь не вводится", async () => {
+    routeApi({ "/api/auth/me": unauthorized });
     renderWiki("/login?next=%2Fn%2Fa%2Fb");
 
-    await userEvent.type(await screen.findByLabelText("Имя пользователя"), "nikita");
-    await userEvent.type(screen.getByLabelText("Пароль"), "wrong-pass");
-    await userEvent.click(screen.getByRole("button", { name: "Войти" }));
-
-    expect(await screen.findByText("Неверный логин или пароль")).toBeInTheDocument();
-    expect(screen.getByTestId("where")).toHaveTextContent("/login?next=%2Fn%2Fa%2Fb");
+    await screen.findByRole("link", { name: "Войти на сайте" });
+    expect(redirectMock).toHaveBeenCalledWith(siteLogin("/"));
+    expect(screen.queryByLabelText("Имя пользователя")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Пароль")).not.toBeInTheDocument();
+    expect(calls().some((p) => p.startsWith("/api/auth/login"))).toBe(false);
     expect(wikiCalls()).toEqual([]);
-  }, 15000);
+  });
 });
 
 describe("QA вики: ответы API с ошибкой — что видит админ и сколько запросов уходит", () => {
@@ -243,7 +252,10 @@ describe("QA вики: ответы API с ошибкой — что видит 
     expect(calls().filter((p) => p === noteUrl)).toHaveLength(sent);
     expect(calls().filter((p) => p === "/api/wiki/notebooks")).toHaveLength(1);
     expect(calls().filter((p) => p === "/api/auth/me")).toHaveLength(1);
-  });
+    // Запас по времени: первый из этих тестов впервые грузит чанк страницы заметки (разбор
+    // Markdown, подсветка кода), плюс пауза RETRY_WINDOW_MS — при параллельном запуске всех
+    // файлов в стандартные 5 с это укладывается не всегда.
+  }, 15000);
 
   it.each([
     ["несуществующий блокнот (404)", `/b/${NOTEBOOK_ID}`, 404],
@@ -301,10 +313,11 @@ describe("QA вики: ответы API с ошибкой — что видит 
     });
     renderWiki("/n/a/b");
 
-    expect(await screen.findByText("Вход в вики")).toBeInTheDocument();
-    expect(screen.getByTestId("where")).toHaveTextContent("/login?next=%2Fn%2Fa%2Fb");
+    await screen.findByRole("link", { name: "Войти на сайте" });
+    expect(redirectMock).toHaveBeenCalledWith(siteLogin("/n/a/b"));
 
     await pause(RETRY_WINDOW_MS);
+    expect(redirectMock).toHaveBeenCalledTimes(1);
     expect(meCalls).toBeLessThanOrEqual(3);
     expect(calls().filter((p) => p === noteUrl).length).toBeLessThanOrEqual(2);
     expect(calls().filter((p) => p === "/api/wiki/notebooks")).toHaveLength(1);
@@ -316,12 +329,17 @@ describe("QA вики: ответы API с ошибкой — что видит 
     renderWiki("/n/a/b");
 
     expect(await screen.findByRole("heading", { name: "Сессия закончилась" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Войти" })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "Войти" })).toHaveAttribute(
+      "href",
+      siteLogin("/n/a/b")
+    );
 
     await pause(RETRY_WINDOW_MS);
     expect(calls().filter((p) => p === "/api/auth/me").length).toBeLessThanOrEqual(2);
     expect(calls().filter((p) => p === noteUrl).length).toBeLessThanOrEqual(2);
     expect(screen.getByTestId("where")).toHaveTextContent("/n/a/b");
+    // Сам никуда не уводит: /me считает пользователя вошедшим, сайт вернул бы его обратно
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("сетевой сбой: один повтор, затем «Ошибка загрузки»; дальше запросы не идут", async () => {
@@ -497,7 +515,8 @@ describe("QA вики: данные заметки вне Markdown тоже не
     expect(container.textContent).toContain(`Заголовок ${xss}`);
     expect((window as unknown as Record<string, unknown>).__qaXss).toBeUndefined();
     // Бейджи ведут в поиск вики, значение — параметром запроса
-    for (const a of container.querySelectorAll("a")) {
+    // (кроме ссылки «На сайт» в шапке — она ведёт на основной сайт)
+    for (const a of container.querySelectorAll('a:not([href="https://example.test"])')) {
       expect(a.getAttribute("href")?.startsWith("/")).toBe(true);
     }
   });

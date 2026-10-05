@@ -1,6 +1,8 @@
 // QA: границы адресов вики (найдено на шаге 5, задача трекера 12).
 //   slug: сегменты «.» и «..» не должны уводить запрос за пределы /api/wiki/notes/.
-//   next: управляющие символы на странице входа не должны ронять приложение.
+//   next: своей страницы входа у вики больше нет (вход — на основном сайте); старый адрес
+//         /login?next=… с управляющими символами не должен ронять приложение.
+//         Разбор адреса возврата на стороне сайта — в lib/wikiReturn.test.ts.
 import { Suspense } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -12,7 +14,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuthStore } from "@/store/auth";
 import { createQueryClient, makeUser, mockResponse } from "@/test/utils";
 import WikiApp from "@/wiki/WikiApp";
-import { safeNextPath } from "@/wiki/paths";
 
 vi.mock("@/lib/wikiHost", () => ({
   isWikiHost: () => true,
@@ -108,13 +109,8 @@ describe("D2: управляющие символы в next не роняют п
     "/\t\\evil.example",
   ];
 
-  it.each(PAYLOADS)("safeNextPath(%j) — небезопасный путь заменяется корнем", (next) => {
-    // Браузер выбрасывает \t \n \r при разборе адреса: «/\t/host» превращается в «//host»
-    expect(safeNextPath(next)).toBe("/");
-  });
-
   it.each(PAYLOADS)(
-    "вошедший админ на /login?next=%j попадает в вики, а не на экран ошибки",
+    "вошедший админ на /login?next=%j остаётся в вики («Страница не найдена»), а не на экране ошибки",
     async (next) => {
       window.history.replaceState(null, "", `/login?next=${encodeURIComponent(next)}`);
 
@@ -129,7 +125,10 @@ describe("D2: управляющие символы в next не роняют п
         ASYNC
       );
       expect(screen.queryByText("Что-то пошло не так")).not.toBeInTheDocument();
-      expect(window.location.pathname).toBe("/");
+      // next вики не читает: адрес остаётся как был, это просто неизвестная страница
+      expect(screen.getByRole("heading", { name: "Страница не найдена" })).toBeInTheDocument();
+      expect(window.location.pathname).toBe("/login");
+      expect(window.location.host).toBe("localhost:3000");
     }
   );
 });

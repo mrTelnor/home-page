@@ -9,6 +9,8 @@ import {
   type WikiNoteSummary,
   type WikiNotebookNode,
 } from "@/api/types";
+import { redirectTo } from "@/lib/redirect";
+import { mainSiteUrl } from "@/lib/wikiHost";
 import { useAuthStore } from "@/store/auth";
 import { createQueryClient, makeUser, mockResponse } from "@/test/utils";
 import WikiApp from "./WikiApp";
@@ -18,7 +20,21 @@ import WikiApp from "./WikiApp";
 const DEFAULT_ASYNC_TIMEOUT = 1000;
 const LAZY_ASYNC_TIMEOUT = 5000;
 
+// Переход на другой origin (вход — на основном сайте) jsdom выполнить не может — перехватываем
+vi.mock("@/lib/redirect", () => ({ redirectTo: vi.fn() }));
+// Вики на поддомене wiki.: адрес основного сайта известен
+vi.mock("@/lib/wikiHost", () => ({
+  isWikiHost: () => true,
+  mainSiteUrl: vi.fn(() => "https://example.test"),
+}));
+
 const fetchMock = vi.fn();
+const redirectMock = vi.mocked(redirectTo);
+const mainSiteUrlMock = vi.mocked(mainSiteUrl);
+
+/** Страница входа сайта с возвратом на страницу вики (тесты открыты на http://localhost:3000). */
+const siteLogin = (path: string) =>
+  `https://example.test/login?next=${encodeURIComponent(window.location.origin + path)}`;
 
 type Reply = Parameters<typeof mockResponse>[0];
 
@@ -122,6 +138,8 @@ function renderWiki(route = "/") {
 
 beforeEach(() => {
   configure({ asyncUtilTimeout: LAZY_ASYNC_TIMEOUT });
+  redirectMock.mockReset();
+  mainSiteUrlMock.mockReturnValue("https://example.test");
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
   useAuthStore.setState({ user: null });
@@ -133,16 +151,72 @@ afterEach(() => {
 });
 
 describe("вики: доступ", () => {
-  it("гостя отправляет на вход с возвратом на исходную страницу", async () => {
+  it("гостя отправляет на вход основного сайта с возвратом на исходную страницу", async () => {
     routeApi({ "/api/auth/me": unauthorized });
-    renderWiki("/n/moi-domashnii-sait/grabli");
+    renderWiki("/n/moi-domashnii-sait/grabli?x=1");
 
-    expect(await screen.findByText("Вход в вики")).toBeInTheDocument();
-    expect(screen.getByTestId("where")).toHaveTextContent(
-      "/login?next=%2Fn%2Fmoi-domashnii-sait%2Fgrabli"
+    const expected = siteLogin("/n/moi-domashnii-sait/grabli?x=1");
+    expect(await screen.findByRole("link", { name: "Войти на сайте" })).toHaveAttribute(
+      "href",
+      expected
     );
+    expect(redirectMock).toHaveBeenCalledTimes(1);
+    expect(redirectMock).toHaveBeenCalledWith(expected);
+    // Своей формы входа нет, роутер вики адрес не меняет
+    expect(screen.queryByLabelText("Пароль")).not.toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent("/n/moi-domashnii-sait/grabli?x=1");
     // До API вики гость не доходит
     expect(calledPaths().some((p) => p.startsWith("/api/wiki/"))).toBe(false);
+  });
+
+  it("адрес возврата — ровно origin вики и исходная страница", async () => {
+    routeApi({ "/api/auth/me": unauthorized });
+    renderWiki("/search?q=a%26b&tag=k8s");
+
+    await screen.findByRole("link", { name: "Войти на сайте" });
+    const target = new URL(redirectMock.mock.calls[0][0]);
+    expect(target.origin + target.pathname).toBe("https://example.test/login");
+    expect([...target.searchParams.keys()]).toEqual(["next"]);
+    expect(target.searchParams.get("next")).toBe(
+      `${window.location.origin}/search?q=a%26b&tag=k8s`
+    );
+  });
+
+  it("старый адрес /login на вики: гость уходит на вход сайта с возвратом на корень вики", async () => {
+    routeApi({ "/api/auth/me": unauthorized });
+    renderWiki("/login?next=https%3A%2F%2Fevil.example");
+
+    await screen.findByRole("link", { name: "Войти на сайте" });
+    expect(redirectMock).toHaveBeenCalledWith(siteLogin("/"));
+    expect(screen.queryByLabelText("Пароль")).not.toBeInTheDocument();
+  });
+
+  it("локально (VITE_WIKI=true, адрес сайта неизвестен): гостю — подсказка, без перехода", async () => {
+    mainSiteUrlMock.mockReturnValue(null);
+    let loggedIn = false;
+    fetchMock.mockImplementation((url: string) => {
+      const path = new URL(url).pathname;
+      if (path === "/api/auth/me") {
+        return Promise.resolve(
+          mockResponse(loggedIn ? { body: makeUser({ role: "admin" }) } : unauthorized)
+        );
+      }
+      const reply = adminApi()[path] ?? { ok: false, status: 404, body: { detail: "Not found" } };
+      return Promise.resolve(mockResponse(reply));
+    });
+    renderWiki("/");
+
+    expect(await screen.findByRole("heading", { name: "Нужен вход" })).toBeInTheDocument();
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("link", { name: "Войти на сайте" })).not.toBeInTheDocument();
+    expect(calledPaths().some((p) => p.startsWith("/api/wiki/"))).toBe(false);
+
+    // Вошёл на сайте в соседней вкладке — «Проверить снова» открывает вики
+    loggedIn = true;
+    await userEvent.click(screen.getByRole("button", { name: "Проверить снова" }));
+
+    expect(await screen.findByRole("heading", { name: "База знаний" })).toBeInTheDocument();
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("обычному пользователю — отказ, без запросов к API вики", async () => {
@@ -153,6 +227,8 @@ describe("вики: доступ", () => {
     expect(screen.getByText(/только администраторам/)).toBeInTheDocument();
     expect(screen.queryByText("База знаний")).not.toBeInTheDocument();
     expect(calledPaths().some((p) => p.startsWith("/api/wiki/"))).toBe(false);
+    // Вошедшего не-админа на вход не гоняем
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   it("админ видит обзор: дерево блокнотов и последние изменения", async () => {
@@ -179,15 +255,35 @@ describe("вики: доступ", () => {
     // useMe дважды повторяет запрос при 5xx (1 с и 2 с) — ждём дольше обычного
     expect(await screen.findByText(/Не удалось проверить авторизацию/)).toBeInTheDocument();
     expect(screen.getByTestId("where")).toHaveTextContent("/");
+    expect(redirectMock).not.toHaveBeenCalled();
   }, 10000);
 
-  it("после входа возвращает на страницу из next", async () => {
-    let loggedIn = false;
+  it("вошедший на сайте админ, вернувшись по адресу возврата, видит исходную страницу", async () => {
+    // Сессия общая: cookie ставит API, поэтому после входа на сайте вики открывается сразу
+    routeApi(adminApi());
+    renderWiki("/n/moi-domashnii-sait/grabli");
+
+    expect(await screen.findByRole("heading", { name: "Обратные ссылки" })).toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent("/n/moi-domashnii-sait/grabli");
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("у вики нет страницы /login: вошедшему админу — «Страница не найдена», next не читается", async () => {
+    routeApi(adminApi());
+    renderWiki("/login?next=https%3A%2F%2Fevil.example");
+
+    expect(await screen.findByRole("heading", { name: "Страница не найдена" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Пароль")).not.toBeInTheDocument();
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("«Выйти» в шапке вики: после выхода — на вход сайта с возвратом на корень вики", async () => {
+    let loggedIn = true;
     fetchMock.mockImplementation((url: string, init?: RequestInit) => {
       const path = new URL(url).pathname;
-      if (path === "/api/auth/login" && init?.method === "POST") {
-        loggedIn = true;
-        return Promise.resolve(mockResponse({ body: { message: "ok" } }));
+      if (path === "/api/auth/logout" && init?.method === "POST") {
+        loggedIn = false;
+        return Promise.resolve(mockResponse({ status: 204, body: null }));
       }
       if (path === "/api/auth/me") {
         return Promise.resolve(
@@ -197,25 +293,13 @@ describe("вики: доступ", () => {
       const reply = adminApi()[path] ?? { ok: false, status: 404, body: { detail: "Not found" } };
       return Promise.resolve(mockResponse(reply));
     });
-    renderWiki("/login?next=%2Fn%2Fmoi-domashnii-sait%2Fgrabli");
+    renderWiki("/n/moi-domashnii-sait/grabli");
+    await screen.findByRole("heading", { name: "Обратные ссылки" });
 
-    await userEvent.type(await screen.findByLabelText("Имя пользователя"), "nikita");
-    await userEvent.type(screen.getByLabelText("Пароль"), "secret-pass");
-    await userEvent.click(screen.getByRole("button", { name: "Войти" }));
+    await userEvent.click(screen.getByRole("button", { name: "Выйти" }));
 
-    await waitFor(() =>
-      expect(screen.getByTestId("where")).toHaveTextContent("/n/moi-domashnii-sait/grabli")
-    );
-    expect(await screen.findByRole("heading", { name: "Обратные ссылки" })).toBeInTheDocument();
-  }, 15000);
-
-  it("внешний адрес в next игнорируется", async () => {
-    routeApi(adminApi());
-    renderWiki("/login?next=https%3A%2F%2Fevil.example");
-
-    // Админ уже вошёл — со страницы входа уходит на корень вики, а не наружу
-    expect(await screen.findByRole("heading", { name: "База знаний" })).toBeInTheDocument();
-    expect(screen.getByTestId("where")).toHaveTextContent("/");
+    await waitFor(() => expect(redirectMock).toHaveBeenCalledWith(siteLogin("/")));
+    expect(screen.queryByRole("heading", { name: "Обратные ссылки" })).not.toBeInTheDocument();
   });
 });
 
@@ -323,9 +407,9 @@ describe("вики: заметка, блокнот, поиск", () => {
 describe("вики: мета robots", () => {
   it("добавляет noindex, nofollow и убирает при размонтировании", async () => {
     routeApi({ "/api/auth/me": unauthorized });
-    const { unmount } = renderWiki("/login");
+    const { unmount } = renderWiki("/");
 
-    await screen.findByText("Вход в вики");
+    await screen.findByRole("link", { name: "Войти на сайте" });
     expect(document.head.querySelector('meta[name="robots"]')).toHaveAttribute(
       "content",
       "noindex, nofollow"

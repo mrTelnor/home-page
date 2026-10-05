@@ -1,4 +1,5 @@
 // Адреса страниц вики (внутри SPA на хосте wiki.<domain>).
+import { mainSiteUrl } from "@/lib/wikiHost";
 
 /** Страница заметки: `/n/<slug>`, слэши slug остаются слэшами пути. */
 export function notePath(slug: string): string {
@@ -26,24 +27,26 @@ export function searchPath(params: SearchParams = {}): string {
   return qs ? `/search?${qs}` : "/search";
 }
 
-// eslint-disable-next-line no-control-regex -- именно управляющие символы и ищем
-const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
-
 /**
- * Куда вернуть после входа. Принимаем только путь внутри вики: значение приходит
- * из адресной строки, внешний адрес (`//host`, `/\host`, `https://…`) и значения
- * с управляющими символами не допускаются.
+ * Страница вики, на которую вернуть после входа. Своей страницы входа у вики нет:
+ * `/login` (туда ведёт общий выход из аккаунта и старые ссылки) заменяется корнем.
  */
-export function safeNextPath(raw: string | null | undefined): string {
-  if (!raw?.startsWith("/")) return "/";
-  // Управляющие символы браузер выбрасывает при разборе адреса: «/\t/host» стал бы «//host»
-  if (CONTROL_CHARS.test(raw)) return "/";
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return "/";
-  if (raw === "/login" || raw.startsWith("/login?")) return "/";
-  return raw;
+export function wikiReturnPath(location: { pathname: string; search: string; hash: string }): string {
+  if (location.pathname === "/login") return "/";
+  return location.pathname + location.search + location.hash;
 }
 
-export function loginPath(next: string): string {
-  const safe = safeNextPath(next);
-  return safe === "/" ? "/login" : `/login?next=${encodeURIComponent(safe)}`;
+/**
+ * Вход — на основном сайте: адрес его страницы входа с возвратом на страницу вики.
+ * Сайт принимает возврат только на origin вики своего домена (lib/wikiReturn).
+ * null — вики открыта не на поддомене `wiki.` (локально через VITE_WIKI), адрес сайта неизвестен.
+ */
+export function siteLoginUrl(
+  returnPath: string,
+  loc: Pick<Location, "protocol" | "host"> = globalThis.location
+): string | null {
+  const site = mainSiteUrl(loc);
+  if (!site) return null;
+  const back = `${loc.protocol}//${loc.host}${returnPath}`;
+  return `${site}/login?next=${encodeURIComponent(back)}`;
 }

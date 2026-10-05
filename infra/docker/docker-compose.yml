@@ -222,6 +222,14 @@ services:
       - traefik.http.routers.frontend.rule=Host(`${DOMAIN}`)
       - traefik.http.routers.frontend.entrypoints=websecure
       - traefik.http.routers.frontend.tls.certresolver=letsencrypt
+      # Вики (wiki.<domain>) — тот же контейнер и тот же бандл: набор маршрутов SPA
+      # выбирает по имени хоста. Отдельного сервиса нет, роутер идёт на frontend.
+      # X-Robots-Tag — запрет индексации: в вики заметки базы знаний.
+      - traefik.http.routers.wiki.rule=Host(`wiki.${DOMAIN}`)
+      - traefik.http.routers.wiki.entrypoints=websecure
+      - traefik.http.routers.wiki.tls.certresolver=letsencrypt
+      - traefik.http.routers.wiki.middlewares=wiki-noindex@docker
+      - traefik.http.middlewares.wiki-noindex.headers.customresponseheaders.X-Robots-Tag=noindex, nofollow
       - traefik.http.services.frontend.loadbalancer.server.port=80
       - traefik.docker.network=web
 

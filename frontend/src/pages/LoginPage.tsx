@@ -1,8 +1,10 @@
-import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useLogin } from "@/hooks/useAuth";
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useLogin, useMe } from "@/hooks/useAuth";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { ApiError } from "@/api/client";
+import { redirectTo } from "@/lib/redirect";
+import { safeWikiReturnUrl } from "@/lib/wikiReturn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -14,8 +16,26 @@ export function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   usePageTitle("Вход");
-  const login = useLogin();
   const navigate = useNavigate();
+  // Гостя вики присылают сюда с адресом возврата в `?next=`. Принимается только адрес
+  // вики этого же домена; всё остальное игнорируется — обычный вход с переходом на главную.
+  const [params] = useSearchParams();
+  const wikiUrl = safeWikiReturnUrl(params.get("next"));
+  const leaving = useRef(false);
+  const returnToWiki = useCallback(() => {
+    if (!wikiUrl || leaving.current) return;
+    leaving.current = true;
+    // Другой origin: переходим сами, по проверенному адресу, а не через роутер
+    redirectTo(wikiUrl);
+  }, [wikiUrl]);
+  const login = useLogin(wikiUrl ? { onLoggedIn: returnToWiki } : undefined);
+  // «Кто я» здесь нужен только для возврата на вики: уже вошедшему форма ни к чему
+  const { data: me } = useMe({ enabled: wikiUrl !== null });
+  const alreadyIn = wikiUrl !== null && Boolean(me);
+
+  useEffect(() => {
+    if (alreadyIn) returnToWiki();
+  }, [alreadyIn, returnToWiki]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -25,6 +45,17 @@ export function LoginPage() {
   let error: string | null = null;
   if (login.error instanceof ApiError) {
     error = login.error.status === 401 ? "Неверный логин или пароль" : login.error.message;
+  }
+
+  if (alreadyIn && wikiUrl) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 min-h-[80vh]">
+        <p className="text-muted-foreground">Возвращаемся в вики...</p>
+        <a href={wikiUrl} className="text-sm text-primary underline">
+          Перейти в вики
+        </a>
+      </div>
+    );
   }
 
   return (

@@ -1,8 +1,9 @@
 import { type ReactNode, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
+import { siteLoginUrl, wikiReturnPath } from "./paths";
 
 interface StatusBoxProps {
   title: string;
@@ -30,6 +31,7 @@ export function WikiLoading() {
  */
 function SessionExpired() {
   const queryClient = useQueryClient();
+  const loginUrl = siteLoginUrl(wikiReturnPath(useLocation()));
   useEffect(() => {
     void queryClient.invalidateQueries({ queryKey: ["me"] });
   }, [queryClient]);
@@ -37,9 +39,11 @@ function SessionExpired() {
     <StatusBox
       title="Сессия закончилась"
       action={
-        <Button asChild>
-          <Link to="/login">Войти</Link>
-        </Button>
+        loginUrl && (
+          <Button asChild>
+            <a href={loginUrl}>Войти</a>
+          </Button>
+        )
       }
     >
       Войдите заново, чтобы продолжить.
