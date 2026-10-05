@@ -233,33 +233,24 @@ describe("QA основной сайт без next — как раньше", () 
   });
 });
 
-describe("QA зацикливание между сайтом и вики", () => {
-  // Известный дефект (задача трекера 12): если «кто я» с адреса вики отвечает 401, а с адреса
-  // сайта — 200 (cookie API не доходит с вики: другой site, блокировка в браузере), сайт
-  // и вики перекидывают человека друг другу без конца — предохранителя нет.
-  // Тест покраснеет, когда появится предохранитель, — тогда `it.fails` заменить на `it`.
-  it.fails(
-    "ДЕФЕКТ: cookie не доходит с вики — перекидывание между сайтом и вики останавливается",
+describe("QA адрес возврата с обратным слэшем — безопасный отказ", () => {
+  // Принятое поведение, не дефект (решение Никиты от 2026-10-05, задача трекера 12, D4):
+  // сайт отбрасывает адрес возврата с обратным слэшем — после входа главная сайта.
+  it(
+    "вход с next=<вики>/search?q=C:\\Users — главная сайта, перехода на вики и наружу нет",
     async () => {
-      me = () =>
-        window.location.host.startsWith("wiki.")
-          ? unauthorized
-          : { body: makeUser({ role: "admin" }) };
-      const ROUNDS = 4;
+      await open(`${SITE}/login?next=${encodeURIComponent(`${WIKI}/search?q=C:\\Users`)}`);
 
-      let url = `${WIKI}/n/a/b`;
-      for (let i = 0; i < ROUNDS * 2; i++) {
-        const before = redirects.length;
-        await open(url);
-        try {
-          await waitFor(() => expect(redirects.length).toBe(before + 1), { timeout: 1500 });
-        } catch {
-          break; // страница никуда не увела — круг разорван
-        }
-        url = redirects[redirects.length - 1];
-      }
+      const user = userEvent.setup();
+      await user.type(await screen.findByLabelText("Имя пользователя", {}, ASYNC), "nikita");
+      await user.type(screen.getByLabelText("Пароль"), "secret123");
+      me = () => ({ body: makeUser({ role: "admin" }) });
+      await user.click(screen.getByRole("button", { name: "Войти" }));
 
-      expect(redirects.length).toBeLessThan(ROUNDS * 2);
+      await waitFor(() => expect(window.location.pathname).toBe("/"), ASYNC);
+      await pause(50);
+      expect(redirects).toEqual([]);
+      expect(window.location.origin).toBe(SITE);
     },
     LONG
   );
