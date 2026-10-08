@@ -102,8 +102,10 @@ async def test_telegram_verify_already_linked(
     response = await admin_client.post("/api/auth/telegram-verify", json=payload)
     assert response.status_code == 200
 
-    # authed_client (testuser) пытается привязать тот же tg_id
-    payload2 = _make_telegram_payload(777)
+    # authed_client (testuser) пытается привязать тот же tg_id.
+    # Другой auth_date — другая подпись: иначе в пределах одной секунды
+    # запрос отсекает защита от повтора подписи (401), а не проверка привязки.
+    payload2 = _make_telegram_payload(777, auth_date=int(time.time()) - 1)
     response2 = await authed_client.post("/api/auth/telegram-verify", json=payload2)
     assert response2.status_code == 409
 
