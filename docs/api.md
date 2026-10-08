@@ -542,6 +542,136 @@ curl -X DELETE https://api.telnor.ru/api/menus/{menu_id} -b cookies.txt
 
 ---
 
+## Wiki
+
+Просмотр базы знаний (Supabase), только чтение. Все эндпоинты, кроме health, — только admin. Общий лимит — 120 запросов в минуту на IP на все эндпоинты вики, кроме health.
+
+Общие ошибки (кроме health):
+- 401 — нет авторизации
+- 403 — не admin
+- 429 — превышен лимит
+- 503 — `Wiki is disabled` (не задан `WIKI_DATABASE_URL`) или `Wiki database is unavailable` (нет связи с Supabase, проект на паузе, таймаут)
+
+Права проверяются раньше обращения к базе: гость получает 401, даже когда база недоступна.
+
+### GET /api/wiki/health
+
+Публичная проверка связи с базой знаний. Всегда 200, состояние — в поле `status`; результат кэшируется на 10 секунд.
+
+```bash
+curl https://api.telnor.ru/api/wiki/health
+```
+
+Ответ (200):
+```json
+{"status": "ok"}
+```
+
+Значения `status`: `ok` — база отвечает; `unavailable` — база недоступна; `disabled` — вики выключена.
+
+### GET /api/wiki/notebooks
+
+Дерево блокнотов со счётчиками заметок.
+
+```bash
+curl https://api.telnor.ru/api/wiki/notebooks -b cookies.txt
+```
+
+Ответ (200): массив корневых блокнотов.
+```json
+[
+  {
+    "id": "…",
+    "name": "Пет-проекты",
+    "slug": "pet-proekty",
+    "parent_id": null,
+    "note_count": 0,
+    "total_note_count": 42,
+    "children": []
+  }
+]
+```
+
+`note_count` — заметок непосредственно в блокноте, `total_note_count` — вместе со всеми вложенными.
+
+### GET /api/wiki/notebooks/{notebook_id}/notes
+
+Заметки блокнота (без вложенных блокнотов), по возрастанию `slug`.
+
+Ответ (200): массив `WikiNoteSummary`.
+```json
+[
+  {
+    "id": "…",
+    "slug": "moi-domashnii-sait/arkhitektura",
+    "title": "Архитектура",
+    "notebook_id": "…",
+    "metadata": {"type": "reference", "project": "home-page"},
+    "tags": ["docker", "python"],
+    "updated_at": "2026-10-05T10:00:00Z"
+  }
+]
+```
+
+Ошибки:
+- 404 — блокнот не найден
+- 422 — `notebook_id` не UUID
+
+### GET /api/wiki/search
+
+Поиск по заметкам. Каждое слово запроса ищется как начало слова, между словами — «и»; знаки препинания и операторы — разделители; берётся не больше 8 слов.
+
+Query-параметры:
+- `q` — текст запроса (до 200 символов)
+- `project` — фильтр по `metadata.project`
+- `type` — фильтр по `metadata.type`
+- `tag` — фильтр по тегу
+- `limit` — от 1 до 50, по умолчанию 20
+
+```bash
+curl "https://api.telnor.ru/api/wiki/search?q=грабл&project=home-page" -b cookies.txt
+```
+
+Ответ (200): массив `WikiNoteSummary`. С текстом запроса — по убыванию релевантности, без него (только фильтры) — по дате изменения. Без слов и без фильтров — пустой массив.
+
+### GET /api/wiki/recent
+
+Последние изменённые заметки. Query-параметр `limit` — от 1 до 50, по умолчанию 20.
+
+Ответ (200): массив `WikiNoteSummary`.
+
+### GET /api/wiki/notes/{slug}
+
+Заметка по `slug`. В `slug` есть «/», в адресе он передаётся как есть.
+
+```bash
+curl https://api.telnor.ru/api/wiki/notes/moi-domashnii-sait/arkhitektura -b cookies.txt
+```
+
+Ответ (200):
+```json
+{
+  "id": "…",
+  "slug": "moi-domashnii-sait/arkhitektura",
+  "title": "Архитектура",
+  "content": "# Архитектура\n…",
+  "metadata": {"type": "reference", "project": "home-page"},
+  "notebook": {"id": "…", "name": "Мой домашний сайт", "slug": "…"},
+  "tags": ["docker"],
+  "links": [{"slug": "…", "title": "README", "alias": null}],
+  "backlinks": [{"slug": "…", "title": "Грабли home-page", "alias": null}],
+  "created_at": "2026-06-10T09:00:00Z",
+  "updated_at": "2026-10-05T10:00:00Z"
+}
+```
+
+`links` — исходящие ссылки `[[…]]` (цель), `backlinks` — обратные (источник). `content` — Markdown; сырой HTML из него фронтенд не исполняет.
+
+Ошибки:
+- 404 — заметка не найдена
+
+---
+
 ## Bot Notifications (внутренний API)
 
 Бот принимает POST-запросы на `/notify` для рассылки уведомлений. Эндпоинт доступен только из Docker-сети (cron-контейнер вызывает автоматически по расписанию).

@@ -1,11 +1,13 @@
 # База знаний (Supabase)
 
 Личная база знаний — зеркало Obsidian-хранилища «Удивительная жизнь Никиты»,
-перенесённое в **Supabase** (managed Postgres). Доступ — через подключённый
-Supabase MCP-сервер (см. [`.mcp.json`](../.mcp.json)) из Claude / Claude Code.
+перенесённое в **Supabase** (managed Postgres). Пишут в неё агенты через
+Supabase MCP-сервер, подключённый в Claude / Claude Code; люди читают на
+`wiki.telnor.ru` (см. «Доступ вики»).
 
 > Это отдельный от веб-сервиса `home-page` контур: к рецептам/голосованию он
-> отношения не имеет, живёт в собственном Supabase-проекте.
+> отношения не имеет, живёт в собственном Supabase-проекте. Сайт только читает
+> её для вики.
 
 ## История (почему Supabase, а не self-hosted)
 
@@ -41,13 +43,46 @@ Supabase-проект `vcfqubocjfnzebpiwczw`, схема `public`. Полная 
 - **Полнотекстовый поиск:** `search_vector` заполняется триггером
   `notes_search_vector_update` (конфиг `simple` — работает с RU/EN, title=A,
   content=B), GIN-индекс `idx_notes_search`.
-- **RLS** включён на всех таблицах, публичных политик нет — доступ только через
-  `service_role` (Supabase MCP / Dashboard). Если понадобится публичное чтение
-  (например, отдельный фронтенд) — добавить `SELECT`-политику для роли `anon`.
+- **RLS** включён на всех таблицах. Политик для `anon` и `authenticated` нет и
+  быть не должно: у этих ролей в Supabase полные `GRANT`, их останавливает только
+  отсутствие политик. Запись — через `service_role` (Supabase MCP / Dashboard),
+  чтение для вики — отдельной ролью `wiki_reader`.
+
+## Доступ вики (роль `wiki_reader`)
+
+Backend сайта читает базу для вики ролью Postgres `wiki_reader`. Роль создаётся
+файлом [`infra/supabase/wiki_reader.sql`](../infra/supabase/wiki_reader.sql)
+(идемпотентный, выполняется вручную в SQL Editor):
+
+- `login`, без `createdb` / `createrole` / `replication` / `bypassrls`,
+  `connection limit 6`, `default_transaction_read_only = on`,
+  `statement_timeout = 5s`;
+- `USAGE` на схему `public` и `SELECT` на `notebooks`, `notes`, `tags`,
+  `note_tags`, `note_links`, `backlinks_view`; на остальное, включая схему
+  `backup`, прав нет;
+- пять политик `wiki_reader_select` — `FOR SELECT TO wiki_reader USING (true)`,
+  по одной на таблицу. `backlinks_view` создан с `security_invoker`, поэтому
+  читается по тем же политикам и своей не требует.
+
+Пароля в файле нет: он задаётся отдельно командой `\password wiki_reader` в psql,
+чтобы открытый текст не попал в `pg_stat_statements` и лог Postgres. Хранится в
+Ansible Vault (`vault_wiki_db_password`).
+
+Подключение — через пулер Supabase в session-режиме, пользователь
+`wiki_reader.<ref проекта>`; параметры — `vault_wiki_db_*`, строка собирается в
+`env.j2` в переменную `WIKI_DATABASE_URL`. Как backend ей пользуется — в
+[architecture.md](architecture.md), раздел «Вики».
+
+Проверять запрет записи под этой ролью нужно в `begin read write … rollback`:
+обычный `insert` отклоняется режимом «только чтение», который сессия может снять,
+и о правах ничего не говорит.
+
+Бесплатный проект Supabase уходит в паузу от простоя — cron раз в сутки
+запрашивает `/api/wiki/health` (`wiki-wake.sh`).
 
 ## Доступ из Claude
 
-Через Supabase MCP (`.mcp.json`):
+Через Supabase MCP:
 
 - структура БД — `list_tables`;
 - чтение/поиск — `execute_sql`. Полнотекстовый поиск:
@@ -72,7 +107,8 @@ Supabase-проект `vcfqubocjfnzebpiwczw`, схема `public`. Полная 
 - `[[wikilink|alias]]` → `note_links` (резолв по точному заголовку-цели;
   неразрешённые ссылки на заголовки/пути пропускаются).
 
-Итог: **3 ноутбука, 86 заметок, 17 тегов, 323 связи.**
+С тех пор база пополняется агентами напрямую; актуальные числа — запросом
+`count(*)`.
 
 Повторная миграция (если Obsidian правился) — заново собрать `INSERT`'ы из vault
 и применить к Supabase напрямую (session pooler) или через `apply_migration`.
