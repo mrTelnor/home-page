@@ -73,6 +73,27 @@ Ansible Vault (`vault_wiki_db_password`).
 `env.j2` в переменную `WIKI_DATABASE_URL`. Как backend ей пользуется — в
 [architecture.md](architecture.md), раздел «Вики».
 
+Соединение идёт по TLS с проверкой цепочки сертификатов и имени хоста (аналог
+`sslmode=verify-full`). Сертификат пулера подписан собственным CA Supabase,
+системное хранилище его не знает, поэтому корневой сертификат лежит в
+репозитории: `backend/app/certs/supabase-root-2021-ca.crt` (Supabase Root 2021
+CA, публичный, не секрет; действует до 2031-04-26). Промежуточный сертификат
+сервер отдаёт сам. Доверие — только этому файлу; `vault_wiki_db_host` — имя
+хоста пулера, с IP проверка имени не пройдёт. Переключателя «выключить проверку»
+нет.
+
+Если проверка не проходит (сертификат сменился или истёк, файл отсутствует или
+повреждён), вики отвечает как при недоступной базе: 503 на `/api/wiki/*`,
+`unavailable` в `/api/wiki/health`, в логе backend — `CERTIFICATE_VERIFY_FAILED`.
+Smoke-тест деплоя на `unavailable` не падает, только предупреждает — результат
+смотреть по телу ответа health. При смене корневого сертификата Supabase:
+
+1. скачать новый в Dashboard (Database → SSL Configuration) и посмотреть его
+   `openssl x509 -in <файл> -noout -subject -enddate -fingerprint -sha256`;
+2. заменить файл в `backend/app/certs/` и отпечаток `SUPABASE_ROOT_SHA256` в
+   `backend/tests/test_wiki_tls_qa.py`;
+3. выкатить `--tags backend` и проверить `/api/wiki/health` → `ok`.
+
 Проверять запрет записи под этой ролью нужно в `begin read write … rollback`:
 обычный `insert` отклоняется режимом «только чтение», который сессия может снять,
 и о правах ничего не говорит.

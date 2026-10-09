@@ -550,7 +550,7 @@ curl -X DELETE https://api.telnor.ru/api/menus/{menu_id} -b cookies.txt
 - 401 — нет авторизации
 - 403 — не admin
 - 429 — превышен лимит
-- 503 — `Wiki is disabled` (не задан `WIKI_DATABASE_URL`) или `Wiki database is unavailable` (нет связи с Supabase, проект на паузе, таймаут)
+- 503 — `Wiki is disabled` (не задан `WIKI_DATABASE_URL`) или `Wiki database is unavailable` (нет связи с Supabase, проект на паузе, таймаут, сертификат сервера не прошёл проверку)
 
 Права проверяются раньше обращения к базе: гость получает 401, даже когда база недоступна.
 
