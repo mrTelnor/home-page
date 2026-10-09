@@ -176,7 +176,7 @@
 - **React Router v7** — навигация (ProtectedRoute для защищённых маршрутов, AuthAwareRoute для гостевых)
 - **TanStack Query v5** — работа с API, кэширование, polling
 - **Zustand** — хранение текущего пользователя
-- **Tailwind CSS v4** + **shadcn/ui (Radix)** — стилизация и компоненты
+- **Tailwind CSS v4** + **shadcn/ui (Radix)** — стилизация и компоненты. Пакет `shadcn` в зависимостях не установлен (убран 2026-10-09 из-за уязвимых транзитивных пакетов): компоненты лежат в `src/components/ui/`, а его CSS — копией в `src/shadcn-tailwind.css` (из `shadcn` 4.2.0, обновлять вручную). Новые компоненты добавляются через `npx shadcn@latest add <имя>` — `npx` скачивает CLI сам, настройки в `components.json`. Оба пути исключены из анализа Sonar (`sonar.exclusions` в `sonar-project.properties`)
 - **Дизайн-система** — cream-палитра «кулинарная книга» (paper `#F5EFE3` + ink `#1E1B14` + терракота `#B8442A`), тёмная тема (`localStorage` + `prefers-color-scheme`), шрифты Inter Tight + JetBrains Mono (Google Fonts), маскот-волк в SVG (`WolfMark`)
 - **FoodGlyph** — компонент иконок блюд (15 SVG × 10 палитр) с пикером в форме рецепта
 - **Nginx** (alpine) — раздача собранного бандла с SPA fallback
