@@ -4,6 +4,7 @@
 а функции сервиса в тестах роутера заменяются на возвращающие готовые данные.
 """
 import logging
+import ssl
 import traceback
 import uuid
 from datetime import UTC, datetime
@@ -440,7 +441,17 @@ async def test_engine_created_lazily_with_pool_limits_and_ssl(monkeypatch, reset
     assert kwargs["pool_pre_ping"] is True
     assert kwargs["pool_recycle"] > 0
     assert kwargs["pool_timeout"] > 0
-    assert kwargs["connect_args"]["ssl"] == "require"
+    # Аналог sslmode=verify-full: готовый контекст с проверкой цепочки и имени хоста
+    ssl_context = kwargs["connect_args"]["ssl"]
+    assert isinstance(ssl_context, ssl.SSLContext)
+    assert ssl_context.verify_mode == ssl.CERT_REQUIRED
+    assert ssl_context.check_hostname is True
+    # Строгая проверка X.509 снята явно — с ней цепочка Supabase отклоняется
+    assert not ssl_context.verify_flags & ssl.VERIFY_X509_STRICT
+    # Доверие только одному сертификату — Supabase Root 2021 CA, без системного хранилища
+    assert ssl_context.cert_store_stats() == {"x509": 1, "crl": 0, "x509_ca": 1}
+    (ca,) = ssl_context.get_ca_certs()
+    assert (("commonName", "Supabase Root 2021 CA"),) in ca["subject"]
     assert kwargs["connect_args"]["timeout"] > 0
     assert kwargs["connect_args"]["command_timeout"] > 0
 

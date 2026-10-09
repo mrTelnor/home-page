@@ -7,14 +7,19 @@
   а backend стартует и работает без Supabase;
 - у роли connection limit 6, а при пересоздании контейнера старый и новый пулы
   живут одновременно — поэтому `pool_size + max_overflow` не больше 3;
-- SSL обязателен, но в строке подключения его нет — задаём здесь.
+- SSL с проверкой сертификата сервера и имени хоста (аналог sslmode=verify-full);
+  в строке подключения его нет — задаём здесь. Пулер подписан собственным CA
+  Supabase, системное хранилище его не знает, поэтому корневой сертификат лежит
+  в репозитории. Сбой проверки для вики то же, что недоступная база.
 """
 import asyncio
 import logging
 import re
+import ssl
 import time
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
 from typing import Literal
 from urllib.parse import unquote
 
@@ -46,6 +51,10 @@ WIKI_HEALTH_LOG_INTERVAL = 300
 # Текст ошибки в записи о сбое проверки health обрезается до этой длины
 WIKI_HEALTH_ERROR_MAX_LENGTH = 300
 
+# Корневой сертификат Supabase (Supabase Root 2021 CA, действует до 2031-04-26).
+# Публичный, не секрет; в образ попадает вместе с каталогом app/.
+WIKI_CA_FILE = Path(__file__).resolve().parent.parent / "certs" / "supabase-root-2021-ca.crt"
+
 WikiHealthStatus = Literal["ok", "unavailable", "disabled"]
 
 
@@ -54,7 +63,7 @@ class WikiDisabledError(Exception):
 
 
 class WikiUnavailableError(Exception):
-    """База знаний недоступна: нет связи, пауза проекта Supabase, таймаут, ошибка запроса."""
+    """База знаний недоступна: нет связи, пауза проекта Supabase, таймаут, сертификат не прошёл проверку, ошибка запроса."""
 
 
 # OSError покрывает отказ в соединении и таймауты (TimeoutError — его подкласс).
@@ -63,6 +72,25 @@ class WikiUnavailableError(Exception):
 _DB_ERRORS = (SQLAlchemyError, OSError, asyncpg.PostgresError, asyncpg.InterfaceError)
 
 _engine: AsyncEngine | None = None
+
+
+def build_wiki_ssl_context() -> ssl.SSLContext:
+    """SSL-контекст подключения к базе знаний — аналог sslmode=verify-full.
+
+    Доверяем только `WIKI_CA_FILE`: системное хранилище не подключаем, чтобы
+    сертификат, выданный любым другим CA, не прошёл проверку.
+    """
+    # Не create_default_context(): он подключает системное хранилище
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.check_hostname = True
+    # Строгую проверку X.509 снимаем явно: с ней цепочка Supabase отклоняется
+    # («CA cert does not include key usage extension»). У SSLContext её нет, но
+    # ssl.create_default_context() с Python 3.13 её включает — страховка на случай
+    # смены способа сборки контекста или умолчаний Python.
+    context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+    context.load_verify_locations(cafile=WIKI_CA_FILE)
+    return context
 
 
 def get_wiki_engine() -> AsyncEngine:
@@ -79,8 +107,8 @@ def get_wiki_engine() -> AsyncEngine:
             pool_pre_ping=True,
             pool_recycle=WIKI_POOL_RECYCLE,
             connect_args={
-                # Аналог sslmode=require: шифрование без проверки сертификата
-                "ssl": "require",
+                # Готовый контекст asyncpg берёт как есть; имя для проверки — host из строки подключения
+                "ssl": build_wiki_ssl_context(),
                 "timeout": WIKI_CONNECT_TIMEOUT,
                 "command_timeout": WIKI_COMMAND_TIMEOUT,
             },
