@@ -54,16 +54,17 @@ export function ResetPasswordPage() {
         </CardHeader>
         {loading ? (
           <CardContent className="space-y-4">
-            <p className="text-sm text-center text-muted-foreground">
-              Проверка ссылки...
-            </p>
+            <p className="text-sm text-center text-muted-foreground">Проверка ссылки...</p>
           </CardContent>
         ) : invalid ? (
           <CardContent className="space-y-4">
             <p className="text-sm text-center text-destructive">
               Ссылка недействительна или устарела.
             </p>
-            <Link to="/forgot-password" className="text-sm text-primary underline block text-center">
+            <Link
+              to="/forgot-password"
+              className="text-sm text-primary underline block text-center"
+            >
               Запросить новую ссылку
             </Link>
           </CardContent>
@@ -73,13 +74,23 @@ export function ResetPasswordPage() {
               {error && <p className="text-sm text-center text-destructive">{error}</p>}
               <div className="space-y-2">
                 <Label htmlFor="password">Новый пароль</Label>
-                <PasswordInput id="password" minLength={8} required
-                  value={password} onChange={(e) => setPassword(e.target.value)} />
+                <PasswordInput
+                  id="password"
+                  minLength={8}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="repeat">Повторите пароль</Label>
-                <PasswordInput id="repeat" minLength={8} required
-                  value={repeat} onChange={(e) => setRepeat(e.target.value)} />
+                <PasswordInput
+                  id="repeat"
+                  minLength={8}
+                  required
+                  value={repeat}
+                  onChange={(e) => setRepeat(e.target.value)}
+                />
               </div>
             </CardContent>
             <CardFooter>

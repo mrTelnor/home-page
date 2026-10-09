@@ -17,8 +17,16 @@ afterEach(() => {
 });
 
 const baseUser: User = {
-  id: "u1", username: "tester", role: "user", created_at: "2026-01-01T00:00:00Z",
-  tg_id: null, first_name: null, birthday: null, is_volkov: false, gender: null, email: null,
+  id: "u1",
+  username: "tester",
+  role: "user",
+  created_at: "2026-01-01T00:00:00Z",
+  tg_id: null,
+  first_name: null,
+  birthday: null,
+  is_volkov: false,
+  gender: null,
+  email: null,
   notifications_enabled: true,
   calendar_notifications_enabled: true,
 };
@@ -116,7 +124,9 @@ describe("ProfileForm", () => {
   it("переключатель календаря скрыт у обычного пользователя", () => {
     renderForm(makeUser({ role: "user" }));
 
-    expect(screen.queryByLabelText("Уведомления бота о семейном календаре")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Уведомления бота о семейном календаре")
+    ).not.toBeInTheDocument();
   });
 
   it("админ выключает календарь отдельно от ужинов", async () => {
@@ -159,11 +169,17 @@ describe("ProfileForm", () => {
 
   it("показывает ошибку 403 при блокировке смены email", async () => {
     fetchMock.mockResolvedValue(
-      mockResponse({ ok: false, status: 403, body: { detail: "Сменить email можно только после 27.06.2026" } })
+      mockResponse({
+        ok: false,
+        status: 403,
+        body: { detail: "Сменить email можно только после 27.06.2026" },
+      })
     );
     renderForm(baseUser);
     await userEvent.type(screen.getByLabelText("Email"), "new@x.com");
     await userEvent.click(screen.getByRole("button", { name: /Сохранить/ }));
-    await waitFor(() => expect(screen.getByText(/Сменить email можно только после/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText(/Сменить email можно только после/)).toBeInTheDocument()
+    );
   });
 });

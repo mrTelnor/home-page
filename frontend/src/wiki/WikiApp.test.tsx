@@ -4,11 +4,7 @@ import { configure, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
-import {
-  type WikiNoteDetail,
-  type WikiNoteSummary,
-  type WikiNotebookNode,
-} from "@/api/types";
+import { type WikiNoteDetail, type WikiNoteSummary, type WikiNotebookNode } from "@/api/types";
 import { redirectTo } from "@/lib/redirect";
 import { mainSiteUrl } from "@/lib/wikiHost";
 import { useAuthStore } from "@/store/auth";
@@ -308,14 +304,19 @@ describe("вики: база знаний недоступна (503)", () => {
     routeApi(adminApi({ "/api/wiki/notebooks": unavailable, "/api/wiki/recent": unavailable }));
     renderWiki("/");
 
-    expect(await screen.findByRole("heading", { name: "База знаний недоступна" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "База знаний недоступна" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
     // 503 не повторяем автоматически: по одному запросу на эндпоинт
     expect(calledPaths().filter((p) => p === "/api/wiki/notebooks")).toHaveLength(1);
   });
 
   it("«Повторить» перезапрашивает данные и показывает обзор", async () => {
-    const routes = adminApi({ "/api/wiki/notebooks": unavailable, "/api/wiki/recent": unavailable });
+    const routes = adminApi({
+      "/api/wiki/notebooks": unavailable,
+      "/api/wiki/recent": unavailable,
+    });
     routeApi(routes);
     renderWiki("/");
     const retry = await screen.findByRole("button", { name: "Повторить" });
@@ -331,7 +332,9 @@ describe("вики: база знаний недоступна (503)", () => {
     routeApi(adminApi({ "/api/wiki/notes/moi-domashnii-sait/grabli": unavailable }));
     renderWiki("/n/moi-domashnii-sait/grabli");
 
-    expect(await screen.findByRole("heading", { name: "База знаний недоступна" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "База знаний недоступна" })
+    ).toBeInTheDocument();
   });
 });
 
@@ -340,7 +343,9 @@ describe("вики: заметка, блокнот, поиск", () => {
     routeApi(adminApi());
     renderWiki("/n/moi-domashnii-sait/grabli");
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Грабли home-page" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Грабли home-page" })
+    ).toBeInTheDocument();
     // Заголовок из текста заметки не дублируется заголовком страницы
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByRole("link", { name: "README" })).toHaveAttribute(
@@ -348,8 +353,14 @@ describe("вики: заметка, блокнот, поиск", () => {
       "/n/moi-domashnii-sait/readme"
     );
     expect(screen.getByText("Нет такой")).toHaveClass("wiki-link-unresolved");
-    expect(screen.getByRole("link", { name: "reference" })).toHaveAttribute("href", "/search?type=reference");
-    expect(screen.getByRole("link", { name: "#docker" })).toHaveAttribute("href", "/search?tag=docker");
+    expect(screen.getByRole("link", { name: "reference" })).toHaveAttribute(
+      "href",
+      "/search?type=reference"
+    );
+    expect(screen.getByRole("link", { name: "#docker" })).toHaveAttribute(
+      "href",
+      "/search?tag=docker"
+    );
     expect(screen.getByRole("link", { name: "Архитектура" })).toHaveAttribute(
       "href",
       "/n/moi-domashnii-sait/arkhitektura"
@@ -369,10 +380,15 @@ describe("вики: заметка, блокнот, поиск", () => {
     routeApi(adminApi());
     renderWiki("/b/nb-site");
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Мой домашний сайт" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Мой домашний сайт" })
+    ).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Грабли home-page" })).toBeInTheDocument();
     const trail = screen.getByRole("navigation", { name: "Путь" });
-    expect(within(trail).getByRole("link", { name: "Пет-проекты" })).toHaveAttribute("href", "/b/nb-root");
+    expect(within(trail).getByRole("link", { name: "Пет-проекты" })).toHaveAttribute(
+      "href",
+      "/b/nb-root"
+    );
   });
 
   it("поиск: параметры адреса уходят в API, выдача показывается", async () => {

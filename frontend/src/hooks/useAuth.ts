@@ -28,8 +28,7 @@ export function useMe({ enabled = true }: { enabled?: boolean } = {}) {
       }
     },
     // не ретраим 401 (это валидный ответ), но повторяем сетевые/5xx
-    retry: (count, err) =>
-      !(err instanceof ApiError && err.status < 500) && count < 2,
+    retry: (count, err) => !(err instanceof ApiError && err.status < 500) && count < 2,
     staleTime: 1000 * 60 * 5,
   });
 }

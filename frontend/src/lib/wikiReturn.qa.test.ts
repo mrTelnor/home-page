@@ -157,9 +157,39 @@ describe("QA safeWikiReturnUrl: обходы", () => {
 
   it("перебор: случайные склейки опасных кусков не дают адреса вне вики", () => {
     const parts = [
-      "https:", "http:", "HTTPS:", "javascript:", "//", "/", "\\", "///", "@", ":", "#", "?", ".",
-      "wiki.telnor.ru", "WIKI.TELNOR.RU", "telnor.ru", "evil.example", "wiki.", "%2e", "%2f", "%5c",
-      "%40", "%09", "%00", "..", "[::1]", "127.0.0.1", ":443", ":8443", "xn--", "\t", " ", "n/a",
+      "https:",
+      "http:",
+      "HTTPS:",
+      "javascript:",
+      "//",
+      "/",
+      "\\",
+      "///",
+      "@",
+      ":",
+      "#",
+      "?",
+      ".",
+      "wiki.telnor.ru",
+      "WIKI.TELNOR.RU",
+      "telnor.ru",
+      "evil.example",
+      "wiki.",
+      "%2e",
+      "%2f",
+      "%5c",
+      "%40",
+      "%09",
+      "%00",
+      "..",
+      "[::1]",
+      "127.0.0.1",
+      ":443",
+      ":8443",
+      "xn--",
+      "\t",
+      " ",
+      "n/a",
     ];
     // Простой детерминированный генератор — тест воспроизводим
     let seed = 20261005;
@@ -220,9 +250,12 @@ describe("QA возврат: адрес, собранный вики, сайт �
     ["в запросе", "/search", "?q=C:\\Users", ""],
     ["в якоре", "/n/a/b", "", "#a\\b"],
     ["в запросе и якоре", "/search", "?q=\\\\evil.example", "#\\"],
-  ])("обратный слэш %s: адрес возврата отбрасывается целиком (null)", (_name, pathname, search, hash) => {
-    expect(roundTrip(pathname, search, hash)).toBeNull();
-  });
+  ])(
+    "обратный слэш %s: адрес возврата отбрасывается целиком (null)",
+    (_name, pathname, search, hash) => {
+      expect(roundTrip(pathname, search, hash)).toBeNull();
+    }
+  );
 
   it("тот же адрес с закодированным обратным слэшем (%5C) возвращается как есть", () => {
     expect(roundTrip("/search", "?q=C%3A%5CUsers")).toBe(`${WIKI}/search?q=C%3A%5CUsers`);
@@ -235,9 +268,9 @@ describe("QA возврат: несколько параметров next", () =
     safeWikiReturnUrl(new URLSearchParams(query).get("next"), SITE);
 
   it("берётся первый next; чужой адрес вторым параметром не подхватывается", () => {
-    expect(fromQuery("next=https%3A%2F%2Fwiki.telnor.ru%2Fn%2Fa&next=https%3A%2F%2Fevil.example")).toBe(
-      `${WIKI}/n/a`
-    );
+    expect(
+      fromQuery("next=https%3A%2F%2Fwiki.telnor.ru%2Fn%2Fa&next=https%3A%2F%2Fevil.example")
+    ).toBe(`${WIKI}/n/a`);
     expect(
       fromQuery("next=https%3A%2F%2Fevil.example&next=https%3A%2F%2Fwiki.telnor.ru%2Fn%2Fa")
     ).toBeNull();

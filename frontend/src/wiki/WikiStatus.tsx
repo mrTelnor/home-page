@@ -59,7 +59,11 @@ interface WikiErrorProps {
 }
 
 /** Понятное состояние вместо данных: 503 — база знаний недоступна, 404, 429, отказ в доступе. */
-export function WikiError({ error, onRetry, notFoundTitle = "Не найдено" }: Readonly<WikiErrorProps>) {
+export function WikiError({
+  error,
+  onRetry,
+  notFoundTitle = "Не найдено",
+}: Readonly<WikiErrorProps>) {
   const status = error instanceof ApiError ? error.status : null;
   const retryButton = onRetry && (
     <Button variant="outline" onClick={onRetry}>

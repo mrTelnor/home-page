@@ -26,7 +26,10 @@ export function WikiNotebookPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <nav aria-label="Путь" className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+        <nav
+          aria-label="Путь"
+          className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
+        >
           <Link to="/" className="hover:text-primary hover:underline">
             База знаний
           </Link>

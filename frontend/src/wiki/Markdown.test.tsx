@@ -108,10 +108,11 @@ describe("Markdown: GFM и код", () => {
   it("таблица GFM рендерится таблицей", () => {
     renderMd("| № | Грабля |\n|---|---|\n| G97 | кэш сборки |\n| G102 | права на volume |");
     const table = screen.getByRole("table");
-    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual([
-      "№",
-      "Грабля",
-    ]);
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((th) => th.textContent)
+    ).toEqual(["№", "Грабля"]);
     expect(within(table).getAllByRole("row")).toHaveLength(3);
     expect(within(table).getByRole("cell", { name: "G102" })).toBeInTheDocument();
   });

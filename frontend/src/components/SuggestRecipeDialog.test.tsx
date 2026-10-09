@@ -49,7 +49,8 @@ describe("SuggestRecipeDialog", () => {
     await waitFor(() => expect(screen.getByText("Все рецепты уже в меню")).toBeInTheDocument());
   });
 
-  const titles = () => screen.getAllByText(/^(Айва|Ёжики|Пицца|Яблоки)$/).map((el) => el.textContent);
+  const titles = () =>
+    screen.getAllByText(/^(Айва|Ёжики|Пицца|Яблоки)$/).map((el) => el.textContent);
 
   const manyRecipes = [
     makeRecipe({ id: "r2", title: "Пицца" }),

@@ -7,7 +7,13 @@ import { Label } from "@/components/ui/label";
 import { NoteList } from "../NoteList";
 import { WikiError, WikiLoading } from "../WikiStatus";
 import { metaString } from "../format";
-import { SEARCH_LIMIT, hasSearchCriteria, useWikiRecent, useWikiSearch, useWikiTitle } from "../hooks";
+import {
+  SEARCH_LIMIT,
+  hasSearchCriteria,
+  useWikiRecent,
+  useWikiSearch,
+  useWikiTitle,
+} from "../hooks";
 import { type SearchParams, searchPath } from "../paths";
 
 const FILTER_MAX_LENGTH = 100;
@@ -101,9 +107,27 @@ function SearchForm({ initial, options }: Readonly<SearchFormProps>) {
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        <FilterField id="wiki-project" label="Проект" value={project} options={options.projects} onChange={setProject} />
-        <FilterField id="wiki-type" label="Тип" value={type} options={options.types} onChange={setType} />
-        <FilterField id="wiki-tag" label="Тег" value={tag} options={options.tags} onChange={setTag} />
+        <FilterField
+          id="wiki-project"
+          label="Проект"
+          value={project}
+          options={options.projects}
+          onChange={setProject}
+        />
+        <FilterField
+          id="wiki-type"
+          label="Тип"
+          value={type}
+          options={options.types}
+          onChange={setType}
+        />
+        <FilterField
+          id="wiki-tag"
+          label="Тег"
+          value={tag}
+          options={options.tags}
+          onChange={setTag}
+        />
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="submit">Найти</Button>
@@ -140,11 +164,17 @@ export function WikiSearchPage() {
       <SearchForm key={urlParams.toString()} initial={params} options={options} />
 
       {!active && (
-        <p className="text-muted-foreground">Введите слова или выберите фильтр — проект, тип или тег.</p>
+        <p className="text-muted-foreground">
+          Введите слова или выберите фильтр — проект, тип или тег.
+        </p>
       )}
       {active && search.isLoading && <WikiLoading />}
       {active && search.isError && (
-        <WikiError error={search.error} onRetry={() => void search.refetch()} notFoundTitle="Запрос не принят" />
+        <WikiError
+          error={search.error}
+          onRetry={() => void search.refetch()}
+          notFoundTitle="Запрос не принят"
+        />
       )}
       {active && search.data && (
         <section className="space-y-2" aria-labelledby="wiki-results">

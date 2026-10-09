@@ -20,7 +20,9 @@ export function resolveWikiLink(
   if (candidates.length === 0) return null;
   if (alias !== null) {
     const wantedAlias = normalize(alias);
-    const byAlias = candidates.find((link) => link.alias !== null && normalize(link.alias) === wantedAlias);
+    const byAlias = candidates.find(
+      (link) => link.alias !== null && normalize(link.alias) === wantedAlias
+    );
     if (byAlias) return byAlias;
   }
   return candidates[0];

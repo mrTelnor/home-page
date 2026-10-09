@@ -65,7 +65,8 @@ beforeEach(() => {
       me = () => unauthorized;
       return Promise.resolve(mockResponse({ status: 204, body: null }));
     }
-    if (path.startsWith("/api/wiki/")) return Promise.resolve(mockResponse(wikiApi ?? { body: [] }));
+    if (path.startsWith("/api/wiki/"))
+      return Promise.resolve(mockResponse(wikiApi ?? { body: [] }));
     return Promise.resolve(mockResponse({ ok: false, status: 404, body: { detail: "Not found" } }));
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -151,7 +152,9 @@ describe("QA вход на вики через сайт: уже вошедший
       await waitFor(() => expect(redirects).toEqual([page]), ASYNC);
 
       await open(redirects[0]);
-      expect(await screen.findByRole("heading", { name: "Нет доступа" }, ASYNC)).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "Нет доступа" }, ASYNC)
+      ).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "На сайт" })).toHaveAttribute("href", SITE);
       await pause(200);
       expect(redirects).toHaveLength(1);

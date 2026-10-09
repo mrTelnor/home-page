@@ -233,29 +233,33 @@ describe("QA вики: ответы API с ошибкой — что видит 
     [503, "База знаний недоступна", true],
     [500, "Ошибка загрузки", true],
     [502, "Ошибка загрузки", true],
-  ])("заметка: %i → «%s», автоповторов нет", async (status, heading, hasRetry) => {
-    routeApi(adminApi({ "/api/wiki/notes/": { ok: false, status, body: { detail: "x" } } }));
-    renderWiki("/n/a/b");
+  ])(
+    "заметка: %i → «%s», автоповторов нет",
+    async (status, heading, hasRetry) => {
+      routeApi(adminApi({ "/api/wiki/notes/": { ok: false, status, body: { detail: "x" } } }));
+      renderWiki("/n/a/b");
 
-    expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Повторить" }) !== null).toBe(hasRetry);
-    // Текст заметки и обратные ссылки не показаны
-    expect(screen.queryByRole("heading", { name: "Обратные ссылки" })).not.toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Повторить" }) !== null).toBe(hasRetry);
+      // Текст заметки и обратные ссылки не показаны
+      expect(screen.queryByRole("heading", { name: "Обратные ссылки" })).not.toBeInTheDocument();
 
-    // Запрос заметки общий у шапки и страницы. Если ответ с ошибкой пришёл раньше, чем
-    // загрузился чанк страницы, страница при появлении запрашивает ещё раз — не больше.
-    const sent = calls().filter((p) => p === noteUrl).length;
-    expect(sent).toBeGreaterThanOrEqual(1);
-    expect(sent).toBeLessThanOrEqual(2);
+      // Запрос заметки общий у шапки и страницы. Если ответ с ошибкой пришёл раньше, чем
+      // загрузился чанк страницы, страница при появлении запрашивает ещё раз — не больше.
+      const sent = calls().filter((p) => p === noteUrl).length;
+      expect(sent).toBeGreaterThanOrEqual(1);
+      expect(sent).toBeLessThanOrEqual(2);
 
-    await pause(RETRY_WINDOW_MS);
-    expect(calls().filter((p) => p === noteUrl)).toHaveLength(sent);
-    expect(calls().filter((p) => p === "/api/wiki/notebooks")).toHaveLength(1);
-    expect(calls().filter((p) => p === "/api/auth/me")).toHaveLength(1);
-    // Запас по времени: первый из этих тестов впервые грузит чанк страницы заметки (разбор
-    // Markdown, подсветка кода), плюс пауза RETRY_WINDOW_MS — при параллельном запуске всех
-    // файлов в стандартные 5 с это укладывается не всегда.
-  }, 15000);
+      await pause(RETRY_WINDOW_MS);
+      expect(calls().filter((p) => p === noteUrl)).toHaveLength(sent);
+      expect(calls().filter((p) => p === "/api/wiki/notebooks")).toHaveLength(1);
+      expect(calls().filter((p) => p === "/api/auth/me")).toHaveLength(1);
+      // Запас по времени: первый из этих тестов впервые грузит чанк страницы заметки (разбор
+      // Markdown, подсветка кода), плюс пауза RETRY_WINDOW_MS — при параллельном запуске всех
+      // файлов в стандартные 5 с это укладывается не всегда.
+    },
+    15000
+  );
 
   it.each([
     ["несуществующий блокнот (404)", `/b/${NOTEBOOK_ID}`, 404],

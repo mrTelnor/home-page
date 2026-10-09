@@ -31,7 +31,13 @@ function MarkdownLink({ href, children, className, title }: ComponentProps<"a">)
     );
   }
   return (
-    <a href={href} className={className} title={title} target="_blank" rel="noopener noreferrer nofollow">
+    <a
+      href={href}
+      className={className}
+      title={title}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+    >
       {children}
     </a>
   );

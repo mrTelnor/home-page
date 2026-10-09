@@ -23,7 +23,9 @@ export function WikiNotePage() {
     return <WikiError error={NOT_FOUND} notFoundTitle="Заметка не найдена" />;
   }
   if (error) {
-    return <WikiError error={error} onRetry={() => void refetch()} notFoundTitle="Заметка не найдена" />;
+    return (
+      <WikiError error={error} onRetry={() => void refetch()} notFoundTitle="Заметка не найдена" />
+    );
   }
   if (isLoading || !note) return <WikiLoading />;
   const links = Array.isArray(note.links) ? note.links : [];
@@ -33,14 +35,20 @@ export function WikiNotePage() {
   return (
     <article className="space-y-6">
       <header className="space-y-3">
-        <nav aria-label="Путь" className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+        <nav
+          aria-label="Путь"
+          className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
+        >
           <Link to="/" className="hover:text-primary hover:underline">
             База знаний
           </Link>
           {note.notebook && (
             <>
               <span aria-hidden="true">/</span>
-              <Link to={notebookPath(note.notebook.id)} className="hover:text-primary hover:underline">
+              <Link
+                to={notebookPath(note.notebook.id)}
+                className="hover:text-primary hover:underline"
+              >
                 {note.notebook.name}
               </Link>
             </>

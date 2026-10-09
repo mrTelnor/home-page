@@ -2,11 +2,7 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ApiError, api } from "@/api/client";
 import { endpoints } from "@/api/endpoints";
-import {
-  type WikiNoteDetail,
-  type WikiNoteSummary,
-  type WikiNotebookNode,
-} from "@/api/types";
+import { type WikiNoteDetail, type WikiNoteSummary, type WikiNotebookNode } from "@/api/types";
 import { isValidWikiSlug } from "@/lib/wikiSlug";
 import { type SearchParams } from "./paths";
 
@@ -65,7 +61,14 @@ export function hasSearchCriteria(params: SearchParams): boolean {
 
 export function useWikiSearch(params: SearchParams) {
   return useQuery({
-    queryKey: ["wiki", "search", params.q ?? "", params.project ?? "", params.type ?? "", params.tag ?? ""],
+    queryKey: [
+      "wiki",
+      "search",
+      params.q ?? "",
+      params.project ?? "",
+      params.type ?? "",
+      params.tag ?? "",
+    ],
     queryFn: () =>
       api.get<WikiNoteSummary[]>(endpoints.wiki.search({ ...params, limit: SEARCH_LIMIT })),
     // Без слов и фильтров бэкенд вернёт пустой список — запрос не делаем

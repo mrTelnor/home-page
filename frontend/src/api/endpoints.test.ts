@@ -40,8 +40,14 @@ describe("endpoints", () => {
 
   it("поиск вики: только заданные параметры", () => {
     expect(endpoints.wiki.search({})).toBe("/api/wiki/search?");
-    expect(endpoints.wiki.search({ q: "a b", project: "home-page", type: "runbook", tag: "k8s", limit: 50 })).toBe(
-      "/api/wiki/search?q=a+b&project=home-page&type=runbook&tag=k8s&limit=50"
-    );
+    expect(
+      endpoints.wiki.search({
+        q: "a b",
+        project: "home-page",
+        type: "runbook",
+        tag: "k8s",
+        limit: 50,
+      })
+    ).toBe("/api/wiki/search?q=a+b&project=home-page&type=runbook&tag=k8s&limit=50");
   });
 });

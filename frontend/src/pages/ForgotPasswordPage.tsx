@@ -9,8 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 
 const SENT_MSG =
   "Если аккаунт существует, мы отправили инструкции для сброса. Проверьте папку «Спам», если письмо не пришло.";
-const NO_CHANNELS_MSG =
-  "Не удалось подобрать канал восстановления. Обратитесь к администратору.";
+const NO_CHANNELS_MSG = "Не удалось подобрать канал восстановления. Обратитесь к администратору.";
 
 export function ForgotPasswordPage() {
   usePageTitle("Восстановление пароля");
@@ -63,23 +62,33 @@ export function ForgotPasswordPage() {
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">Куда отправить ссылку?</p>
                     {choices.includes("telegram") && (
-                      <Button type="button" variant="outline" className="w-full"
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
                         disabled={request.isPending}
-                        onClick={() => submit("telegram")}>
+                        onClick={() => submit("telegram")}
+                      >
                         Отправить в Telegram
                       </Button>
                     )}
                     {choices.includes("email") && (
-                      <Button type="button" variant="outline" className="w-full"
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
                         disabled={request.isPending}
-                        onClick={() => submit("email")}>
+                        onClick={() => submit("email")}
+                      >
                         Отправить на Email
                       </Button>
                     )}
                   </div>
                 )}
                 {request.isError && (
-                  <p className="text-sm text-center text-destructive">Ошибка. Попробуйте ещё раз.</p>
+                  <p className="text-sm text-center text-destructive">
+                    Ошибка. Попробуйте ещё раз.
+                  </p>
                 )}
               </>
             )}

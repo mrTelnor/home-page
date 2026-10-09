@@ -12,7 +12,9 @@ export function isWikiHost(hostname: string = globalThis.location?.hostname ?? "
 }
 
 /** Адрес сайта рецептов для ссылки из вики; null — если вики открыта не на поддомене `wiki.`. */
-export function mainSiteUrl(loc: Pick<Location, "protocol" | "host"> = globalThis.location): string | null {
+export function mainSiteUrl(
+  loc: Pick<Location, "protocol" | "host"> = globalThis.location
+): string | null {
   if (!loc.host.toLowerCase().startsWith(WIKI_PREFIX)) return null;
   return `${loc.protocol}//${loc.host.slice(WIKI_PREFIX.length)}`;
 }

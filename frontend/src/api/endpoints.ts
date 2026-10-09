@@ -45,7 +45,13 @@ export const endpoints = {
       isValidWikiSlug(slug)
         ? `/api/wiki/notes/${slug.split("/").map(encodeURIComponent).join("/")}`
         : `/api/wiki/notes/%2F${encodeURIComponent(slug)}`,
-    search: (params: { q?: string; project?: string; type?: string; tag?: string; limit?: number }) => {
+    search: (params: {
+      q?: string;
+      project?: string;
+      type?: string;
+      tag?: string;
+      limit?: number;
+    }) => {
       const query = new URLSearchParams();
       if (params.q) query.set("q", params.q);
       if (params.project) query.set("project", params.project);

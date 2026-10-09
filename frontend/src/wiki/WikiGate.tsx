@@ -76,7 +76,9 @@ export function WikiGate() {
   if (isError) {
     return (
       <Centered>
-        <p className="text-muted-foreground">Не удалось проверить авторизацию. Обновите страницу.</p>
+        <p className="text-muted-foreground">
+          Не удалось проверить авторизацию. Обновите страницу.
+        </p>
       </Centered>
     );
   }

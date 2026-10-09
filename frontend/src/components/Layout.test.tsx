@@ -56,8 +56,14 @@ describe("Layout", () => {
     expect(screen.getByText("Меню дня")).toBeInTheDocument();
     expect(screen.getByText("Добавить рецепт")).toBeInTheDocument();
     expect(screen.getByText("Книга рецептов")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Трекер" })).toHaveAttribute("href", "https://tracker.telnor.ru");
-    expect(screen.getByRole("link", { name: "Вики" })).toHaveAttribute("href", "https://wiki.telnor.ru");
+    expect(screen.getByRole("link", { name: "Трекер" })).toHaveAttribute(
+      "href",
+      "https://tracker.telnor.ru"
+    );
+    expect(screen.getByRole("link", { name: "Вики" })).toHaveAttribute(
+      "href",
+      "https://wiki.telnor.ru"
+    );
     expect(screen.getByRole("link", { name: "Профиль" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "nikita" })).toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());

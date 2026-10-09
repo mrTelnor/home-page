@@ -101,7 +101,11 @@ export function WikiLayout() {
                 <a href={siteUrl}>На сайт</a>
               </Button>
             )}
-            {user && <span className="hidden lg:inline text-sm text-muted-foreground">{user.username}</span>}
+            {user && (
+              <span className="hidden lg:inline text-sm text-muted-foreground">
+                {user.username}
+              </span>
+            )}
             <Button variant="outline" size="sm" onClick={() => logout.mutate()}>
               Выйти
             </Button>

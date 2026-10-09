@@ -86,7 +86,11 @@ describe("api.get", () => {
         status: 422,
         body: {
           detail: [
-            { loc: ["body", "password"], msg: "String should have at least 8 characters", type: "x" },
+            {
+              loc: ["body", "password"],
+              msg: "String should have at least 8 characters",
+              type: "x",
+            },
             { loc: ["body", "email"], msg: "value is not a valid email", type: "y" },
           ],
         },

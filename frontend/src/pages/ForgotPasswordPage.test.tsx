@@ -33,7 +33,9 @@ it("показывает успех при status sent", async () => {
 
 it("при choose показывает кнопки каналов и шлёт повторный запрос", async () => {
   fetchMock
-    .mockResolvedValueOnce(mockResponse({ body: { status: "choose", channels: ["telegram", "email"] } }))
+    .mockResolvedValueOnce(
+      mockResponse({ body: { status: "choose", channels: ["telegram", "email"] } })
+    )
     .mockResolvedValueOnce(mockResponse({ body: { status: "sent" } }));
   renderPage();
   await userEvent.type(screen.getByLabelText("Логин или email"), "both");

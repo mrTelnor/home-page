@@ -7,10 +7,18 @@ import { StatusBox } from "./WikiStatus";
 import { useWikiTitle } from "./hooks";
 
 // Страницы — отдельными чанками; разбор Markdown и подсветка кода нужны только заметке
-const WikiHomePage = lazy(() => import("./pages/WikiHomePage").then((m) => ({ default: m.WikiHomePage })));
-const WikiNotebookPage = lazy(() => import("./pages/WikiNotebookPage").then((m) => ({ default: m.WikiNotebookPage })));
-const WikiNotePage = lazy(() => import("./pages/WikiNotePage").then((m) => ({ default: m.WikiNotePage })));
-const WikiSearchPage = lazy(() => import("./pages/WikiSearchPage").then((m) => ({ default: m.WikiSearchPage })));
+const WikiHomePage = lazy(() =>
+  import("./pages/WikiHomePage").then((m) => ({ default: m.WikiHomePage }))
+);
+const WikiNotebookPage = lazy(() =>
+  import("./pages/WikiNotebookPage").then((m) => ({ default: m.WikiNotebookPage }))
+);
+const WikiNotePage = lazy(() =>
+  import("./pages/WikiNotePage").then((m) => ({ default: m.WikiNotePage }))
+);
+const WikiSearchPage = lazy(() =>
+  import("./pages/WikiSearchPage").then((m) => ({ default: m.WikiSearchPage }))
+);
 
 /** Вики закрытая: просим поисковики её не индексировать. */
 function useNoIndex() {

@@ -31,7 +31,11 @@ export function searchPath(params: SearchParams = {}): string {
  * Страница вики, на которую вернуть после входа. Своей страницы входа у вики нет:
  * `/login` (туда ведёт общий выход из аккаунта и старые ссылки) заменяется корнем.
  */
-export function wikiReturnPath(location: { pathname: string; search: string; hash: string }): string {
+export function wikiReturnPath(location: {
+  pathname: string;
+  search: string;
+  hash: string;
+}): string {
   if (location.pathname === "/login") return "/";
   return location.pathname + location.search + location.hash;
 }

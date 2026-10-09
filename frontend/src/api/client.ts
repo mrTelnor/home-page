@@ -15,7 +15,9 @@ function extractDetail(body: unknown): string | null {
     if (typeof detail === "string") return detail;
     if (Array.isArray(detail)) {
       const msgs = detail
-        .map((d) => (d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : null))
+        .map((d) =>
+          d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : null
+        )
         .filter(Boolean);
       if (msgs.length) return msgs.join("; ");
     }
