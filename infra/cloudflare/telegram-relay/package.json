@@ -1,0 +1,11 @@
+{
+  "name": "telegram-relay-local",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/worker.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.3"
+  }
+}
