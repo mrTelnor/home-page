@@ -10,6 +10,7 @@ from aiohttp import web
 from app.api_client import api
 from app.config import settings
 from app.handlers import main_router
+from app.telegram_relay import TelegramRelaySession
 from app.webserver import NoQueryAccessLogger, create_app
 
 logging.basicConfig(level=logging.INFO)
@@ -33,28 +34,41 @@ async def set_commands(bot: Bot) -> None:
 async def run(bot: Bot, dp: Dispatcher) -> None:
     """Run polling + notify server on the same event loop."""
     runner = web.AppRunner(create_app(bot), access_log_class=NoQueryAccessLogger)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", settings.port)
-    await site.start()
-    logger.info("Notify server started on port %d", settings.port)
-
-    await bot.delete_webhook(drop_pending_updates=True)
-    await set_commands(bot)
-    logger.info("Bot started in polling mode")
-
-    # Start polling (blocks until stopped)
     try:
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", settings.port)
+        await site.start()
+        logger.info("Notify server started on port %d", settings.port)
+
+        await bot.delete_webhook(drop_pending_updates=True)
+        await set_commands(bot)
+        logger.info("Bot started in polling mode")
+
+        # Start polling (blocks until stopped)
         await dp.start_polling(bot)
     finally:
-        await runner.cleanup()
-        await api.close()
+        try:
+            await runner.cleanup()
+        finally:
+            try:
+                await api.close()
+            finally:
+                await bot.session.close()
         logger.info("Shutdown complete")
 
 
 def main() -> None:
+    relay_session = None
+    if settings.telegram_relay_url and settings.telegram_relay_key:
+        relay_session = TelegramRelaySession(
+            relay_url=settings.telegram_relay_url,
+            relay_key=settings.telegram_relay_key,
+        )
+
     bot = Bot(
         token=settings.telegram_bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        session=relay_session,
     )
     dp = Dispatcher()
     dp.include_router(main_router)
