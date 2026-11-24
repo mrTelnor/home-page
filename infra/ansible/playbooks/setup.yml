@@ -6,6 +6,36 @@
   hosts: homepage
   become: true
 
+  pre_tasks:
+    # Relay включается только парой URL + ключ. Пустая пара сохраняет прежний direct;
+    # ошибка останавливает любой запуск до system/docker/vpn/app и остальных ролей.
+    # no_log обязателен: ключ и возможный токен в ошибочном URL не должны попасть в лог.
+    - name: Assert Telegram relay variables are consistent
+      assert:
+        that:
+          - (telegram_relay_url | length > 0) == (telegram_relay_key | length > 0)
+          - telegram_relay_url is match('^\S*\Z')
+          - telegram_relay_url == '' or (telegram_relay_url_parts.scheme | default('', true)) == 'https'
+          - telegram_relay_url == '' or (telegram_relay_url_parts.hostname | default('', true) | length) > 0
+          - telegram_relay_url == '' or (telegram_relay_url_parts.username | default('', true) | length) == 0
+          - telegram_relay_url == '' or (telegram_relay_url_parts.password | default('', true) | length) == 0
+          - telegram_relay_url == '' or '@' not in (telegram_relay_url_parts.netloc | default('', true))
+          - telegram_relay_url == '' or '?' not in telegram_relay_url
+          - telegram_relay_url == '' or '#' not in telegram_relay_url
+          - telegram_relay_url == '' or '{token}' not in telegram_relay_url
+          - telegram_relay_url == '' or vault_telegram_bot_token not in telegram_relay_url
+        fail_msg: >-
+          vault_telegram_relay_url и vault_telegram_relay_key задаются только вместе.
+          URL должен быть абсолютным HTTPS без userinfo, query, fragment и токена;
+          пустая пара оставляет direct. Значения скрыты.
+        quiet: true
+      vars:
+        telegram_relay_url: "{{ vault_telegram_relay_url | default('') }}"
+        telegram_relay_key: "{{ vault_telegram_relay_key | default('') }}"
+        telegram_relay_url_parts: "{{ telegram_relay_url | urlsplit }}"
+      no_log: true
+      tags: [always]
+
   roles:
     - role: system
       tags: [system]

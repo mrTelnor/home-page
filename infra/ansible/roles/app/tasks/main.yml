@@ -121,6 +121,7 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: "0600"
+  no_log: true
   tags: [always]
 
 # Vikunja живёт в общем postgres, но в своей базе и под своей ролью. Роль и база

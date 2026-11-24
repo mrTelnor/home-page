@@ -87,6 +87,9 @@ services:
       INVITE_CODE: ${INVITE_CODE}
       CRON_SECRET: ${CRON_SECRET}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      # Оба пусты = прежний direct; оба заданы = Telegram через relay
+      TELEGRAM_RELAY_URL: ${TELEGRAM_RELAY_URL:-}
+      TELEGRAM_RELAY_KEY: ${TELEGRAM_RELAY_KEY:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       BOT_SECRET: ${BOT_SECRET}
       RUSENDER_API_KEY: ${RUSENDER_API_KEY}
@@ -170,6 +173,9 @@ services:
     logging: *default-logging
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      # Оба пусты = прежний direct; оба заданы = Telegram через relay
+      TELEGRAM_RELAY_URL: ${TELEGRAM_RELAY_URL:-}
+      TELEGRAM_RELAY_KEY: ${TELEGRAM_RELAY_KEY:-}
       BOT_SECRET: ${BOT_SECRET}
       BACKEND_URL: http://backend:8000
       SITE_URL: ${SITE_URL}
