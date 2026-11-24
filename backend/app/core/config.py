@@ -1,3 +1,7 @@
+from typing import Self
+from urllib.parse import urlsplit
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -10,6 +14,8 @@ class Settings(BaseSettings):
     domain: str = "telnor.ru"
     telegram_bot_token: str
     telegram_bot_username: str
+    telegram_relay_url: str = ""
+    telegram_relay_key: str = ""
     bot_secret: str
     cookie_secure: bool = True
     log_level: str = "INFO"
@@ -29,6 +35,34 @@ class Settings(BaseSettings):
     wiki_database_url: str = ""
 
     model_config = {"env_file": ".env"}
+
+    @model_validator(mode="after")
+    def validate_telegram_relay(self) -> Self:
+        if bool(self.telegram_relay_url) != bool(self.telegram_relay_key):
+            raise ValueError("TELEGRAM_RELAY_URL and TELEGRAM_RELAY_KEY must be set together")
+        if not self.telegram_relay_url:
+            return self
+
+        token_in_url = self.telegram_bot_token and self.telegram_bot_token in self.telegram_relay_url
+        if "{token}" in self.telegram_relay_url or token_in_url:
+            raise ValueError("TELEGRAM_RELAY_URL must not contain the bot token")
+
+        parsed = urlsplit(self.telegram_relay_url)
+        try:
+            _ = parsed.port
+        except ValueError as exc:
+            raise ValueError("TELEGRAM_RELAY_URL must contain a valid TCP port") from exc
+
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or "?" in self.telegram_relay_url
+            or "#" in self.telegram_relay_url
+        ):
+            raise ValueError("TELEGRAM_RELAY_URL must be an absolute HTTPS URL without userinfo, query or fragment")
+        return self
 
 
 settings = Settings()

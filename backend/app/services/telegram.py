@@ -50,12 +50,24 @@ def verify_telegram_auth(data: dict, bot_token: str, max_age_seconds: int = 3600
 
 
 async def send_telegram_message(tg_id: int, text: str) -> bool:
-    url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+    if settings.telegram_relay_url:
+        url = f"{settings.telegram_relay_url.rstrip('/')}/sendMessage"
+        headers = {"X-Relay-Key": settings.telegram_relay_key}
+    else:
+        # Временный путь отката до отдельного cleanup после приёмки Worker.
+        url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+        headers = None
+
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json={"chat_id": tg_id, "text": text})
+            resp = await client.post(url, headers=headers, json={"chat_id": tg_id, "text": text})
             resp.raise_for_status()
+            result = resp.json()
+        if not isinstance(result, dict) or result.get("ok") is not True:
+            logger.error("Telegram sendMessage returned an unsuccessful response for tg_id=%s", tg_id)
+            return False
         return True
-    except httpx.HTTPError:
-        logger.exception("Telegram sendMessage failed for tg_id=%s", tg_id)
+    except (httpx.HTTPError, ValueError) as exc:
+        # Не выводим exc/traceback: в сообщении HTTPX может быть URL с токеном.
+        logger.error("Telegram sendMessage failed for tg_id=%s error=%s", tg_id, type(exc).__name__)
         return False
