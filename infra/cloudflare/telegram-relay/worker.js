@@ -308,6 +308,10 @@ export default {
       const { body, contentType, multipart, values } = await parseRequest(request);
       validate(method, values, multipart);
 
+      const emptyMultipart = multipart && Object.keys(values).length === 0;
+      const upstreamRequestBody = emptyMultipart ? new TextEncoder().encode("{}") : body;
+      const upstreamRequestContentType = emptyMultipart ? "application/json" : contentType;
+
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
       try {
@@ -315,12 +319,15 @@ export default {
           `${TELEGRAM_API_ORIGIN}/bot${env.BOT_TOKEN}/${method}`,
           {
             method: "POST",
-            headers: { "Content-Type": contentType },
-            body,
-            redirect: "error",
+            headers: { "Content-Type": upstreamRequestContentType },
+            body: upstreamRequestBody,
+            redirect: "manual",
             signal: controller.signal,
           },
         );
+        if (upstream.status >= 300 && upstream.status <= 399) {
+          return jsonResponse(502, "Bad gateway");
+        }
         const upstreamBody = await upstream.arrayBuffer();
         const headers = new Headers();
         const upstreamContentType = upstream.headers.get("content-type");

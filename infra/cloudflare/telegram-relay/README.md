@@ -5,23 +5,30 @@ Worker принимает только `POST <TELEGRAM_RELAY_URL>/<method>` с �
 добавляется к upstream URL только внутри Worker; в конфигурации и клиентских URL
 его быть не должно.
 
-## Настройка перед деплоем
+## Настройка и деплой
 
-1. Выбрать имя Worker и заменить заглушку `change-me-telegram-relay-name` в
-   `wrangler.toml`. Адрес Worker будет выдан Cloudflare после деплоя; заранее он
-   здесь не задаётся.
-2. Выполнить в этом каталоге и ввести значения интерактивно, не помещая их в
-   командную строку или файлы:
+1. Выбрать имя Worker в `name` файла `wrangler.toml` (сейчас —
+   `home-page-telegram-relay`). Адрес Worker будет выдан Cloudflare после деплоя;
+   заранее он здесь не задаётся.
+2. Если Wrangler ещё не авторизован, выполнить в этом каталоге:
 
    ```sh
-   npx wrangler@4.151.3 secret put BOT_TOKEN
-   npx wrangler@4.151.3 secret put RELAY_KEY
+   npx --yes wrangler@4.151.3 login
    ```
 
-3. Деплой выполняет Никита отдельной командой после выбора имени:
+3. Выполнить первый деплой:
 
    ```sh
-   npx wrangler@4.151.3 deploy
+   npx --yes wrangler@4.151.3 deploy
+   ```
+
+4. После первого деплоя задать секреты, вводя значения интерактивно, не помещая
+   их в командную строку или файлы. `secret put` создаёт новую версию существующего
+   Worker и сразу развёртывает её:
+
+   ```sh
+   npx --yes wrangler@4.151.3 secret put BOT_TOKEN
+   npx --yes wrangler@4.151.3 secret put RELAY_KEY
    ```
 
 ## Локальная проверка

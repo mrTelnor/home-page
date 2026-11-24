@@ -396,15 +396,24 @@ test("the upstream abort signal fires after exactly 15 seconds with a generic 50
 
 
 test("upstream redirects are rejected without calling another origin", async (t) => {
+  const externalUrl = `https://attacker.example/${ENV.BOT_TOKEN}`;
   const calls = mockTelegram(t, async (url, options) => {
-    assert.equal(options.redirect, "error");
-    throw new TypeError("Redirect blocked");
+    assert.equal(options.redirect, "manual");
+    return new Response("redirect", {
+      status: 302,
+      headers: { "Content-Type": "text/plain", Location: externalUrl },
+    });
   });
 
   const response = await worker.fetch(request("getMe"), ENV);
+  const responseBody = await response.text();
 
   assert.equal(response.status, 502);
-  assert.deepEqual(await response.json(), { ok: false, error: "Bad gateway" });
+  assert.deepEqual(JSON.parse(responseBody), { ok: false, error: "Bad gateway" });
+  assert.equal(response.headers.get("Location"), null);
+  assert.equal(responseBody.includes(externalUrl), false);
+  assert.equal(responseBody.includes(ENV.BOT_TOKEN), false);
+  assert.equal(responseBody.includes(ENV.RELAY_KEY), false);
   assert.equal(calls.length, 1);
   assert.equal(new URL(calls[0].url).origin, "https://api.telegram.org");
 });
@@ -462,4 +471,35 @@ test("an endless upstream body after headers times out at 15 seconds with 504", 
   const response = await pending;
   assert.equal(response.status, 504);
   assert.deepEqual(await response.json(), { ok: false, error: "Upstream timeout" });
+});
+
+
+test("an empty multipart getMe is sent upstream as an empty JSON object", async (t) => {
+  const boundary = "----empty-aiogram-multipart";
+  const rawBody = `--${boundary}--\r\n`;
+  const telegramResponse = { ok: true, result: { id: 1, is_bot: true, username: "test_bot" } };
+  const calls = mockTelegram(t, async () => Response.json(telegramResponse));
+
+  const response = await worker.fetch(request("getMe", {}, {
+    rawBody,
+    headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+  }), ENV);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), telegramResponse);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.headers["Content-Type"], "application/json");
+  assert.equal(new TextDecoder().decode(calls[0].options.body), "{}");
+});
+
+test("an empty multipart body is still rejected when required fields are missing", async (t) => {
+  const boundary = "----empty-required-fields";
+  const calls = mockTelegram(t);
+  const response = await worker.fetch(request("sendMessage", {}, {
+    rawBody: `--${boundary}--\r\n`,
+    headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+  }), ENV);
+
+  assert.equal(response.status, 400);
+  assert.equal(calls.length, 0);
 });

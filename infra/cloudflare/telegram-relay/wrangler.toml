@@ -1,5 +1,5 @@
 # Replace this placeholder with the Worker name chosen before deployment.
-name = "change-me-telegram-relay-name"
+name = "home-page-telegram-relay"
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
