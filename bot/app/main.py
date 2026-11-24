@@ -58,12 +58,10 @@ async def run(bot: Bot, dp: Dispatcher) -> None:
 
 
 def main() -> None:
-    relay_session = None
-    if settings.telegram_relay_url and settings.telegram_relay_key:
-        relay_session = TelegramRelaySession(
-            relay_url=settings.telegram_relay_url,
-            relay_key=settings.telegram_relay_key,
-        )
+    relay_session = TelegramRelaySession(
+        relay_url=settings.telegram_relay_url,
+        relay_key=settings.telegram_relay_key,
+    )
 
     bot = Bot(
         token=settings.telegram_bot_token,

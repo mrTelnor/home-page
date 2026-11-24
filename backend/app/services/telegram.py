@@ -50,13 +50,8 @@ def verify_telegram_auth(data: dict, bot_token: str, max_age_seconds: int = 3600
 
 
 async def send_telegram_message(tg_id: int, text: str) -> bool:
-    if settings.telegram_relay_url:
-        url = f"{settings.telegram_relay_url.rstrip('/')}/sendMessage"
-        headers = {"X-Relay-Key": settings.telegram_relay_key}
-    else:
-        # Временный путь отката до отдельного cleanup после приёмки Worker.
-        url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
-        headers = None
+    url = f"{settings.telegram_relay_url.rstrip('/')}/sendMessage"
+    headers = {"X-Relay-Key": settings.telegram_relay_key}
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:

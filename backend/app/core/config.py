@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     domain: str = "telnor.ru"
     telegram_bot_token: str
     telegram_bot_username: str
-    telegram_relay_url: str = ""
-    telegram_relay_key: str = ""
+    telegram_relay_url: str
+    telegram_relay_key: str
     bot_secret: str
     cookie_secure: bool = True
     log_level: str = "INFO"
@@ -38,10 +38,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_telegram_relay(self) -> Self:
-        if bool(self.telegram_relay_url) != bool(self.telegram_relay_key):
-            raise ValueError("TELEGRAM_RELAY_URL and TELEGRAM_RELAY_KEY must be set together")
-        if not self.telegram_relay_url:
-            return self
+        if not self.telegram_relay_url or not self.telegram_relay_key:
+            raise ValueError("TELEGRAM_RELAY_URL and TELEGRAM_RELAY_KEY must be non-empty")
 
         token_in_url = self.telegram_bot_token and self.telegram_bot_token in self.telegram_relay_url
         if "{token}" in self.telegram_relay_url or token_in_url:

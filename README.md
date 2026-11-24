@@ -35,7 +35,7 @@
 | Фронтенд | React 19, Vite, TypeScript, Tailwind CSS, shadcn/ui, TanStack Query, Zustand |
 | Telegram-бот | Python 3.12, Aiogram 3 (polling), aiohttp, httpx, google-api-python-client |
 | Автоматизация | Cron-контейнер (Alpine + curl + postgresql-client): расписание голосования, уведомления, бэкапы, проверка календаря |
-| Инфраструктура | Docker, Docker Compose, Traefik v3 (Let's Encrypt), Ansible, Cloudflare DNS, WireGuard (VPN для бота) |
+| Инфраструктура | Docker, Docker Compose, Traefik v3 (Let's Encrypt), Ansible, Cloudflare DNS и Workers (`home-page-telegram-relay` для Telegram Bot API) |
 | Мониторинг | HetrixTools (uptime + blacklist), алерты в Telegram через бот |
 | Хранилище бэкапов | Яндекс.Диск (WebDAV) |
 | Управление | Portainer CE |
@@ -56,7 +56,8 @@ home-page/
 │   ├── app/              # Код (handlers, api_client, notify, config)
 │   └── Dockerfile
 ├── infra/
-│   ├── ansible/          # Playbooks, roles (system, docker, vpn, app, firewalld), inventory
+│   ├── ansible/          # Playbooks, roles (system, docker, app, firewalld), inventory
+│   ├── cloudflare/telegram-relay/ # Worker home-page-telegram-relay и его тесты
 │   ├── docker/
 │   │   ├── docker-compose.yml
 │   │   ├── cron/         # Cron-контейнер: расписание + бэкапы БД на Яндекс.Диск
@@ -231,8 +232,10 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 | `vault_jwt_secret` | Секрет для подписи JWT | да |
 | `vault_invite_code` | Код для регистрации | да |
 | `vault_cron_secret` | Секрет для cron-запросов | да |
-| `vault_telegram_bot_token` | Токен Telegram-бота от BotFather | да |
+| `vault_telegram_bot_token` | Токен Telegram-бота от BotFather: Login Widget и конфигурация бота; в Worker задаётся отдельно как `BOT_TOKEN` | да |
 | `vault_telegram_bot_username` | Username Telegram-бота (без `@`) | да |
+| `vault_telegram_relay_url` | Базовый HTTPS URL Worker `home-page-telegram-relay` без токена, userinfo, query и fragment (обязательна) | да |
+| `vault_telegram_relay_key` | Ключ `X-Relay-Key` для bot/backend (обязательна; должен совпадать с Worker secret `RELAY_KEY`) | да |
 | `vault_bot_secret` | Секрет для авторизации бота перед backend | да |
 | `vault_uptime_secret` | Секрет для webhook-алертов от HetrixTools | да |
 | `vault_yadisk_user` | Логин Яндекс.Диска для бэкапов | да |
@@ -247,11 +250,6 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker image prune -f && 
 | `vault_wiki_db_port` | Порт пулера Supabase (session) | да |
 | `vault_wiki_db_user` | Пользователь пулера — `wiki_reader.<ref проекта Supabase>` | да |
 | `vault_wiki_db_password` | Пароль роли `wiki_reader` (только чтение базы знаний); задаётся через `\password`, см. `infra/supabase/wiki_reader.sql` | да |
-| `vault_wg_private_key` | WireGuard PrivateKey (для VPN бота) | да |
-| `vault_wg_public_key` | WireGuard PublicKey пира | да |
-| `vault_wg_preshared_key` | WireGuard PresharedKey | да |
-| `vault_wg_address` | Адрес WireGuard-клиента (`10.x.x.x/24`) | да |
-| `vault_wg_endpoint` | Endpoint WireGuard-сервера (`host:port`) | да |
 | `vault_google_service_account_b64` | JSON-ключ Google service account в base64 (для Calendar API) | да |
 | `vault_calendar_configs` | Список календарей — JSON-строка `[{"label": ..., "id": ...}, ...]` (inline vault шифрует только строки; `env.j2` проверяет через `from_json`) | да |
 | `vault_vikunja_user_map` | Словарь для уведомлений трекера — JSON-строка `{"логин Vikunja": "логин telnor.ru"}` | да |
@@ -296,10 +294,14 @@ Admin может выполнять эти действия и вручную (�
 
 ## Telegram-бот
 
-Работает в режиме **polling** (Telegram API не блокирует исходящий трафик из bot-контейнера благодаря WireGuard-туннелю — в туннель идут только подсети Telegram, остальной трафик напрямую). При вставке нового конфига от VPN-провайдера переносить только ключи и Endpoint: строка `DNS=` ломает резолвинг всей ВМ (инцидент 2026-06-10).
+Работает в режиме **polling**. Единственный транспорт до Telegram Bot API — Cloudflare Worker `home-page-telegram-relay`: через него проходят polling (`getUpdates`), обработка callback-кнопок, изменение сообщений и все исходящие уведомления бота. Backend отправляет через тот же Worker сообщения для сброса пароля в Telegram. Прямые обращения приложений к `api.telegram.org` и fallback на direct-транспорт удалены.
+
+Bot и backend получают обязательные `TELEGRAM_RELAY_URL` и `TELEGRAM_RELAY_KEY` из `.env` (источник — `vault_telegram_relay_url` и `vault_telegram_relay_key`). URL задаёт базовый HTTPS-адрес Worker без токена; ключ передаётся в `X-Relay-Key`. В Cloudflare Worker отдельно настроены secrets `BOT_TOKEN` и `RELAY_KEY`: Worker сам добавляет токен к upstream-запросу. `TELEGRAM_BOT_TOKEN` всё ещё нужен backend для проверки подписи Login Widget и используется в конфигурации бота/Worker.
+
+**Decommission старого транспорта.** Роль `vpn` и переменные `vault_wg_*` удалены из текущего Ansible; WireGuard не используется приложением. При изменении compose или `.env` нужен полный cleanup-деплой без тегов. Только после его успеха и проверок `/healthz`, polling/callback, уведомлений и сброса пароля Никита удаляет остаточный WireGuard на ВМ — это ручное удаление здесь не считается выполненным.
 
 Помимо polling, бот поднимает aiohttp-сервер на порту `8080`:
-- `GET /healthz` — проверка связности с Telegram API (`get_me`): 200 при живом транспорте, 503 если Telegram недоступен. Рекомендуется HetrixTools-монитор на `https://bot.telnor.ru/healthz` — обычный uptime-мониторинг не ловит сценарий «HTTP жив, а polling мёртв»
+- `GET /healthz` — проверка связности с Telegram API через тот же relay (`get_me`): 200 при успешном запросе, 503 если relay или Telegram недоступен. Рекомендуется HetrixTools-монитор на `https://bot.telnor.ru/healthz` — обычный uptime-мониторинг не ловит сценарий «HTTP жив, а Telegram-транспорт мёртв»
 - `POST /alert` (X-Cron-Secret) — рассылка произвольного текста админам; используется cron-контейнером для алертов о провале бэкапа
 - `POST /notify` (X-Cron-Secret) — рассылка уведомлений о меню, вызывается cron-контейнером
 - `POST /uptime-alert?secret=...` — алерты от HetrixTools админам

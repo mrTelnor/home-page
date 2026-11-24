@@ -14,9 +14,9 @@ RELAY_KEY = "test-relay-key"
 
 
 @pytest.fixture(autouse=True)
-def direct_telegram_mode(monkeypatch):
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", "")
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", "")
+def relay_telegram_mode(monkeypatch):
+    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", RELAY_URL)
+    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", RELAY_KEY)
 
 
 def telegram_response(status_code=200, payload=None, content=None):
@@ -65,34 +65,25 @@ def make_settings(**overrides):
         "cron_secret": "test-cron-secret",
         "telegram_bot_token": BOT_TOKEN,
         "telegram_bot_username": "test_bot",
+        "telegram_relay_url": RELAY_URL,
+        "telegram_relay_key": RELAY_KEY,
         "bot_secret": "test-bot-secret",
     }
     values.update(overrides)
     return Settings(**values)
 
 
-def test_public_telegram_signature_and_bot_token_requirement():
+def test_public_telegram_signature_and_required_settings():
     signature = inspect.signature(tg_mod.send_telegram_message)
 
     assert list(signature.parameters) == ["tg_id", "text"]
     assert signature.return_annotation is bool
     assert Settings.model_fields["telegram_bot_token"].is_required()
-
-
-async def test_send_telegram_direct_mode_when_relay_is_empty(monkeypatch):
-    captured = install_telegram_client(monkeypatch, response=telegram_response())
-
-    ok = await tg_mod.send_telegram_message(12345, "hello")
-
-    assert ok is True
-    assert captured["url"] == f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    assert captured["headers"] is None
-    assert captured["json"] == {"chat_id": 12345, "text": "hello"}
+    assert Settings.model_fields["telegram_relay_url"].is_required()
+    assert Settings.model_fields["telegram_relay_key"].is_required()
 
 
 async def test_send_telegram_uses_relay_without_bot_token(monkeypatch):
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", RELAY_URL)
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", RELAY_KEY)
     captured = install_telegram_client(monkeypatch, response=telegram_response())
 
     ok = await tg_mod.send_telegram_message(12345, "hello")
@@ -108,8 +99,6 @@ async def test_send_telegram_uses_relay_without_bot_token(monkeypatch):
 
 
 async def test_send_telegram_rejects_telegram_error_with_http_200(monkeypatch, caplog):
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", RELAY_URL)
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", RELAY_KEY)
     captured = install_telegram_client(
         monkeypatch,
         response=telegram_response(payload={"ok": False, "error_code": 400, "description": "body-secret"}),
@@ -126,8 +115,6 @@ async def test_send_telegram_rejects_telegram_error_with_http_200(monkeypatch, c
 
 @pytest.mark.parametrize("payload", [{}, {"result": {"message_id": 1}}, {"ok": 1}, {"ok": "true"}, []])
 async def test_send_telegram_requires_json_object_with_boolean_ok_true(monkeypatch, payload):
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", RELAY_URL)
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", RELAY_KEY)
     captured = install_telegram_client(monkeypatch, response=telegram_response(payload=payload))
 
     assert await tg_mod.send_telegram_message(1, "x") is False
@@ -135,9 +122,7 @@ async def test_send_telegram_requires_json_object_with_boolean_ok_true(monkeypat
 
 
 @pytest.mark.parametrize("content", [b'{"ok":', b"not-json", b""])
-async def test_send_telegram_rejects_invalid_json_without_fallback(monkeypatch, caplog, content):
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", RELAY_URL)
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", RELAY_KEY)
+async def test_send_telegram_rejects_invalid_json_without_retry(monkeypatch, caplog, content):
     captured = install_telegram_client(monkeypatch, response=telegram_response(content=content))
 
     assert await tg_mod.send_telegram_message(1, "x") is False
@@ -149,9 +134,7 @@ async def test_send_telegram_rejects_invalid_json_without_fallback(monkeypatch, 
     assert "Traceback" not in caplog.text
 
 
-async def test_send_telegram_rejects_http_error_without_direct_fallback(monkeypatch, caplog):
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", RELAY_URL)
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", RELAY_KEY)
+async def test_send_telegram_rejects_http_error_without_retry(monkeypatch, caplog):
     captured = install_telegram_client(
         monkeypatch,
         response=telegram_response(status_code=503, content=b'{"ok":false,"description":"body-secret"}'),
@@ -175,8 +158,6 @@ async def test_send_telegram_rejects_http_error_without_direct_fallback(monkeypa
     ],
 )
 async def test_send_telegram_swallows_network_errors_and_timeouts(monkeypatch, caplog, error):
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_url", RELAY_URL)
-    monkeypatch.setattr(tg_mod.settings, "telegram_relay_key", RELAY_KEY)
     captured = install_telegram_client(monkeypatch, error=error)
 
     assert await tg_mod.send_telegram_message(1, "x") is False
@@ -190,17 +171,16 @@ async def test_send_telegram_swallows_network_errors_and_timeouts(monkeypatch, c
     assert "Traceback" not in caplog.text
 
 
-@pytest.mark.parametrize("relay_url,relay_key", [("", ""), (RELAY_URL, RELAY_KEY)])
-def test_relay_settings_require_both_or_neither(relay_url, relay_key):
-    settings = make_settings(telegram_relay_url=relay_url, telegram_relay_key=relay_key)
+def test_relay_settings_are_preserved():
+    settings = make_settings()
 
-    assert settings.telegram_relay_url == relay_url
-    assert settings.telegram_relay_key == relay_key
+    assert settings.telegram_relay_url == RELAY_URL
+    assert settings.telegram_relay_key == RELAY_KEY
 
 
-@pytest.mark.parametrize("relay_url,relay_key", [(RELAY_URL, ""), ("", RELAY_KEY)])
-def test_incomplete_relay_settings_fail_fast(relay_url, relay_key):
-    with pytest.raises(ValidationError, match="must be set together"):
+@pytest.mark.parametrize("relay_url,relay_key", [("", ""), (RELAY_URL, ""), ("", RELAY_KEY)])
+def test_empty_or_incomplete_relay_settings_fail_fast(relay_url, relay_key):
+    with pytest.raises(ValidationError, match="must be non-empty"):
         make_settings(telegram_relay_url=relay_url, telegram_relay_key=relay_key)
 
 

@@ -151,6 +151,12 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker logs <container> -
 - Старый пароль должен совпадать (иначе 401)
 - Новый пароль — ≥8 символов
 
+### Сброс пароля через Telegram
+- Использовать тестовую учётку с привязанным Telegram
+- На странице входа выбрать «Забыли пароль?», ввести логин и при выборе канала нажать «Отправить в Telegram»
+- В Telegram приходит сообщение со ссылкой для сброса: это проверяет отдельный путь backend → Cloudflare Worker `home-page-telegram-relay` → Telegram, а не только bot polling
+- Открыть ссылку, задать новый пароль (≥8 символов) и войти с ним; повторное использование той же ссылки отклоняется
+
 ### Telegram
 - Если не привязан → виджет «Login with Telegram»
 - Если привязан → бейдж «Привязан», ID, кнопка «Отвязать»
@@ -190,6 +196,21 @@ ssh -p 9922 -i ~/.ssh/GitHub_SSH telnor@147.45.183.98 'docker logs <container> -
 ---
 
 ## 6. Telegram-бот
+
+### Проверка Telegram relay
+- Открыть `https://bot.telnor.ru/healthz`: ожидается 200 и `{"status":"ok"}`. Запрос `get_me` идёт через Cloudflare Worker `home-page-telegram-relay`; 503 означает сбой relay или Telegram
+- Выполнить `/menu`, затем `/recipes` и нажать inline-кнопку пагинации: ответ на команду проверяет polling, обновление сообщения после нажатия — callback и изменение сообщения через relay
+- Выполнить ручной триггер `/notify` из раздела ниже и убедиться, что уведомление доставлено
+- Проверить сброс пароля через Telegram по инструкции из раздела 4: этот сценарий проходит через backend и тот же Worker
+
+После изменения `docker-compose.yml`, шаблона `.env` или relay-переменных в Vault нужен полный деплой без сервисных тегов:
+
+```bash
+cd infra/ansible
+ansible-playbook -i inventory/hosts.yml playbooks/setup.yml
+```
+
+Для cleanup-деплоя сначала должны успешно пройти все четыре проверки выше. Только после этого Никита удаляет остаточный WireGuard на ВМ; удаление роли из Ansible само по себе не означает, что WG на ВМ уже удалён.
 
 ### Основные команды
 | Команда | Что делает |
@@ -345,12 +366,12 @@ docker run --rm -v "$(pwd)/infra/docker/cron:/cron" alpine:3.21 sh /cron/tests/t
 
 ## 10. Известные ограничения и квирки
 
-- **DNS-кэш Telegram для `bot.telnor.ru`** — Telegram не может разрезолвить домен `telnor.ru` после долгих попыток установить webhook (DNS забанен на их резолверах). Поэтому бот работает в **polling mode** — мгновенный отклик, но через WireGuard VPN до сервера в Германии (обход блокировок РФ).
+- **DNS-кэш Telegram для `bot.telnor.ru`** — Telegram не может разрезолвить домен `telnor.ru` после долгих попыток установить webhook (DNS забанен на их резолверах). Поэтому бот работает в **polling mode**. Все запросы к Telegram Bot API идут только через Cloudflare Worker `home-page-telegram-relay`; direct `api.telegram.org` и fallback на него удалены. WireGuard — бывший транспорт, а не действующий компонент.
 - **Гость не сохраняет состояние** — каждый раз при заходе сортировка/тема выставляются по-новому (нет аккаунта в БД).
 - **Бот может отвечать с задержкой 1-2 сек** при большом количестве сообщений (polling-цикл).
 - **Custom reminders** в календаре ловятся либо из `event.reminders.overrides` (если есть), либо через fallback на `CALENDAR_DEFAULT_REMINDERS_MIN` (по умолчанию `30`). Дефолтные напоминания, выставленные владельцем календаря в своём интерфейсе, service account не видит — для них используется глобальный fallback.
 - **Дедуп напоминаний** хранится в Docker volume `bot_data` — переживает рестарт. Старше 7 дней удаляется автоматически.
-- **Деплой** через `ansible-playbook ... --tags <service>` пересоздаёт только указанный контейнер. Без тегов — полный деплой при изменениях в `docker-compose.yml`/`.env`.
+- **Деплой** через `ansible-playbook ... --tags <service>` пересоздаёт только указанный контейнер. При изменениях в `docker-compose.yml`, шаблоне `.env` или relay-переменных в Vault обязателен полный деплой без тегов.
 - **Dangling Docker images** — после rebuild старые образы становятся «осиротевшими». Перед каждым деплоем плейбук делает `docker image prune -f` (задача с тегом `always`). Если ошибка `No such image: sha256:...` всё-таки появилась — на ВМ запустить `docker image prune -f && docker compose up -d --build --force-recreate <service>`.
 
 ---
@@ -363,10 +384,12 @@ docker run --rm -v "$(pwd)/infra/docker/cron:/cron" alpine:3.21 sh /cron/tests/t
 2. ☐ Логин рабочей учёткой
 3. ☐ Список рецептов — карточки с иконками, фильтры
 4. ☐ Открыть один рецепт — детали, FoodGlyph, ингредиенты пересчитываются
-5. ☐ `/menu` в боте — текущий статус
-6. ☐ `/schedule` от админа — дайджест приходит
-7. ☐ Ручной триггер `/check-calendar?digest=true&force=true` → дайджест
-8. ☐ Открыть `https://api.telnor.ru/api/health` (с домашнего IP) — `{"status":"ok"}`
-9. ☐ Логи `docker logs bot --tail 20` — без ошибок
-10. ☐ Логи `docker logs backend --tail 20` — без ошибок
+5. ☐ `https://bot.telnor.ru/healthz` — 200 и `{"status":"ok"}`, то есть `get_me` успешно прошёл через relay
+6. ☐ `/menu` в боте — текущий статус; `/recipes` + inline-пагинация — callback обрабатывается
+7. ☐ `/schedule` от админа — дайджест приходит
+8. ☐ Ручной триггер `/check-calendar?digest=true&force=true` → дайджест
+9. ☐ Сброс пароля тестовой учётки через Telegram — ссылка приходит, новый пароль работает
+10. ☐ Открыть `https://api.telnor.ru/api/health` (с домашнего IP) — `{"status":"ok"}`
+11. ☐ Логи `docker logs bot --tail 20` — без ошибок
+12. ☐ Логи `docker logs backend --tail 20` — без ошибок
 

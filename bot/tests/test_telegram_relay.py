@@ -391,6 +391,8 @@ def make_settings(**overrides) -> Settings:
     values = {
         "_env_file": None,
         "telegram_bot_token": BOT_TOKEN,
+        "telegram_relay_url": RELAY_URL,
+        "telegram_relay_key": RELAY_KEY,
         "bot_secret": "test-bot-secret",
         "cron_secret": "test-cron-secret",
         "uptime_secret": "test-uptime-secret",
@@ -399,17 +401,19 @@ def make_settings(**overrides) -> Settings:
     return Settings(**values)
 
 
-@pytest.mark.parametrize("relay_url,relay_key", [("", ""), (RELAY_URL, RELAY_KEY)])
-def test_relay_settings_require_both_or_neither(relay_url, relay_key):
-    settings = make_settings(telegram_relay_url=relay_url, telegram_relay_key=relay_key)
+def test_relay_settings_are_required():
+    assert Settings.model_fields["telegram_relay_url"].is_required()
+    assert Settings.model_fields["telegram_relay_key"].is_required()
 
-    assert settings.telegram_relay_url == relay_url
-    assert settings.telegram_relay_key == relay_key
+    settings = make_settings()
+
+    assert settings.telegram_relay_url == RELAY_URL
+    assert settings.telegram_relay_key == RELAY_KEY
 
 
-@pytest.mark.parametrize("relay_url,relay_key", [(RELAY_URL, ""), ("", RELAY_KEY)])
-def test_incomplete_relay_settings_fail_fast(relay_url, relay_key):
-    with pytest.raises(ValidationError, match="must be set together"):
+@pytest.mark.parametrize("relay_url,relay_key", [("", ""), (RELAY_URL, ""), ("", RELAY_KEY)])
+def test_empty_or_incomplete_relay_settings_fail_fast(relay_url, relay_key):
+    with pytest.raises(ValidationError, match="must be non-empty"):
         make_settings(telegram_relay_url=relay_url, telegram_relay_key=relay_key)
 
 

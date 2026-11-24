@@ -103,10 +103,15 @@ async def test_run_cleanup_does_not_stop_after_runner_failure(web_mocks):
     bot.session.close.assert_awaited_once()
 
 
-def test_main_wires_bot_and_dispatcher(monkeypatch):
+def test_main_wires_bot_with_relay_session_and_dispatcher(monkeypatch):
+    monkeypatch.setattr(main_mod.settings, "telegram_relay_url", "https://relay.example.test")
+    monkeypatch.setattr(main_mod.settings, "telegram_relay_key", "test-relay-key")
     bot = make_bot()
     bot_cls = MagicMock(return_value=bot)
     monkeypatch.setattr(main_mod, "Bot", bot_cls)
+    relay_session = MagicMock()
+    relay_session_cls = MagicMock(return_value=relay_session)
+    monkeypatch.setattr(main_mod, "TelegramRelaySession", relay_session_cls)
     dp = MagicMock()
     monkeypatch.setattr(main_mod, "Dispatcher", MagicMock(return_value=dp))
     run_calls = []
@@ -119,33 +124,11 @@ def test_main_wires_bot_and_dispatcher(monkeypatch):
 
     main_mod.main()
 
-    bot_cls.assert_called_once()
-    assert bot_cls.call_args.kwargs["session"] is None
-    dp.include_router.assert_called_once_with(main_mod.main_router)
-    assert len(run_calls) == 1
-
-
-def test_main_uses_relay_session_when_configured(monkeypatch):
-    monkeypatch.setattr(main_mod.settings, "telegram_relay_url", "https://relay.example.test")
-    monkeypatch.setattr(main_mod.settings, "telegram_relay_key", "test-relay-key")
-    bot = make_bot()
-    bot_cls = MagicMock(return_value=bot)
-    monkeypatch.setattr(main_mod, "Bot", bot_cls)
-    relay_session = MagicMock()
-    relay_session_cls = MagicMock(return_value=relay_session)
-    monkeypatch.setattr(main_mod, "TelegramRelaySession", relay_session_cls)
-    dp = MagicMock()
-    monkeypatch.setattr(main_mod, "Dispatcher", MagicMock(return_value=dp))
-
-    def fake_asyncio_run(coro):
-        coro.close()
-
-    monkeypatch.setattr(main_mod.asyncio, "run", fake_asyncio_run)
-
-    main_mod.main()
-
     relay_session_cls.assert_called_once_with(
         relay_url="https://relay.example.test",
         relay_key="test-relay-key",
     )
+    bot_cls.assert_called_once()
     assert bot_cls.call_args.kwargs["session"] is relay_session
+    dp.include_router.assert_called_once_with(main_mod.main_router)
+    assert len(run_calls) == 1

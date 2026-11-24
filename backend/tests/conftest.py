@@ -15,6 +15,8 @@ os.environ.setdefault("INVITE_CODE", "test-invite")
 os.environ.setdefault("CRON_SECRET", "test-cron-secret")
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-bot-token")
 os.environ.setdefault("TELEGRAM_BOT_USERNAME", "test_bot")
+os.environ.setdefault("TELEGRAM_RELAY_URL", "https://relay.example.test")
+os.environ.setdefault("TELEGRAM_RELAY_KEY", "test-relay-key")
 os.environ.setdefault("BOT_SECRET", "test-bot-secret")
 os.environ.setdefault("COOKIE_SECURE", "false")
 # Лимитер по умолчанию выключен в тестах (иначе многочисленные login тестов

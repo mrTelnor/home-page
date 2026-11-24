@@ -24,8 +24,9 @@
 ### Управление секретами
 | Место хранения | Назначение |
 |---|---|
-| **Ansible Vault** | Все секреты проекта (см. README) |
+| **Ansible Vault** | Секреты ВМ и runtime-конфигурации, включая обязательные `vault_telegram_relay_url` и `vault_telegram_relay_key` (см. README) |
 | **`.env` на ВМ** | Runtime-секреты для Docker Compose (генерируется Ansible из шаблона) |
+| **Cloudflare Worker secrets** | `BOT_TOKEN` для upstream Telegram Bot API и `RELAY_KEY` для проверки `X-Relay-Key`; задаются в Cloudflare отдельно от Ansible Vault |
 
 ### Контейнеризация
 - **Docker** + **Docker Compose** — управление всеми сервисами
@@ -46,10 +47,16 @@
 - **firewalld** — порты 80/443/9922; PostgreSQL 5432 публикуется только на `127.0.0.1` (доступ снаружи — через SSH-туннель `ssh -L 5432:localhost:5432 homepage`), поэтому прежнее rich-rule для домашнего IP убрано
 - Docker-подсеть (172.16.0.0/12) в trusted zone
 
-### VPN для бота
-- **WireGuard** на ВМ (роль `vpn` в Ansible) — обходит блокировки Telegram API из РФ
-- `AllowedIPs` ограничены только подсетями Telegram (149.154.160.0/20, 91.108.4.0/22 и др.) — остальной трафик идёт напрямую
-- Endpoint — платный VPN-сервис в Германии
+### Telegram-транспорт (Cloudflare Worker)
+- **Cloudflare Worker `home-page-telegram-relay`** — единственный транспорт до Telegram Bot API для polling и callback-запросов бота, его исходящих уведомлений, а также сообщений backend о сбросе пароля в Telegram
+- Прямые вызовы `api.telegram.org` из bot/backend и fallback на direct-транспорт удалены: недоступность Worker означает недоступность Telegram-функций, а не переключение на старый путь
+- Bot и backend получают обязательные `TELEGRAM_RELAY_URL` и `TELEGRAM_RELAY_KEY` из `.env`; Ansible генерирует их из `vault_telegram_relay_url` и `vault_telegram_relay_key`. Базовый URL должен быть HTTPS без токена, userinfo, query и fragment; авторизация на Worker — заголовок `X-Relay-Key`
+- В Worker настроены secrets **`BOT_TOKEN`** и **`RELAY_KEY`**. Токен добавляется к upstream URL только внутри Worker. `TELEGRAM_BOT_TOKEN` в конфигурации приложения сохранён для Login Widget и бота; `RELAY_KEY` должен совпадать с `TELEGRAM_RELAY_KEY`
+
+### Бывший WireGuard-транспорт (история и decommission)
+- Ранее WireGuard обходил блокировки Telegram API из РФ. Это **не действующий компонент**: старый транспорт удалён из приложения, а роль `vpn` и переменные `vault_wg_*` удалены из текущего Ansible
+- Остаточный WireGuard на ВМ не считается удалённым: его физическое удаление выполняет Никита только после успешного полного cleanup-деплоя
+- Порядок decommission: выполнить `ansible-playbook -i inventory/hosts.yml playbooks/setup.yml` **без тегов** (обязательно при изменении compose или `.env`), проверить `/healthz`, polling и inline-callback, уведомления и сброс пароля через Telegram, и лишь затем удалить WireGuard на ВМ
 
 ### Telegram-бот
 - **Aiogram 3** (async) — polling mode, отдельный Docker-сервис
@@ -74,7 +81,8 @@
 
 ### Мониторинг
 - **HetrixTools** (бесплатный тариф) — внешний uptime-мониторинг + blacklist-мониторинг
-- Webhook-алерты приходят на `/uptime-alert` бота, рассылаются администраторам через Telegram
+- `GET https://bot.<domain>/healthz` вызывает `get_me` через тот же Cloudflare Worker, что и polling: 200 означает успешную проверку пути bot → relay → Telegram, 503 — сбой relay или Telegram. Мониторинг этого endpoint отличает живой HTTP-сервер от неработающего Telegram-транспорта
+- Webhook-алерты приходят на `/uptime-alert` бота, рассылаются администраторам через тот же relay
 
 ### DNS
 - **Cloudflare** — глобальные authoritative NS для `telnor.ru` (перенесены с `registrant.ru`)
@@ -215,14 +223,17 @@ home-page/
 │   └── app/
 │       ├── main.py           # Точка входа (polling + /notify + /uptime-alert сервер)
 │       ├── config.py          # Настройки из env
+│       ├── telegram_relay.py  # Aiogram-сессия через Cloudflare Worker
 │       ├── api_client.py      # HTTP-клиент к backend с JWT кэшем
 │       ├── notify.py          # Логика рассылки уведомлений
 │       └── handlers/          # start, menu, vote, suggest, recipes, notifications
 ├── infra/
 │   ├── ansible/              # Provisioning ВМ, деплой
 │   │   ├── playbooks/        # initial-setup.yml, setup.yml
-│   │   ├── roles/            # sshd, firewalld, docker, vpn (WireGuard), app
+│   │   ├── roles/            # sshd, firewalld, docker, app
 │   │   └── inventory/        # hosts.yml, group_vars/all/vault.yml
+│   ├── cloudflare/
+│   │   └── telegram-relay/   # Worker home-page-telegram-relay и его тесты
 │   └── docker/
 │       ├── docker-compose.yml
 │       ├── cron/             # Cron-контейнер (Dockerfile, crontab, backup.sh)
@@ -272,12 +283,12 @@ home-page/
       │           ├─────────────────────→ Яндекс.Диск (WebDAV) — бэкапы, ротация 14 дней
       └───────────┘
 
-      ┌───────────┐  polling (через WireGuard)  ┌──────────────┐
-      │ Telegram  │ ←─────────────────────────── │     Bot      │
-      │   API     │                              │ (Aiogram 3)  │
-      └───────────┘                              └──────┬───────┘
-                                                        │ HTTP + Bearer JWT
-                                                        └──→ Backend API
+      ┌──────────────┐  polling/callback/notify + X-Relay-Key  ┌───────────────────────────┐
+      │     Bot      │ ───────────────────────────────────────→ │ Cloudflare Worker         │
+      │ (Aiogram 3)  │                                          │ home-page-telegram-relay  │ ──→ Telegram Bot API
+      └──────┬───────┘                                          └─────────────▲─────────────┘
+             │ HTTP + Bearer JWT                                              │ password reset + X-Relay-Key
+             └──→ Backend API ────────────────────────────────────────────────┘
 
       ┌──────────────┐   webhook (/uptime-alert)
       │ HetrixTools  ├──────────────────→ Bot → Telegram admin alerts
@@ -312,7 +323,7 @@ home-page/
 | DNS | Cloudflare | Регистратор (registrant.ru) | Глобальные NS, устойчивы к блокировкам |
 | Хранение бэкапов | Яндекс.Диск (WebDAV) | S3, локальный volume | Нет дополнительной оплаты, 1 ТБ, просто через curl |
 | Мониторинг | HetrixTools (внешний) | Self-hosted Uptime Kuma | Детектит падение всей ВМ |
-| VPN для бота | WireGuard к VPS в DE | Прокси, полный VPN ВМ | Обход блокировок Telegram в РФ, только нужные подсети |
+| Telegram-транспорт | Cloudflare Worker `home-page-telegram-relay` | Direct `api.telegram.org`, WireGuard (бывший транспорт) | Единый путь для bot/backend без direct-fallback; токен не попадает в relay URL, доступ к relay защищён отдельным ключом |
 | Bot mode | Polling | Webhook | `telnor.ru` забанен на DNS-резолвере Telegram |
 | Calendar API auth | Service account + sharing | OAuth per-user, iCal-фид | Минимум кода, без user flow; iCal кэшируется до 24 ч на стороне Google |
 | Дедуп напоминаний | JSON-файл в Docker volume | БД, in-memory | Простота; данные переживают рестарт бота |
